@@ -1267,8 +1267,10 @@
     discover: 'view-discover',
     leaderboard: 'view-leaderboard',
     strategies: 'view-strategies',
+    health: 'view-health',
     paper: 'view-paper',
     live: 'view-live',
+    achievements: 'view-achievements',
   };
 
   // Switch to a view by name (discover|leaderboard|paper|live). Hides
@@ -1294,6 +1296,17 @@
     // each time the view becomes visible.
     if (name === 'strategies') {
       loadDecodedStrategies();
+    }
+    // Health view: re-fetch the 7-check ops snapshot on every visit.
+    // Cheap (a couple of fs.stat + one schtasks / pm2 jlist call) so a
+    // fresh read per visit is preferable to stale-on-tab-switch.
+    if (name === 'health') {
+      renderHealth();
+    }
+    // Achievements view: re-fetch roadmap progress + user profile +
+    // event-driven unlocks. Once per visit; no polling.
+    if (name === 'achievements') {
+      renderAchievements();
     }
     try { localStorage.setItem(NAV_VIEW_KEY, name); } catch {}
   }
@@ -3608,4 +3621,518 @@
     try { done = localStorage.getItem(ONBOARD_KEY); } catch { /* fall through */ }
     if (done === '1') return;
     openOnboardOverlay();
+  }
+
+  // ============ Health view (bear-watch ops) ============
+  //
+  // Mirrors the 7-check health-check.py output plus pm2 process state,
+  // scheduled-task state, and the alert tail. Source endpoint:
+  // GET /api/ops/health (see bots/src/server/index.ts). Re-renders on
+  // each visit (cheap, no polling).
+
+  // Format a uptime in seconds → human-friendly "2h 14m" / "3d 4h" / etc.
+  function fmtUptime(sec) {
+    if (sec == null || !Number.isFinite(sec)) return '—';
+    sec = Math.max(0, Math.floor(sec));
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + (sec % 60) + 's';
+    return sec + 's';
+  }
+
+  // Format an ISO timestamp → "May 21, 14:32:05" local. Returns "—" on
+  // null/invalid input.
+  function fmtTs(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+
+  // Status pill: emerald (ok), rose (bad), amber (warn). Matches the
+  // pattern used in #health-pills + the workflow chips.
+  function statusPill(label, kind) {
+    const palette = {
+      ok:   'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      bad:  'bg-rose-500/15 text-rose-300 border-rose-500/30',
+      warn: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      idle: 'bg-zinc-700/30 text-zinc-300 border-zinc-700/60',
+    };
+    const cls = palette[kind] || palette.idle;
+    return el('span', {
+      class: 'inline-flex items-center text-[10px] font-semibold mono tracking-wide '
+        + 'uppercase px-2 py-0.5 rounded border ' + cls,
+    }, label);
+  }
+
+  // Colored dot for the 3 top-status indicators. Pulses when ok.
+  function statusDot(kind) {
+    const bg = kind === 'ok' ? 'bg-emerald-400' : (kind === 'bad' ? 'bg-rose-400' : 'bg-amber-400');
+    const pulse = kind === 'ok' ? ' pulse-dot' : '';
+    return el('span', { class: 'inline-block w-2 h-2 rounded-full ' + bg + pulse });
+  }
+
+  async function renderHealth() {
+    const host = document.getElementById('view-health');
+    if (!host) return;
+    // While fetching, leave a slim loading state in place. On error,
+    // show a one-line rose message + a Retry button.
+    replace(host,
+      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+        el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
+    );
+    let data;
+    try {
+      data = await api('/api/ops/health');
+    } catch (err) {
+      const retryBtn = el('button', {
+        class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+          + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
+      }, 'Retry');
+      retryBtn.addEventListener('click', () => renderHealth());
+      replace(host,
+        el('div', { class: 'card rounded-xl py-12 px-6 text-center space-y-2' },
+          el('div', { class: 'text-[13px] text-rose-300' },
+            'Could not load health — ' + (err && err.message ? err.message : 'unknown error')),
+          retryBtn),
+      );
+      return;
+    }
+
+    // ── Top status row: Server / Paper-trade bot / RPC ──
+    const serverKind = data.server && data.server.online ? 'ok' : 'bad';
+    const paperKind = data.paperTrade && data.paperTrade.online ? 'ok' : 'bad';
+    const rpcKind = data.rpc && data.rpc.reachable ? 'ok' : 'bad';
+
+    function topCard(title, kind, valueNode, sub) {
+      return el('div', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+        statusDot(kind),
+        el('div', { class: 'flex-1 min-w-0' },
+          el('div', { class: 'text-[11px] mono muted uppercase tracking-wide' }, title),
+          el('div', { class: 'mono text-base value mt-0.5' }, valueNode),
+          sub ? el('div', { class: 'text-[11px] muted mono mt-0.5 truncate' }, sub) : null,
+        ),
+      );
+    }
+
+    const serverValue = data.server && data.server.online
+      ? 'up ' + fmtUptime(data.server.uptimeSec)
+      : 'down';
+    const serverSub = 'port ' + (data.server && data.server.port != null
+      ? data.server.port : '—')
+      + (data.server && data.server.version ? ' · ' + data.server.version : '');
+
+    const paperValue = data.paperTrade && data.paperTrade.online
+      ? 'live'
+      : 'stalled';
+    const paperSub = data.paperTrade && data.paperTrade.heartbeatAgeSec != null
+      ? fmtUptime(data.paperTrade.heartbeatAgeSec) + ' since last tick'
+      : 'no heartbeat file';
+
+    const rpcValue = data.rpc && data.rpc.reachable
+      ? ('slot ' + (data.rpc.slot != null ? data.rpc.slot : '—'))
+      : 'unreachable';
+    const rpcSub = (data.rpc && data.rpc.latencyMs != null
+      ? data.rpc.latencyMs + 'ms · ' : '')
+      + (data.rpc && data.rpc.url ? data.rpc.url : '');
+
+    const topRow = el('section', { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+      topCard('Server', serverKind, serverValue, serverSub),
+      topCard('Paper-trade bot', paperKind, paperValue, paperSub),
+      topCard('RPC', rpcKind, rpcValue, rpcSub),
+    );
+
+    // ── 7-check card ──
+    const checks = Array.isArray(data.checks) ? data.checks : [];
+    const greenCount = checks.filter((c) => c.ok).length;
+    const recheckBtn = el('button', {
+      class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+        + 'hover:border-zinc-500 text-zinc-300 transition',
+    }, 'Re-check');
+    recheckBtn.addEventListener('click', () => renderHealth());
+
+    const checksHeader = el('header', { class: 'mb-4 flex items-baseline justify-between gap-4' },
+      el('div', null,
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, '7-check health'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          greenCount + ' / ' + checks.length + ' green · checked ' + fmtTs(data.checkedAt)),
+      ),
+      recheckBtn,
+    );
+
+    const checkRows = checks.map((c) => el('div', {
+      class: 'flex items-center gap-3 py-2 border-b border-zinc-800/60 last:border-b-0',
+    },
+      el('div', { class: 'flex-1 min-w-0' },
+        el('div', { class: 'text-[13px] text-zinc-100' }, c.name),
+        el('div', { class: 'text-[11px] muted mono truncate' }, c.detail || ''),
+      ),
+      statusPill(c.ok ? 'green' : 'red', c.ok ? 'ok' : 'bad'),
+    ));
+
+    const checksCard = el('section', { class: 'card rounded-xl p-5' },
+      checksHeader,
+      checks.length === 0
+        ? el('div', { class: 'text-[12px] muted text-center py-4' }, 'No checks reported.')
+        : el('div', null, ...checkRows),
+    );
+
+    // ── pm2 process supervisor card ──
+    const pm2List = Array.isArray(data.pm2) ? data.pm2 : [];
+    const pm2Header = el('header', { class: 'mb-3' },
+      el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'pm2 process supervisor'),
+      el('div', { class: 'text-[12px] muted mt-0.5' },
+        pm2List.length + ' process' + (pm2List.length === 1 ? '' : 'es') + ' tracked'),
+    );
+
+    let pm2Body;
+    if (pm2List.length === 0) {
+      pm2Body = el('div', { class: 'text-[12px] muted py-2' },
+        'pm2 not available on this host (or no PBX processes are running).');
+    } else {
+      const head = el('div', {
+        class: 'grid grid-cols-7 gap-3 text-[10px] tracking-wide muted '
+          + 'uppercase border-b border-zinc-800/60 pb-2 mb-2',
+      },
+        el('div', null, 'Name'),
+        el('div', null, 'Status'),
+        el('div', { class: 'text-right' }, 'PID'),
+        el('div', { class: 'text-right' }, 'Uptime'),
+        el('div', { class: 'text-right' }, 'Mem'),
+        el('div', { class: 'text-right' }, 'Restarts'),
+        el('div', { class: 'text-right' }, 'CPU'),
+      );
+      const rows = pm2List.map((p) => {
+        const kind = p.status === 'online' ? 'ok' : (p.status === 'stopped' ? 'idle' : 'bad');
+        return el('div', { class: 'grid grid-cols-7 gap-3 py-1.5 text-[12px] mono text-zinc-300' },
+          el('div', { class: 'text-zinc-100 truncate' }, p.name || '—'),
+          el('div', null, statusPill(p.status || 'unknown', kind)),
+          el('div', { class: 'text-right' }, p.pid != null ? String(p.pid) : '—'),
+          el('div', { class: 'text-right' }, fmtUptime(p.uptimeSec)),
+          el('div', { class: 'text-right' }, p.memMb != null ? p.memMb + ' MB' : '—'),
+          el('div', { class: 'text-right' }, p.restarts != null ? String(p.restarts) : '—'),
+          el('div', { class: 'text-right' }, p.cpu != null ? p.cpu + '%' : '—'),
+        );
+      });
+      pm2Body = el('div', null, head, ...rows);
+    }
+
+    const pm2Card = el('section', { class: 'card rounded-xl p-5' }, pm2Header, pm2Body);
+
+    // ── Scheduled watchdogs card ──
+    const tasks = Array.isArray(data.scheduledTasks) ? data.scheduledTasks : [];
+    const tasksHeader = el('header', { class: 'mb-3' },
+      el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Scheduled watchdogs'),
+      el('div', { class: 'text-[12px] muted mt-0.5' },
+        tasks.length + ' BEARWATCH-* task' + (tasks.length === 1 ? '' : 's')),
+    );
+
+    let tasksBody;
+    if (tasks.length === 0) {
+      tasksBody = el('div', { class: 'text-[12px] muted py-2' },
+        'No scheduled watchdogs reported. Run bear-watch/register-scheduled-tasks.ps1 to install.');
+    } else {
+      const head = el('div', {
+        class: 'grid grid-cols-5 gap-3 text-[10px] tracking-wide muted '
+          + 'uppercase border-b border-zinc-800/60 pb-2 mb-2',
+      },
+        el('div', null, 'Name'),
+        el('div', null, 'Schedule'),
+        el('div', null, 'Last run'),
+        el('div', null, 'Last result'),
+        el('div', null, 'Next run'),
+      );
+      const rows = tasks.map((t) => el('div', {
+        class: 'grid grid-cols-5 gap-3 py-1.5 text-[12px] mono text-zinc-300',
+      },
+        el('div', { class: 'text-zinc-100 truncate', title: t.name || '' }, t.name || '—'),
+        el('div', { class: 'truncate' }, t.schedule || '—'),
+        el('div', { class: 'truncate' }, fmtTs(t.lastRunIso)),
+        el('div', { class: 'truncate' }, t.lastResult || '—'),
+        el('div', { class: 'truncate' }, fmtTs(t.nextRunIso)),
+      ));
+      tasksBody = el('div', null, head, ...rows);
+    }
+
+    const tasksCard = el('section', { class: 'card rounded-xl p-5' },
+      tasksHeader, tasksBody);
+
+    // ── Recent alerts card ──
+    const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+    const alertsHeader = el('header', { class: 'mb-3 flex items-center justify-between gap-3' },
+      el('div', null,
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Recent alerts'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          'Tail of ~/.pbx-lab/alerts.jsonl (last 10)'),
+      ),
+      alerts.length === 0 ? statusDot('ok') : null,
+    );
+
+    let alertsBody;
+    if (alerts.length === 0) {
+      alertsBody = el('div', { class: 'text-[12px] muted py-2 flex items-center gap-2' },
+        el('span', { class: 'text-emerald-300' }, 'No alerts. Everything’s quiet.'));
+    } else {
+      const sevKind = (s) => s === 'error' ? 'bad' : (s === 'warn' ? 'warn' : 'idle');
+      alertsBody = el('div', { class: 'space-y-2' },
+        ...alerts.map((a) => el('div', {
+          class: 'flex items-start gap-3 text-[12px] py-1 border-b border-zinc-800/40 last:border-b-0',
+        },
+          el('span', { class: 'mono muted shrink-0' }, fmtTs(a.ts)),
+          el('span', { class: 'shrink-0' }, statusPill(a.severity || 'info', sevKind(a.severity))),
+          el('span', { class: 'text-zinc-200 mono break-words' }, a.message || ''),
+        )),
+      );
+    }
+
+    const alertsCard = el('section', { class: 'card rounded-xl p-5' },
+      alertsHeader, alertsBody);
+
+    replace(host, topRow, checksCard, pm2Card, tasksCard, alertsCard);
+  }
+
+  // ============ Achievements view (roadmap progress) ============
+  //
+  // GET /api/ops/achievements returns a composite of:
+  //   - profile (personality + tech_level + autonomy_level + roadmap level)
+  //   - sections[] with per-task done state derived from
+  //     ~/.pbx-lab/user-profile.json achievements_unlocked array
+  //   - eventAchievements[] from achievements/definitions.json
+  //
+  // Per-section cards collapse/expand on click; the current section is
+  // auto-expanded on first render. POST /api/ops/achievements/mark
+  // flips a task to done and re-renders.
+
+  // Personality color → small visible cue for the profile header. Maps
+  // each known personality to a hue. Unknown ids fall through to emerald.
+  function personalityColor(id) {
+    switch (id) {
+      case 'crypto-bro':       return '#fbbf24';   // gold
+      case 'drill-sergeant':   return '#f43f5e';   // red
+      case 'surf-bro':         return '#38bdf8';   // sky
+      case 'quant-professor':  return '#a78bfa';   // violet
+      case 'hacker':           return '#22d3ee';   // cyan
+      default:                 return '#10b981';   // emerald (default)
+    }
+  }
+
+  // Personality-voiced tagline keyed off personality_id. Each line ends
+  // with "{done} of {total} tasks" interpolated by the caller. Default
+  // is neutral.
+  function personalityTagline(id, done, total) {
+    const remaining = Math.max(0, total - done);
+    switch (id) {
+      case 'crypto-bro':
+        return 'LFG ser — you’ve cleared ' + done + ' of ' + total + ' tasks. ' + remaining + ' more to the bag.';
+      case 'drill-sergeant':
+        return 'STATUS REPORT, OPERATOR — ' + done + ' of ' + total + ' tasks down. ' + remaining + ' remaining. Move.';
+      case 'surf-bro':
+        return done + ' of ' + total + ' tasks ridden, dude. ' + remaining + ' more waves coming in — stay patient.';
+      case 'quant-professor':
+        return 'Progress: ' + done + ' / ' + total + ' tasks (' + (total > 0 ? Math.round(done * 100 / total) : 0) + '%). Variance below — fewer surprises ahead.';
+      case 'hacker':
+        return 'commits: ' + done + '/' + total + ' · ' + remaining + ' tasks pending compile';
+      default:
+        return done + ' of ' + total + ' tasks complete. ' + remaining + ' to go.';
+    }
+  }
+
+  async function renderAchievements() {
+    const host = document.getElementById('view-achievements');
+    if (!host) return;
+    replace(host,
+      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+        el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
+    );
+    let data;
+    try {
+      data = await api('/api/ops/achievements');
+    } catch (err) {
+      const retryBtn = el('button', {
+        class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+          + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
+      }, 'Retry');
+      retryBtn.addEventListener('click', () => renderAchievements());
+      replace(host,
+        el('div', { class: 'card rounded-xl py-12 px-6 text-center space-y-2' },
+          el('div', { class: 'text-[13px] text-rose-300' },
+            'Could not load achievements — ' + (err && err.message ? err.message : 'unknown error')),
+          retryBtn),
+      );
+      return;
+    }
+
+    const profile = data.profile || {};
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+    const eventAchievements = Array.isArray(data.eventAchievements) ? data.eventAchievements : [];
+
+    // ── Profile header card ──
+    const totalDone = sections.reduce((sum, s) => sum + (s.doneTasks || 0), 0);
+    const totalTasks = sections.reduce((sum, s) => sum + (s.totalTasks || 0), 0);
+    // Roadmap level the user is reported to be on; fall back to the
+    // first non-complete section, then to 1 if everything is done.
+    let level = Number(profile.roadmap_level) || 0;
+    if (!level) {
+      const idx = sections.findIndex((s) => (s.doneTasks || 0) < (s.totalTasks || 0));
+      level = idx === -1 ? Math.max(1, sections.length) : (idx + 1);
+    }
+    level = Math.max(1, Math.min(sections.length || 7, level));
+    const currentSection = sections[level - 1] || sections[0];
+    const sectionPct = currentSection && currentSection.totalTasks > 0
+      ? Math.round((currentSection.doneTasks || 0) * 100 / currentSection.totalTasks)
+      : 0;
+
+    const avatar = el('span', {
+      class: 'inline-block w-10 h-10 rounded-full',
+      style: 'background:' + personalityColor(profile.personality_id),
+      title: profile.personality_id || 'default',
+    });
+    const profileMeta = el('div', { class: 'flex-1 min-w-0' },
+      el('div', { class: 'text-[13px] text-zinc-100 mono' },
+        profile.personality_id || 'default',
+        ' · ', profile.tech_level || '—',
+        ' · ', profile.autonomy_level || '—',
+      ),
+      el('div', { class: 'text-lg font-semibold text-zinc-50 mt-1' },
+        'You’re at Roadmap Level ', String(level), ' of ', String(sections.length || 7),
+        currentSection ? ' · ' + currentSection.name : '',
+      ),
+      el('div', { class: 'mt-2' },
+        el('div', { class: 'h-2 rounded bg-zinc-800/80 overflow-hidden' },
+          el('div', { class: 'h-full bg-emerald-500', style: 'width:' + sectionPct + '%' })),
+        el('div', { class: 'text-[11px] muted mono mt-1' },
+          sectionPct + '% through ' + (currentSection ? currentSection.name : '')
+          + ' · ' + (currentSection ? (currentSection.doneTasks + ' / ' + currentSection.totalTasks) : '0 / 0')
+          + ' tasks'),
+      ),
+      el('div', { class: 'text-[12px] text-zinc-300 mt-2' },
+        personalityTagline(profile.personality_id, totalDone, totalTasks)),
+    );
+
+    const profileCard = el('section', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+      avatar, profileMeta);
+
+    // ── Section cards (collapsible, current section auto-expanded) ──
+    const sectionCards = sections.map((sec, i) => {
+      const isCurrent = (i + 1) === level;
+      const pct = sec.totalTasks > 0 ? Math.round((sec.doneTasks || 0) * 100 / sec.totalTasks) : 0;
+      const body = el('div', { class: isCurrent ? 'mt-4 space-y-2' : 'mt-4 space-y-2 hidden' });
+      const chev = el('span', {
+        class: 'text-[12px] muted mono transition-transform',
+        style: 'display:inline-block;' + (isCurrent ? 'transform:rotate(90deg);' : ''),
+      }, '▶');
+
+      const header = el('header', {
+        class: 'flex items-baseline justify-between gap-4 cursor-pointer select-none',
+      },
+        el('div', { class: 'flex items-baseline gap-3 min-w-0' },
+          chev,
+          el('div', { class: 'text-sm font-semibold text-zinc-50 truncate' },
+            'Section ' + (i + 1) + ' · ' + (sec.name || '')),
+        ),
+        el('div', { class: 'flex items-baseline gap-3 shrink-0' },
+          el('div', { class: 'text-[11px] muted mono' },
+            (sec.doneTasks || 0) + ' / ' + (sec.totalTasks || 0)),
+          el('div', { class: 'w-32 h-1.5 rounded bg-zinc-800/80 overflow-hidden' },
+            el('div', { class: 'h-full bg-emerald-500', style: 'width:' + pct + '%' })),
+        ),
+      );
+      header.addEventListener('click', () => {
+        const open = !body.classList.contains('hidden');
+        body.classList.toggle('hidden', open);
+        chev.style.transform = open ? '' : 'rotate(90deg)';
+      });
+
+      const tasks = Array.isArray(sec.tasks) ? sec.tasks : [];
+      const rows = tasks.map((task) => {
+        const checkbox = el('span', {
+          class: 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '
+            + (task.done
+              ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+              : 'border-zinc-700 text-transparent'),
+        }, task.done ? '✓' : '');
+
+        let markBtn = null;
+        if (!task.done) {
+          markBtn = el('button', {
+            class: 'text-[10px] mono rounded px-2 py-0.5 border border-emerald-500/40 '
+              + 'text-emerald-300 hover:bg-emerald-500/10 transition shrink-0',
+            title: 'Mark this task complete',
+          }, 'Mark done');
+          markBtn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            markBtn.disabled = true;
+            markBtn.textContent = 'saving…';
+            try {
+              await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+              renderAchievements();
+            } catch (err) {
+              markBtn.disabled = false;
+              markBtn.textContent = 'retry';
+              markBtn.className = 'text-[10px] mono rounded px-2 py-0.5 border border-rose-500/40 '
+                + 'text-rose-300 hover:bg-rose-500/10 transition shrink-0';
+              markBtn.title = 'Could not mark — ' + (err && err.message ? err.message : 'error');
+            }
+          });
+        }
+
+        return el('div', {
+          class: 'flex items-start gap-3 py-2 border-b border-zinc-800/40 last:border-b-0',
+        },
+          checkbox,
+          el('span', { class: 'text-[11px] mono muted shrink-0 w-12' }, task.id || ''),
+          el('div', { class: 'flex-1 min-w-0 text-[12px] text-zinc-200' }, task.description || ''),
+          markBtn,
+        );
+      });
+
+      replace(body, rows.length > 0
+        ? el('div', null, ...rows)
+        : el('div', { class: 'text-[12px] muted text-center py-3' }, 'No tasks in this section yet.'));
+
+      return el('section', { class: 'card rounded-xl p-5' }, header, body);
+    });
+
+    // ── Event-driven achievements ──
+    const eventGrid = el('div', { class: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' },
+      ...eventAchievements.map((a) => {
+        const unlocked = !!a.unlocked;
+        return el('div', {
+          class: 'rounded-lg p-4 border ' + (unlocked
+            ? 'border-emerald-500/40 bg-emerald-500/5'
+            : 'border-zinc-800/60 bg-[#0a0d13] opacity-60'),
+        },
+          el('div', { class: 'flex items-baseline justify-between gap-2 mb-1' },
+            el('div', { class: 'text-[13px] font-semibold ' + (unlocked ? 'text-emerald-200' : 'text-zinc-400') }, a.name || a.id || ''),
+            statusPill(unlocked ? 'unlocked' : 'locked', unlocked ? 'ok' : 'idle'),
+          ),
+          el('div', { class: 'text-[11px] text-zinc-300 leading-snug' }, a.description || ''),
+          a.criteria
+            ? el('div', { class: 'text-[10px] muted mono mt-2 italic' }, a.criteria)
+            : null,
+          unlocked && a.unlockedAt
+            ? el('div', { class: 'text-[10px] mono muted mt-1' }, 'unlocked ' + fmtTs(a.unlockedAt))
+            : null,
+        );
+      }),
+    );
+
+    const eventCard = el('section', { class: 'card rounded-xl p-5' },
+      el('header', { class: 'mb-4' },
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Event-driven achievements'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          'Auto-unlocked from ~/.pbx-lab/events.jsonl — no manual attestation needed.'),
+      ),
+      eventAchievements.length === 0
+        ? el('div', { class: 'text-[12px] muted py-2' }, 'No event-driven achievements defined.')
+        : eventGrid,
+    );
+
+    replace(host, profileCard, ...sectionCards, eventCard);
   }

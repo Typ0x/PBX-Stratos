@@ -12,7 +12,7 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260521-3">
+<link rel="stylesheet" href="/dashboard.css?v=20260521-4">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 
@@ -319,6 +319,10 @@
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
         <span class="nav-label">Strategies</span>
       </button>
+      <button type="button" data-view="health" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Health">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+        <span class="nav-label">Health</span>
+      </button>
       <button type="button" data-view="paper" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Paper trading">
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.58 16.5h12.85"></path></svg>
         <span class="nav-label">Paper trading</span>
@@ -326,6 +330,10 @@
       <button type="button" data-view="live" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Live trading">
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         <span class="nav-label">Live trading</span>
+      </button>
+      <button type="button" data-view="achievements" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Achievements">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"></path></svg>
+        <span class="nav-label">Achievements</span>
       </button>
     </div>
     <!-- Collapse / expand toggle, pinned to the sidebar bottom. -->
@@ -587,6 +595,26 @@
   <main id="view-live" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
     <div class="card rounded-xl py-16 px-6 text-center">
       <div class="text-[13px] muted">Live trading — fund the funder wallet and deploy a live bot to see it here.</div>
+    </div>
+  </main>
+
+  <!-- ===== Health view (bear-watch ops) ===== -->
+  <!-- Populated by renderHealth() in dashboard.js. Pulls from
+       GET /api/ops/health which mirrors the 7-check health-check.py
+       output in TS and also surfaces pm2 + scheduled-task state. -->
+  <main id="view-health" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div class="card rounded-xl py-16 px-6 text-center">
+      <div class="text-[13px] muted">Loading health…</div>
+    </div>
+  </main>
+
+  <!-- ===== Achievements view (roadmap progress + unlocks) ===== -->
+  <!-- Populated by renderAchievements() in dashboard.js. Pulls from
+       GET /api/ops/achievements which composes ROADMAP.md sections +
+       ~/.pbx-lab/user-profile.json + achievements/definitions.json. -->
+  <main id="view-achievements" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div class="card rounded-xl py-16 px-6 text-center">
+      <div class="text-[13px] muted">Loading achievements…</div>
     </div>
   </main>
 

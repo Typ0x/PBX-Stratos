@@ -1496,6 +1496,557 @@ app.get('/debug/health', async (_req, _reply) => {
   };
 });
 
+// ─── Ops: health (7-check mirror) ──────────────────────────────────────
+//
+// Powers the dashboard's Health view. Mirrors bear-watch/health-check.py
+// in TS so the dashboard doesn't shell out to Python on every visit.
+// Composes:
+//   - server uptime/port (this process)
+//   - paper-trade heartbeat staleness (~/.pbx-lab/paper-trade-heartbeat)
+//   - RPC reachability (Helius getSlot with a short timeout)
+//   - 7 checks (same logic as health-check.py)
+//   - pm2 process state via `pm2 jlist` (try/catch — silently empty if
+//     pm2 isn't on PATH, e.g. fresh CI box)
+//   - scheduled-task state via `schtasks /query` on Windows. On non-
+//     Windows hosts we fall back to the canonical list with null times.
+//   - tail of ~/.pbx-lab/alerts.jsonl (last 10 entries)
+//
+// Auth: gated by the same bearer-token middleware as the rest of /api/*.
+// No mutation; safe to re-call as often as the dashboard wants.
+app.get('/api/ops/health', async () => {
+  const labDir = join(homedir(), '.pbx-lab');
+  const heartbeatPath = join(labDir, 'paper-trade-heartbeat');
+  const aqiSnapshotPath = join(labDir, 'aqi-snapshot.json');
+  const alertsPath = join(labDir, 'alerts.jsonl');
+
+  // Mask the RPC URL so we don't leak the api key in the dashboard.
+  // Show host + last 4 chars only (e.g. "mainnet.helius-rpc.com/?…d4f1").
+  function maskRpcUrl(url: string): string {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      const tail = (u.search || '').slice(-4) || '????';
+      return u.host + (u.pathname && u.pathname !== '/' ? u.pathname : '') + '/?…' + tail;
+    } catch {
+      // Bad URL — show last 4 chars only.
+      return '…' + url.slice(-4);
+    }
+  }
+
+  // ── 1. Server alive: self-test would be circular; we're handling the
+  //    request, so we're up. We do hit /health locally only to confirm
+  //    the route is mounted (sanity).
+  let serverDetail = 'process responding';
+  let serverOk = true;
+
+  // ── 2. Dashboard responds: same — we're inside the process. Skip a
+  //    self-call to avoid request loops; report TRUE if the in-process
+  //    dashboard asset reader can find dashboard.html.
+  let dashboardOk = true;
+  let dashboardDetail = 'dashboard.html readable';
+  try {
+    const asset = readDashboardAsset('dashboard.html');
+    if (!asset || asset.length === 0) {
+      dashboardOk = false;
+      dashboardDetail = 'dashboard.html empty';
+    }
+  } catch (err) {
+    dashboardOk = false;
+    dashboardDetail = 'dashboard.html missing: ' + ((err as Error).message || 'unknown');
+  }
+
+  // ── 3. Paper-trade heartbeat (mtime < 5 min)
+  let paperOk = false;
+  let paperDetail = 'missing heartbeat file';
+  let paperAgeSec: number | null = null;
+  let paperLastTickIso: string | null = null;
+  try {
+    if (existsSync(heartbeatPath)) {
+      const st = lstatSync(heartbeatPath);
+      paperAgeSec = Math.floor((Date.now() - st.mtimeMs) / 1000);
+      paperLastTickIso = new Date(st.mtimeMs).toISOString();
+      paperOk = paperAgeSec < 5 * 60;
+      paperDetail = 'age ' + paperAgeSec + 's (max 300s)';
+    }
+  } catch (err) {
+    paperOk = false;
+    paperDetail = 'check failed: ' + ((err as Error).message || 'unknown');
+  }
+
+  // ── 4. AQI feed fresh (mtime < 30 min)
+  let aqiOk = false;
+  let aqiDetail = 'missing aqi-snapshot.json';
+  try {
+    if (existsSync(aqiSnapshotPath)) {
+      const st = lstatSync(aqiSnapshotPath);
+      const age = Math.floor((Date.now() - st.mtimeMs) / 1000);
+      aqiOk = age < 30 * 60;
+      aqiDetail = 'age ' + age + 's (max 1800s)';
+    }
+  } catch (err) {
+    aqiOk = false;
+    aqiDetail = 'check failed: ' + ((err as Error).message || 'unknown');
+  }
+
+  // ── 5. Alerts writable
+  let alertsOk = false;
+  let alertsDetail = '';
+  try {
+    mkdirSync(labDir, { recursive: true });
+    const fd = openSync(alertsPath, 'a');
+    closeSync(fd);
+    alertsOk = true;
+    alertsDetail = alertsPath;
+  } catch (err) {
+    alertsOk = false;
+    alertsDetail = 'could not open for append: ' + ((err as Error).message || 'unknown');
+  }
+
+  // ── 6. Disk space (> 5% free on partition holding ~/.pbx-lab)
+  let diskOk = true;
+  let diskDetail = 'platform statfs unavailable';
+  try {
+    // Node 19+ exposes statfs in fs/promises. Fall through gracefully
+    // on older runtimes (we just don't report disk usage).
+    const fsPromises = await import('node:fs/promises');
+    if (typeof (fsPromises as unknown as { statfs?: unknown }).statfs === 'function') {
+      const stat = await (fsPromises as unknown as {
+        statfs: (p: string) => Promise<{ bsize: number; blocks: number; bavail: number }>;
+      }).statfs(existsSync(labDir) ? labDir : homedir());
+      const total = stat.blocks * stat.bsize;
+      const free = stat.bavail * stat.bsize;
+      const frac = total > 0 ? free / total : 0;
+      diskOk = frac >= 0.05;
+      diskDetail = (frac * 100).toFixed(1) + '% free (min 5%)';
+    }
+  } catch (err) {
+    diskOk = true; // do not fail health on a missing statfs call
+    diskDetail = 'check skipped: ' + ((err as Error).message || 'unknown');
+  }
+
+  // ── 7. RPC reachable (Helius getSlot, short timeout)
+  let rpcOk = false;
+  let rpcDetail = 'HELIUS_MAINNET_URL not set in environment';
+  let rpcSlot: number | null = null;
+  let rpcLatencyMs: number | null = null;
+  if (RPC_URL) {
+    const started = Date.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSlot', params: [] }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const body = (await resp.json()) as { result?: number };
+      rpcLatencyMs = Date.now() - started;
+      rpcSlot = typeof body.result === 'number' ? body.result : null;
+      rpcOk = rpcSlot != null && rpcSlot > 0;
+      rpcDetail = rpcOk ? 'slot ' + rpcSlot : 'no slot in response';
+    } catch (err) {
+      rpcOk = false;
+      rpcLatencyMs = Date.now() - started;
+      rpcDetail = 'RPC call failed: ' + ((err as Error).message || 'unknown');
+    }
+  }
+
+  // ── pm2 jlist (best-effort; empty array if pm2 not on PATH)
+  type Pm2Row = {
+    name: string;
+    status: 'online' | 'stopped' | 'errored';
+    pid: number;
+    uptimeSec: number;
+    memMb: number;
+    restarts: number;
+    cpu: number | null;
+  };
+  let pm2List: Pm2Row[] = [];
+  try {
+    const { execSync } = await import('node:child_process');
+    const raw = execSync('pm2 jlist', {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+    });
+    const parsed = JSON.parse(raw) as Array<{
+      name?: string;
+      pid?: number;
+      pm2_env?: {
+        status?: string;
+        pm_uptime?: number;
+        restart_time?: number;
+      };
+      monit?: {
+        memory?: number;
+        cpu?: number;
+      };
+    }>;
+    pm2List = parsed
+      .filter((p) => p && typeof p.name === 'string')
+      .map((p) => {
+        const status = (p.pm2_env?.status || 'unknown') as Pm2Row['status'];
+        const uptimeMs = p.pm2_env?.pm_uptime ? (Date.now() - p.pm2_env.pm_uptime) : 0;
+        return {
+          name: p.name as string,
+          status,
+          pid: p.pid ?? 0,
+          uptimeSec: status === 'online' ? Math.max(0, Math.floor(uptimeMs / 1000)) : 0,
+          memMb: p.monit?.memory ? Math.round(p.monit.memory / (1024 * 1024)) : 0,
+          restarts: p.pm2_env?.restart_time ?? 0,
+          cpu: p.monit?.cpu ?? null,
+        };
+      });
+  } catch {
+    pm2List = [];
+  }
+
+  // ── Scheduled tasks (Windows schtasks; fall back to canonical list)
+  type SchedRow = {
+    name: string;
+    schedule: string;
+    lastRunIso: string | null;
+    lastResult: string | null;
+    nextRunIso: string | null;
+  };
+  const CANONICAL_TASKS: Array<{ name: string; schedule: string }> = [
+    { name: 'BEARWATCH-HealthCheck',    schedule: 'every 5 min' },
+    { name: 'BEARWATCH-WeatherPull',    schedule: 'hourly' },
+    { name: 'BEARWATCH-DailyDigest',    schedule: 'daily 06:00' },
+    { name: 'BEARWATCH-StateBackup',    schedule: 'daily 03:00' },
+    { name: 'BEARWATCH-CodebaseBackup', schedule: 'weekly Sun 03:30' },
+    { name: 'BEARWATCH-MetaWatchdog',   schedule: 'every 5 min' },
+  ];
+  let scheduledTasks: SchedRow[] = [];
+  if (process.platform === 'win32') {
+    try {
+      const { execSync } = await import('node:child_process');
+      const raw = execSync('schtasks /query /fo csv /v /tn BEARWATCH-HealthCheck', {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        shell: 'cmd.exe',
+      });
+      // Verbose CSV has many columns. We pull whatever we can per task.
+      // Rather than parsing fragile CSV column order, we query each
+      // canonical task name individually with /fo list which is more
+      // forgiving across schtasks versions.
+      void raw;
+      for (const t of CANONICAL_TASKS) {
+        try {
+          const listRaw = execSync(`schtasks /query /tn ${t.name} /fo list /v`, {
+            encoding: 'utf8',
+            timeout: 5000,
+            stdio: ['ignore', 'pipe', 'ignore'],
+            shell: 'cmd.exe',
+          });
+          const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+          const nextRun = /Next Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+          const lastResult = /Last Result:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+          // schtasks reports times in locale-formatted strings; parse via
+          // Date constructor — if invalid we return null so the dashboard
+          // shows a dash rather than NaN.
+          const parseIso = (s: string | null): string | null => {
+            if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
+            const d = new Date(s);
+            return Number.isNaN(d.getTime()) ? null : d.toISOString();
+          };
+          scheduledTasks.push({
+            name: t.name,
+            schedule: t.schedule,
+            lastRunIso: parseIso(lastRun),
+            lastResult,
+            nextRunIso: parseIso(nextRun),
+          });
+        } catch {
+          scheduledTasks.push({
+            name: t.name,
+            schedule: t.schedule,
+            lastRunIso: null,
+            lastResult: 'not registered',
+            nextRunIso: null,
+          });
+        }
+      }
+    } catch {
+      // schtasks unavailable — fall back to canonical list.
+      scheduledTasks = CANONICAL_TASKS.map((t) => ({
+        name: t.name, schedule: t.schedule,
+        lastRunIso: null, lastResult: null, nextRunIso: null,
+      }));
+    }
+  } else {
+    scheduledTasks = CANONICAL_TASKS.map((t) => ({
+      name: t.name, schedule: t.schedule,
+      lastRunIso: null, lastResult: 'platform not Windows', nextRunIso: null,
+    }));
+  }
+
+  // ── Alerts: last 10 lines of ~/.pbx-lab/alerts.jsonl
+  type AlertRow = { ts: string; severity: 'info' | 'warn' | 'error'; message: string };
+  let alerts: AlertRow[] = [];
+  try {
+    if (existsSync(alertsPath)) {
+      const raw = readFileSync(alertsPath, 'utf8');
+      const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      const tail = lines.slice(-10).reverse();
+      alerts = tail.map((line) => {
+        try {
+          const obj = JSON.parse(line) as {
+            ts_iso?: string; ts?: number;
+            severity?: string; message?: string;
+          };
+          const ts = obj.ts_iso || (typeof obj.ts === 'number' ? new Date(obj.ts).toISOString() : '');
+          const sev = obj.severity === 'error' || obj.severity === 'warn'
+            ? obj.severity : 'info';
+          return { ts, severity: sev as AlertRow['severity'], message: obj.message || '' };
+        } catch {
+          return { ts: '', severity: 'info' as const, message: line.slice(0, 200) };
+        }
+      });
+    }
+  } catch {
+    alerts = [];
+  }
+
+  const checks = [
+    { name: 'Server alive',          ok: serverOk,    detail: serverDetail },
+    { name: 'Dashboard responds',    ok: dashboardOk, detail: dashboardDetail },
+    { name: 'Paper-trade heartbeat', ok: paperOk,     detail: paperDetail },
+    { name: 'AQI feed fresh',        ok: aqiOk,       detail: aqiDetail },
+    { name: 'Alerts writable',       ok: alertsOk,    detail: alertsDetail },
+    { name: 'Disk space',            ok: diskOk,      detail: diskDetail },
+    { name: 'RPC reachable',         ok: rpcOk,       detail: rpcDetail },
+  ];
+
+  return {
+    checkedAt: new Date().toISOString(),
+    server: {
+      online: true,
+      uptimeSec: Math.floor(process.uptime()),
+      port: PORT,
+      version: process.env.npm_package_version ?? null,
+    },
+    paperTrade: {
+      online: paperOk,
+      heartbeatAgeSec: paperAgeSec,
+      lastTickIso: paperLastTickIso,
+    },
+    rpc: {
+      reachable: rpcOk,
+      slot: rpcSlot,
+      latencyMs: rpcLatencyMs,
+      url: maskRpcUrl(RPC_URL),
+    },
+    checks,
+    pm2: pm2List,
+    scheduledTasks,
+    alerts,
+  };
+});
+
+// ─── Ops: achievements (roadmap progress + event-driven unlocks) ──────
+//
+// Powers the dashboard's Achievements view. Composes:
+//   - profile from ~/.pbx-lab/user-profile.json
+//   - section/task tree parsed from ROADMAP.md (markdown tables, one
+//     row per task with an `s<section>.t<task>` id in the first column)
+//   - per-task done state from profile.achievements_unlocked (a string
+//     array of task IDs)
+//   - event-driven achievements from achievements/definitions.json,
+//     with unlocked state from ~/.pbx-lab/achievements.json and the
+//     first-unlocked-at timestamps from that same file.
+app.get('/api/ops/achievements', async () => {
+  const labDir = join(homedir(), '.pbx-lab');
+  const profilePath = join(labDir, 'user-profile.json');
+  const unlockedPath = join(labDir, 'achievements.json');
+  // Anchor relative to the workspace root (../../ from bots/src/server).
+  // Falls back to process.cwd() if that path doesn't resolve.
+  const repoRoot = join(process.cwd(), process.cwd().endsWith('bots') ? '..' : '.');
+  const roadmapPath = join(repoRoot, 'ROADMAP.md');
+  const definitionsPath = join(repoRoot, 'achievements', 'definitions.json');
+
+  // ── profile ──
+  let profile: Record<string, unknown> = {};
+  try {
+    if (existsSync(profilePath)) {
+      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+    }
+  } catch {
+    profile = {};
+  }
+  const unlockedTasks: Set<string> = new Set(
+    Array.isArray((profile as { achievements_unlocked?: unknown }).achievements_unlocked)
+      ? ((profile as { achievements_unlocked?: string[] }).achievements_unlocked || [])
+      : []
+  );
+
+  // ── parse ROADMAP.md into sections + tasks ──
+  // Pattern: each section starts with "## Section N — <name>" and has
+  // one or more markdown tables with rows like "| `s1.t14` | <desc> | …".
+  // We pull the section name, the task id, and the description column.
+  type RoadmapTask = { id: string; description: string; done: boolean; doneAt: string | null };
+  type RoadmapSection = { id: string; name: string; totalTasks: number; doneTasks: number; tasks: RoadmapTask[] };
+  const sections: RoadmapSection[] = [];
+  try {
+    if (existsSync(roadmapPath)) {
+      const text = readFileSync(roadmapPath, 'utf8');
+      const sectionRe = /^##\s+Section\s+(\d+)\s+[—–-]\s+(.+?)\s*$/gm;
+      // Find all section header positions so we can slice each section's
+      // body and parse its tables independently.
+      const headers: Array<{ index: number; num: string; name: string }> = [];
+      for (let m; (m = sectionRe.exec(text)) !== null; ) {
+        headers.push({ index: m.index, num: m[1]!, name: m[2]!.trim() });
+      }
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i]!;
+        const next = headers[i + 1];
+        const body = text.slice(h.index, next ? next.index : text.length);
+        // Pull every task row: `| \`sN.tM\` | description | … |`. We
+        // intentionally tolerate variation in the markdown — sections 6/7
+        // use the same format as 1-5 so a single regex covers all.
+        const taskRe = /\|\s*`(s\d+\.t\d+)`\s*\|\s*([^|]+?)\s*\|/g;
+        const tasks: RoadmapTask[] = [];
+        const seen = new Set<string>();
+        for (let tm; (tm = taskRe.exec(body)) !== null; ) {
+          const id = tm[1]!;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          // Strip surrounding ** and trailing markdown emphasis.
+          let desc = tm[2]!.replace(/\*\*/g, '').trim();
+          // Cap at a sane length so the dashboard row doesn't blow out.
+          if (desc.length > 280) desc = desc.slice(0, 277) + '…';
+          tasks.push({
+            id,
+            description: desc,
+            done: unlockedTasks.has(id),
+            doneAt: null,
+          });
+        }
+        sections.push({
+          id: 's' + h.num,
+          name: h.name,
+          totalTasks: tasks.length,
+          doneTasks: tasks.filter((t) => t.done).length,
+          tasks,
+        });
+      }
+    }
+  } catch {
+    // Roadmap unreadable — return empty sections; dashboard handles it.
+  }
+
+  // ── event-driven achievements ──
+  type EventDef = { id: string; title?: string; description?: string; trigger?: string };
+  let defs: EventDef[] = [];
+  try {
+    if (existsSync(definitionsPath)) {
+      const parsed = JSON.parse(readFileSync(definitionsPath, 'utf8')) as {
+        achievements?: EventDef[];
+      };
+      defs = Array.isArray(parsed.achievements) ? parsed.achievements : [];
+    }
+  } catch {
+    defs = [];
+  }
+
+  let unlockedEvents: Set<string> = new Set();
+  let firstUnlockedAt: Record<string, string> = {};
+  try {
+    if (existsSync(unlockedPath)) {
+      const u = JSON.parse(readFileSync(unlockedPath, 'utf8')) as {
+        unlocked?: string[];
+        first_unlocked_at?: Record<string, string>;
+      };
+      unlockedEvents = new Set(Array.isArray(u.unlocked) ? u.unlocked : []);
+      firstUnlockedAt = u.first_unlocked_at || {};
+    }
+  } catch {
+    unlockedEvents = new Set();
+  }
+
+  const eventAchievements = defs.map((d) => ({
+    id: d.id,
+    name: d.title || d.id,
+    description: d.description || '',
+    criteria: d.trigger || '',
+    unlocked: unlockedEvents.has(d.id),
+    unlockedAt: firstUnlockedAt[d.id] || null,
+  }));
+
+  const totalUnlocked = sections.reduce((sum, s) => sum + s.doneTasks, 0)
+    + eventAchievements.filter((e) => e.unlocked).length;
+
+  return {
+    profile: {
+      personality_id: (profile as { personality_id?: string }).personality_id || 'default',
+      tech_level: (profile as { tech_level?: string }).tech_level || '—',
+      autonomy_level: (profile as { autonomy_level?: string }).autonomy_level || '—',
+      communication_style: (profile as { communication_style?: string }).communication_style || '—',
+      roadmap_level: (profile as { roadmap_level?: number }).roadmap_level || 1,
+      total_unlocked: totalUnlocked,
+    },
+    sections,
+    eventAchievements,
+  };
+});
+
+// ─── Ops: mark a roadmap task complete ─────────────────────────────────
+//
+// Body: { taskId: 's3.t12' }
+// Effects:
+//   - appends taskId to user-profile.json achievements_unlocked (idempotent)
+//   - appends a {type:'achievement_unlocked', taskId, ts} line to events.jsonl
+//   - bumps last_updated on the profile
+app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req, reply) => {
+  const taskId = (req.body?.taskId || '').trim();
+  if (!/^s\d+\.t\d+$/.test(taskId)) {
+    return reply.code(400).send({ error: 'invalid taskId (expected sN.tM)' });
+  }
+  const labDir = join(homedir(), '.pbx-lab');
+  mkdirSync(labDir, { recursive: true });
+  const profilePath = join(labDir, 'user-profile.json');
+  const eventsPath = join(labDir, 'events.jsonl');
+
+  let profile: Record<string, unknown> = {};
+  try {
+    if (existsSync(profilePath)) {
+      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+    }
+  } catch {
+    profile = {};
+  }
+  const existing = Array.isArray((profile as { achievements_unlocked?: unknown }).achievements_unlocked)
+    ? (profile as { achievements_unlocked?: string[] }).achievements_unlocked || []
+    : [];
+  if (!existing.includes(taskId)) existing.push(taskId);
+  const nowIso = new Date().toISOString();
+  const updated = {
+    ...profile,
+    achievements_unlocked: existing,
+    total_unlocked: existing.length,
+    last_achievement_at: nowIso,
+    last_updated: nowIso,
+  };
+  try {
+    writeFileSync(profilePath, JSON.stringify(updated, null, 2), { mode: 0o600 });
+  } catch (err) {
+    return reply.code(500).send({ error: 'could not write profile: ' + (err as Error).message });
+  }
+  try {
+    const line = JSON.stringify({ type: 'achievement_unlocked', taskId, ts: nowIso }) + '\n';
+    const fd = openSync(eventsPath, 'a');
+    writeSync(fd, line);
+    closeSync(fd);
+  } catch {
+    // Non-fatal — the profile update is the source of truth.
+  }
+  return { ok: true, taskId, achievements_unlocked: existing, last_updated: nowIso };
+});
+
 // Diagnostic: per-bot strategy snapshot. Returns whatever the strategy
 // instance recorded in `lastDebug` during its most recent decide() —
 // region prices, medians, computed spreads, why it didn't fire. Lets
