@@ -78,21 +78,26 @@ async function main() {
 
   // Step through the tutorial. The onboarding controller exposes
   // either a button#onboard-next or step dots — try the Next button.
-  const TOTAL_STEPS = 17;
+  const TOTAL_STEPS = 10;
   for (let step = 1; step <= TOTAL_STEPS; step++) {
     const file = join(OUT_DIR, `onboard-step-${String(step).padStart(2, '0')}.png`);
     await page.screenshot({ path: file, fullPage: false });
     console.log(`[screenshot] step ${step}/${TOTAL_STEPS} → ${file}`);
     if (step < TOTAL_STEPS) {
-      // If step 7 has a mnemonic checkbox, tick it so Next becomes enabled.
-      const mnemonicCheckbox = page.locator('#onboard-mnemonic-confirm');
-      if (await mnemonicCheckbox.count() > 0 && await mnemonicCheckbox.isVisible()) {
-        await mnemonicCheckbox.check().catch(() => {});
+      // The new tour has action-gated steps that wait for real user
+      // clicks (Discover, Decode, etc). For the screenshot pass we
+      // prefer the "Just continue →" fallback link if present —
+      // it advances without firing the real action. Falls back to
+      // clicking #onboard-next when there's no gate.
+      const skipGate = page.locator('.onboard-skip-gate');
+      if (await skipGate.count() > 0 && await skipGate.first().isVisible()) {
+        await skipGate.first().click().catch(() => {});
+      } else {
+        const next = page.locator('#onboard-next');
+        if (await next.count() === 0) { console.error('[screenshot] #onboard-next not found, aborting'); break; }
+        await next.click();
       }
-      const next = page.locator('#onboard-next');
-      if (await next.count() === 0) { console.error('[screenshot] #onboard-next not found, aborting'); break; }
-      await next.click();
-      await waitFor(450);
+      await waitFor(600); // allow view-switch animations to settle
     }
   }
 

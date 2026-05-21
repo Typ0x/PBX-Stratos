@@ -129,12 +129,13 @@
   </div>
 </div>
 
-<!-- First-time onboarding overlay: a 14-step guided tour mirroring
-     ROADMAP Section 1. Fires once on the first dashboard load after
-     auth succeeds; `localStorage.pbx_onboarding_v1_done = '1'` locks
-     it out forever after. The mnemonic-backup step uses the existing
-     amber warning pattern; the panel-tour mini-steps pulse-highlight
-     real elements on the page via the `onboard-highlight` class.
+<!-- First-time onboarding overlay: a 10-step interactive tour that
+     navigates between views and waits for real user actions (e.g.
+     clicking Decode on a wallet). Fires once on the first dashboard
+     load after auth succeeds; `localStorage.pbx_onboarding_v1_done = '1'`
+     locks it out forever after. Highlighted panels pulse via the
+     `onboard-highlight` class — sharp + bright against the flat dim
+     backdrop (no blur).
 
      Two separate layers (NOT a single .modal-bg parent containing the
      card) so a highlighted panel can punch through the dim backdrop:
@@ -142,21 +143,25 @@
        - .onboard-highlight → the pulsed el  (z-55, above backdrop)
        - #onboard-modal     → the card host  (z-60, above highlight)
      -->
-<!-- Uses the custom .onboard-backdrop class (lighter than .modal-bg's
-     85%/blur-8) because the panel-tour steps need to SEE the panel
-     being highlighted through the dim. -->
+<!-- Uses the custom .onboard-backdrop class (flat 65% dim, no blur)
+     so the highlighted panel above it can render sharp + bright. -->
 <div id="onboard-backdrop" class="hidden fixed inset-0 z-50 onboard-backdrop"></div>
-<div id="onboard-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center px-4 pointer-events-none">
+<!-- Modal positioned at bottom of viewport (not center) so the
+     highlighted panel above stays visible. The pointer-events-none
+     outer wrapper + pointer-events-auto on the inner card means
+     clicks on dashboard panels (the things being highlighted) still
+     work. -->
+<div id="onboard-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center px-4 pb-8 pointer-events-none">
   <div class="card rounded-xl p-8 w-full max-w-2xl bg-[#0a0d13] relative pointer-events-auto">
     <button id="onboard-skip" class="absolute top-3 right-4 text-[11px] mono muted hover:text-zinc-300 transition" type="button">Skip tutorial</button>
 
-    <!-- 14-dot step indicator. Filled emerald = current, zinc-400 =
+    <!-- 10-dot step indicator. Filled emerald = current, zinc-400 =
          completed, zinc-700 = pending. Rebuilt on every step change. -->
     <div id="onboard-dots" class="flex items-center gap-1.5 mb-5 pt-1"></div>
 
     <header class="mb-3">
-      <div class="text-[11px] mono muted" id="onboard-stepnum">Step 1 of 14</div>
-      <h2 id="onboard-title" class="text-lg font-semibold text-zinc-50 mt-0.5">Welcome to PBX Stratos</h2>
+      <div class="text-[11px] mono muted" id="onboard-stepnum">Step 1 of 10</div>
+      <h2 id="onboard-title" class="text-lg font-semibold text-zinc-50 mt-0.5">You're set up</h2>
     </header>
 
     <section id="onboard-body" class="text-[13px] text-zinc-200 leading-relaxed space-y-3 min-h-[120px]"></section>

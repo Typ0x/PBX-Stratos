@@ -410,14 +410,14 @@
   .evo-drawer-close:hover { color: #f1f5f9; background: #27272a; }
 
   /* ── First-time onboarding overlay ─────────────────────────────────── */
-  /* Custom backdrop — lighter than .modal-bg's 85%/blur-8 because the
-     whole point of the panel-tour steps is to SEE the panel being
-     highlighted through the dim. 55% dim + 2px blur is enough to push
-     focus to the modal card while still showing the highlighted panel
-     glowing emerald underneath. */
+  /* Custom backdrop — a flat dim (no blur). The panel-tour steps need
+     un-highlighted panels to read as fuzzy/dim while the HIGHLIGHTED
+     panel reads as sharp + bright. We deliberately do NOT blur the
+     backdrop so the highlighted panel above it stays crisp. The dim is
+     65% — enough to push focus to the modal + the pulsed highlight
+     without obliterating the surrounding context. */
   .onboard-backdrop {
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(2px);
+    background: rgba(0,0,0,0.65);
   }
   /* Pulse highlight on a panel the current tour step is pointing at.
      The backdrop sits at z-50; the highlight needs z-index ABOVE that
@@ -425,10 +425,11 @@
      z-index) so the outline + glow punch through the dim. The modal
      card sits at z-60 so it always reads as foremost. The pulse
      animates the outer box-shadow only — leaves the panel's own
-     internal styles untouched. */
+     internal styles untouched. The brightness/saturate filter pops the
+     highlighted panel against the dim flat backdrop. */
   @keyframes onboard-pulse {
-    0%, 100% { box-shadow: 0 0 0 4px rgba(16,185,129,0.35), 0 0 32px 4px rgba(16,185,129,0.20); }
-    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0.60), 0 0 48px 8px rgba(16,185,129,0.35); }
+    0%, 100% { box-shadow: 0 0 0 4px rgba(16,185,129,0.45), 0 0 36px 6px rgba(16,185,129,0.28); }
+    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0.75), 0 0 56px 10px rgba(16,185,129,0.45); }
   }
   .onboard-highlight {
     position: relative;
@@ -440,9 +441,48 @@
     transition: outline 0.2s ease;
     /* Punch above the dim backdrop so highlighted panels actually show. */
     isolation: isolate;
+    /* Render the panel genuinely sharp + bright against the flat dim. */
+    filter: brightness(1.05) saturate(1.05);
   }
   @media (prefers-reduced-motion: reduce) {
     .onboard-highlight { animation: none; }
+  }
+  /* Inline "Waiting for: <action>" badge inside the modal body. Used
+     by gated steps in place of the Next button. */
+  .onboard-waiting {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(16,185,129,0.45);
+    background: rgba(16,185,129,0.08);
+    color: #a7f3d0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 11.5px;
+  }
+  .onboard-waiting::before {
+    content: ''; width: 8px; height: 8px; border-radius: 9999px;
+    background: #10b981; animation: pulse 1.4s ease-in-out infinite;
+  }
+  /* Muted "Just continue" escape link under gated steps. */
+  .onboard-skip-gate {
+    display: inline-block; margin-left: 10px;
+    color: #94a3b8; font-size: 11px;
+    text-decoration: underline; text-underline-offset: 2px;
+    cursor: pointer;
+    background: none; border: none; padding: 0;
+  }
+  .onboard-skip-gate:hover { color: #cbd5e1; }
+  /* Sample-data marker pill used on injected paper/live preview cards. */
+  .onboard-sample-pill {
+    display: inline-block;
+    border: 1px solid rgba(245,158,11,0.35);
+    background: rgba(245,158,11,0.08);
+    color: #fcd34d;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
   }
 
   /* Step dots in the modal header. */

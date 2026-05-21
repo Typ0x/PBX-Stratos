@@ -3003,359 +3003,374 @@
 
   // ============ first-time onboarding tour ============
   //
-  // 14-step walkthrough mirroring ROADMAP Section 1. Fires once on
-  // first dashboard load (after auth succeeds). State key:
+  // 10-step interactive walkthrough. Unlike the previous retrospective
+  // tour, this one NAVIGATES the dashboard and WAITS for user actions:
+  // it switches views via showView(), highlights real panels, and gates
+  // certain steps on real DOM events (e.g. clicking Decode on a wallet).
+  //
+  // Step list:
+  //   1. Welcome / congrats           (no gate, no view change)
+  //   2. Discover — Find top traders  (view=discover, gate=click #workflow-start)
+  //   3. While that runs…             (view=discover, no gate)
+  //   4. Leaderboard tour             (view=leaderboard, gate=click any Decode)
+  //   5. Strategies tour              (view=strategies, no gate)
+  //   6. Paper trading + sample data  (view=paper, no gate, inject mock card)
+  //   7. Live trading + sample data   (view=live, no gate, inject mock card)
+  //   8. Back to Discover — save      (view=discover, gate=fallback button)
+  //   9. Decode a wallet directly     (view=discover, gate=fallback button)
+  //  10. You're ready                 (Finish button — sets done flag)
+  //
+  // Each gated step also offers a "Just continue →" escape link so a
+  // user who can't find the target never gets stuck. Cleanup functions
+  // returned by gate.listen() are run when the step changes or the tour
+  // is dismissed, so click handlers don't leak.
+  //
+  // State key (unchanged — the screenshot script reads this name):
   //   localStorage.pbx_onboarding_v1_done = '1'  → never show again.
   //
-  // Most steps are retrospective — they explain what the install
-  // wizard already did. Exceptions:
-  //   - step 7  mnemonic backup    (actionable, with an explicit checkbox)
-  //   - step 12 panel tour         (4 substeps, each pulses a real panel)
-  //   - step 13 7-check health     (live-fetches /debug/health)
-  //   - step 14 team call          (closes the tour, sets the flag)
-  //
   // Current step is NOT persisted — a reload restarts at step 1.
-  // That keeps the controller simple and the cost of an accidental
-  // reload low (the tour is < 2 min).
 
   const ONBOARD_KEY = 'pbx_onboarding_v1_done';
-  const ONBOARD_PLACEHOLDER_URL = 'https://example.com/pbx-stratos-team-call';
 
-  // Each step is { title, build(body) -> void, highlight?: selector,
-  //                gate?: () => boolean }.  build() populates the body
-  //                section; gate() (optional) returns false to disable
-  //                Next until satisfied (used by step 7).
+  // Each step is { title, body: (string|Node)[], view?: 'discover'|...,
+  //                highlight?: selector, gate?: {description, listen} }.
+  // gate.listen(advance) wires an action listener and returns a cleanup
+  // function; advance() is the tour's "go to next step" callback.
   let onboardSteps = null;
   let onboardCurrent = 0;
-  // Step 7 checkbox state — captured here so prev/next doesn't reset it.
-  let onboardMnemonicAck = false;
+  // Active gate cleanup — invoked on step change / dismiss so click
+  // handlers wired by gate.listen() don't accumulate.
+  let onboardGateCleanup = null;
+  // Track which sample-data injections are live so we can remove them
+  // when leaving the relevant step or dismissing the tour.
+  let onboardSampleNodes = [];
 
   function buildOnboardSteps() {
     const steps = [];
 
-    // 1 — Welcome
+    // 1 — Welcome / congrats
     steps.push({
-      title: 'Welcome to PBX Stratos',
-      build: (body) => {
-        body.append(
-          el('p', null, "Your air-quality trading bot is installed and running. The next two minutes will walk you through what's on screen and what each piece does."),
-          el('p', { class: 'muted' }, "You can skip anytime, but the tour is short — seventeen quick steps including a four-panel walkthrough."),
-        );
+      title: "You're set up",
+      body: () => [
+        el('p', null,
+          "Claude just audited the code, installed dependencies, generated your wallet keys, started the dashboard server and paper-trade bot, and registered six background watchdogs. ",
+          "This tour shows you how to actually use what you've got."),
+        el('p', { class: 'muted' }, 'Nine short steps follow — most just take a click. You can skip anytime.'),
+      ],
+    });
+
+    // 2 — Discover: click Find top traders
+    //
+    // First-run state shows #welcome-hero with its big #hero-start
+    // CTA; once the user has bots, the workflow card with
+    // #workflow-start is what's visible. The tour fires on first
+    // visit so #hero-start is the practical target, but we gate on
+    // BOTH so the step advances no matter which CTA the user clicks.
+    steps.push({
+      title: 'Step 1: Discover top traders',
+      view: 'discover',
+      // The tour only fires on first visit, when #welcome-hero is
+      // showing — so #hero-start is the visible CTA. The gate below
+      // listens for both #hero-start and #workflow-start so the tour
+      // advances no matter which button the user actually clicks.
+      highlight: '#hero-start',
+      body: () => [
+        el('p', null,
+          'Discover finds the wallets currently making money on PBX. Click the green ',
+          el('strong', { class: 'text-emerald-300' }, 'Find top traders & decode'),
+          ' button to start the search. It takes about two minutes.'),
+        el('p', { class: 'muted' },
+          "While it runs we'll walk through the rest of the dashboard."),
+      ],
+      gate: {
+        description: 'Waiting for: click Find top traders & decode',
+        listen: (advance) => {
+          const heroBtn = document.getElementById('hero-start');
+          const wfBtn   = document.getElementById('workflow-start');
+          const handler = () => advance();
+          if (heroBtn) heroBtn.addEventListener('click', handler, { once: true });
+          if (wfBtn)   wfBtn.addEventListener('click',   handler, { once: true });
+          return () => {
+            if (heroBtn) heroBtn.removeEventListener('click', handler);
+            if (wfBtn)   wfBtn.removeEventListener('click',   handler);
+          };
+        },
       },
     });
 
-    // 2 — Install wizard
+    // 3 — Discovery running, let's tour the rest
     steps.push({
-      title: 'The install wizard',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Claude Code drove a thirteen-step install for you: safety audit, dependencies, environment files, watchdog services. Each step paused for your approval before touching anything sensitive.'),
-          el('p', { class: 'muted' }, "You'll see the same flow again if you ever re-install on another machine."),
-        );
+      title: 'Step 2: While that runs, let’s tour the rest of the site',
+      view: 'discover',
+      body: () => [
+        el('p', null,
+          "Discovery is working in the background. Meanwhile, let me show you the other four pages so you know what's where."),
+        el('p', { class: 'muted' }, 'Click Next to keep moving.'),
+      ],
+    });
+
+    // 4 — Leaderboard: click any wallet's Decode button
+    steps.push({
+      title: 'Step 3: The Leaderboard',
+      view: 'leaderboard',
+      highlight: '#market-leaderboard',
+      body: () => [
+        el('p', null,
+          'Leaderboard ranks every wallet Discover has found, sorted by recent P&L. ',
+          'Pick a wallet that looks interesting and click its ',
+          el('strong', { class: 'text-emerald-300' }, 'Decode'),
+          ' button — that kicks off the strategy reverse-engineering and takes you to the Strategies page.'),
+        el('p', { class: 'muted' },
+          "If the table is still loading, hit Refresh up top or use Just continue below."),
+      ],
+      gate: {
+        description: 'Waiting for: click Decode on any wallet row',
+        listen: (advance) => {
+          // The per-row Decode markup is generated dynamically and
+          // doesn't carry a stable data-attr — match on button text +
+          // the leaderboard container so we don't fire on stray
+          // "decode" text elsewhere on the page.
+          const container = document.getElementById('market-leaderboard');
+          const handler = (e) => {
+            if (!container) return;
+            const btn = e.target.closest('button');
+            if (!btn || !container.contains(btn)) return;
+            const txt = (btn.textContent || '').trim().toLowerCase();
+            if (txt === 'decode' || txt === 'starting…') advance();
+          };
+          document.addEventListener('click', handler, true);
+          return () => document.removeEventListener('click', handler, true);
+        },
       },
     });
 
-    // 3 — Code-audited
+    // 5 — Strategies (no gate)
     steps.push({
-      title: 'Code-audited before anything ran',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Before any code executed, Claude inspected the wallet handling, install hooks, and network calls. The repo does not phone home.'),
-          el('p', { class: 'muted' }, 'Your keys and your mnemonic stay on this computer.'),
-        );
-      },
+      title: 'Step 4: Strategies',
+      view: 'strategies',
+      highlight: '#view-strategies',
+      body: () => [
+        el('p', null,
+          'You just kicked off the wallet decoder. It runs Claude in a loop against historical trades to extract the entry and exit rules. ',
+          'Decoded strategies land here.'),
+        el('p', null,
+          'From this page you can backtest, deploy to paper, or promote to live. Click Next to keep touring.'),
+      ],
     });
 
-    // 4 — Personality calibrated
+    // 6 — Paper trading + injected sample data
     steps.push({
-      title: 'Personality calibrated',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Claude is now calibrated to talk to you the way you described in the five-question quiz — tech level, communication style, goal, consent level, autonomy level.'),
-          el('p', { class: 'muted' }, "You can re-take the quiz anytime by saying \"run the personality quiz\"."),
-        );
-      },
+      title: 'Step 5: Paper trading',
+      view: 'paper',
+      highlight: '#view-paper',
+      onEnter: () => injectSamplePaperBots(),
+      onLeave: () => removeSampleNodes(),
+      body: () => [
+        el('p', null,
+          'Paper trading runs a strategy against live market prices without spending real money. ',
+          'Use it to validate a decoded strategy before going live.'),
+        el('p', { class: 'muted' },
+          "We've shown you some sample data here so you can see what an active paper bot looks like."),
+      ],
     });
 
-    // 5 — Solana RPC connected (live-fetches /debug/health)
+    // 7 — Live trading + injected sample data
     steps.push({
-      title: 'Solana RPC connected',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Your Helius mainnet RPC is wired up. The dashboard server is talking to the Solana network right now.'),
-          renderHealthSnapshot(body, 'rpc-only'),
-        );
-      },
+      title: 'Step 6: Live trading',
+      view: 'live',
+      highlight: '#view-live',
+      onEnter: () => injectSampleLiveBots(),
+      onLeave: () => removeSampleNodes(),
+      body: () => [
+        el('p', null,
+          'Live trading is the real-money mode. A bot here actually swaps USDC for region tokens on Solana mainnet. ',
+          'Only promote strategies you’ve paper-traded for at least a week.'),
+        el('p', { class: 'muted' },
+          "Like paper, we've populated some sample bots so you can see the layout."),
+      ],
     });
 
-    // 6 — Wallet setup
+    // 8 — Back to Discover, save a discovery result
     steps.push({
-      title: 'Wallet setup',
-      build: (body) => {
-        body.append(
-          el('p', null, 'The server autogenerated a 24-word recovery phrase on first boot. Whether you decide to fund a live wallet is entirely up to you.'),
-          el('p', { class: 'muted' }, 'Paper trading needs no funds — explore as long as you like before deciding.'),
-        );
-      },
-    });
-
-    // 7 — Back up the recovery phrase (amber warning, actionable)
-    steps.push({
-      title: 'Back up your recovery phrase',
-      build: (body) => {
-        const warn = el('div', { class: 'onboard-warn' });
-        warn.append(
-          el('div', null, el('strong', null, '⚠ This is the only step that can lose you money permanently.')),
-          el('p', { class: 'mt-1' },
-            'Open ',
-            el('code', { class: 'mono text-amber-200' }, '~/.pbx-bots/local.env'),
-            ' in a text editor, copy the 24 words after ',
-            el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
-            ' onto paper, and store the paper somewhere fireproof.'),
-          el('p', { class: 'mt-1' },
-            'Without those 24 words, any wallet you derive from this install is ',
-            el('strong', null, 'permanently inaccessible'), '.'),
-        );
-        body.append(warn);
-
-        const ackWrap = el('label', { class: 'flex items-start gap-2 mt-3 text-[12.5px] cursor-pointer text-zinc-200' });
-        const ackBox = el('input', { type: 'checkbox', class: 'accent-emerald-500 mt-0.5' });
-        ackBox.checked = onboardMnemonicAck;
-        ackBox.addEventListener('change', () => {
-          onboardMnemonicAck = ackBox.checked;
-          updateOnboardButtons();
-        });
-        ackWrap.append(ackBox, el('span', null, "I've backed up my recovery phrase on paper, or I'm aware I haven't (paper trading only)."));
-        body.append(ackWrap);
-
-        const softNote = el('p', { class: 'text-[11px] muted mt-2' },
-          "If you uncheck this and continue, the dashboard's persistent amber banner will keep nudging you until the in-app verifier confirms you wrote them down.");
-        body.append(softNote);
-      },
-      // Always permits Next; the box is informational. We surface a
-      // tooltip when unchecked so the user sees what they're choosing.
-      gate: () => true,
-    });
-
-    // 8 — Dependencies installed
-    steps.push({
-      title: 'Dependencies installed',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Node and Python packages are installed in a sandbox inside this repo. The bot cannot pollute your system Python or global node_modules.'),
-          el('p', { class: 'muted' }, 'If anything ever breaks, deleting the repo folder removes everything.'),
-        );
-      },
-    });
-
-    // 9 — Personality + theme
-    steps.push({
-      title: 'Personality and theme dialed in',
-      build: (body) => {
-        body.append(
-          el('p', null, "Your dashboard look and Claude's voice are both set to your picks from the quiz."),
-          el('p', { class: 'muted' },
-            'Change either anytime by saying ',
-            el('code', { class: 'mono text-zinc-300' }, 'switch theme to <name>'),
-            ' or ',
-            el('code', { class: 'mono text-zinc-300' }, 'switch personality to <name>'),
-            '.'),
-        );
-      },
-    });
-
-    // 10 — pm2
-    steps.push({
-      title: 'Process supervisor (pm2)',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Two background processes keep this dashboard alive and ticking:'),
-          el('ul', { class: 'list-disc list-inside text-zinc-200 space-y-1 ml-1' },
-            el('li', null, el('code', { class: 'mono text-emerald-300' }, 'bear-watch-server'), ' — the dashboard you are looking at, port 8787.'),
-            el('li', null, el('code', { class: 'mono text-emerald-300' }, 'paper-trade-bot'), ' — decides positions every sixty seconds.'),
-          ),
-          el('p', { class: 'muted' }, 'Both auto-restart if they crash. You never have to touch them.'),
-        );
-      },
-    });
-
-    // 11 — Scheduled watchdogs
-    steps.push({
-      title: 'Scheduled watchdogs',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Six Windows scheduled tasks run on a cadence so you do not have to think about any of them:'),
-          el('ul', { class: 'list-disc list-inside text-[12.5px] text-zinc-300 space-y-0.5 ml-1' },
-            el('li', null, 'Health checks — every 5 minutes'),
-            el('li', null, 'Weather pulls — every hour'),
-            el('li', null, 'Daily PnL digest — 6 AM'),
-            el('li', null, 'State backups — 3 AM'),
-            el('li', null, 'Codebase backups — Sundays at 3:30 AM'),
-            el('li', null, 'Meta-watchdog (watches the watchers) — every 5 minutes'),
-          ),
-        );
-      },
-    });
-
-    // 12a — Panel tour: header KPIs
-    steps.push({
-      title: 'Header KPIs',
-      highlight: '#header-kpis',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Capital, NAV, PnL, Volume, last tick, and uptime — your bot’s high-level state at a glance.'),
-          el('p', { class: 'muted' }, 'These update every 15 seconds without a refresh.'),
-        );
-      },
-    });
-
-    // 12b — Panel tour: sidebar nav
-    steps.push({
-      title: 'Sidebar navigation',
-      highlight: '#sidebar',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Five views, clicking left-to-right through your workflow:'),
-          el('ul', { class: 'list-disc list-inside text-[12.5px] text-zinc-300 space-y-0.5 ml-1' },
-            el('li', null, el('strong', { class: 'text-zinc-100' }, 'Discover'), ' — find the top traders on PBX right now'),
-            el('li', null, el('strong', { class: 'text-zinc-100' }, 'Leaderboard'), ' — who is winning, ranked by volume'),
-            el('li', null, el('strong', { class: 'text-zinc-100' }, 'Strategies'), ' — rules you’ve decoded or evolved'),
-            el('li', null, el('strong', { class: 'text-zinc-100' }, 'Paper trading'), ' — simulated results, no real funds'),
-            el('li', null, el('strong', { class: 'text-zinc-100' }, 'Live trading'), ' — on-chain activity, real USDC'),
-          ),
-        );
-      },
-    });
-
-    // 12c — Panel tour: Strategy Discovery card
-    steps.push({
-      title: 'Strategy Discovery — the main loop',
+      title: 'Step 7: Save the discovery',
+      view: 'discover',
       highlight: '#workflow-card',
-      build: (body) => {
-        body.append(
-          el('p', null, 'This is where the work happens: find top wallets, decode their rules, backtest, deploy the winners.'),
-          el('p', { class: 'muted' }, 'Start here when you are ready to run your first decode.'),
-        );
+      body: () => [
+        el('p', null,
+          'Discovery should be finished by now. Scroll through the discovered wallets and check the box next to one you want to save for later (or all of them). ',
+          'Saved wallets stay in your library across sessions.'),
+        el('p', { class: 'muted text-[12px]' },
+          'No checkboxes visible yet? Use the confirm button below once you\'ve eyeballed the results.'),
+      ],
+      gate: {
+        description: 'Waiting for: save a discovered wallet',
+        // Discovery-result checkboxes are not yet wired in markup; we
+        // listen for any checkbox toggle inside the discover view as a
+        // best-effort signal, plus the modal also shows a "Just
+        // continue →" fallback for users who don't see one.
+        listen: (advance) => {
+          const view = document.getElementById('view-discover');
+          const handler = (e) => {
+            const t = e.target;
+            if (!view || !t || !(t instanceof Element)) return;
+            if (!view.contains(t)) return;
+            if (t.tagName === 'INPUT' && t.type === 'checkbox') advance();
+          };
+          document.addEventListener('change', handler, true);
+          return () => document.removeEventListener('change', handler, true);
+        },
+        // Modal-rendered confirmation button — the "I've saved one" CTA
+        // that replaces the missing real checkbox UI in this build.
+        confirmLabel: "I've saved one — continue",
       },
     });
 
-    // 12d — Panel tour: health pills
+    // 9 — Decode a wallet directly
     steps.push({
-      title: 'Health pills',
-      highlight: '#health-pills',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Real-time system health badges in the header. Green means humming. Red means something needs attention.'),
-          el('p', { class: 'muted' }, 'Hover any pill for a one-line explanation of what it covers.'),
-        );
+      title: 'Step 8: Decode any wallet directly',
+      view: 'discover',
+      highlight: '#workflow-card',
+      body: () => [
+        el('p', null,
+          "Discover finds the top wallets automatically, but if you already have a wallet address you want to investigate, ",
+          'paste it into the wallet input on the Discover page and follow the prompts.'),
+        el('p', { class: 'muted text-[12px]' },
+          "Don't see a wallet input? This fork doesn't expose one yet — use the confirm button below to keep going."),
+      ],
+      gate: {
+        description: 'Waiting for: submit a wallet address',
+        // No dedicated wallet-input element exists in this fork's
+        // markup; fall back to either an Enter keypress on any input
+        // inside #view-discover, or the modal's confirm button.
+        listen: (advance) => {
+          const view = document.getElementById('view-discover');
+          const handler = (e) => {
+            if (e.key !== 'Enter') return;
+            const t = e.target;
+            if (!view || !t || !(t instanceof Element)) return;
+            if (!view.contains(t)) return;
+            if (t.tagName === 'INPUT') advance();
+          };
+          document.addEventListener('keydown', handler, true);
+          return () => document.removeEventListener('keydown', handler, true);
+        },
+        confirmLabel: 'Got it — continue',
       },
     });
 
-    // 13 — 7-check health
+    // 10 — You're ready
     steps.push({
-      title: 'Seven-check health verification',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Live results from the same end-to-end check your scheduled watchdog runs every five minutes:'),
-          renderHealthSnapshot(body, 'full'),
-          el('p', { class: 'muted text-[12px]' }, 'Five of seven green is normal for a fresh install. AQI data takes the first hour to populate; disk warnings depend on your machine.'),
-        );
-      },
-    });
-
-    // 14 — Team call (closes the tour)
-    steps.push({
-      title: 'Connect with the team',
-      build: (body) => {
-        body.append(
-          el('p', null, 'Join the PBX Stratos AI Agent group voice call to meet other operators and get unstuck early. Whoever maintains this fork drops the real invite link below.'),
-          el('div', { class: 'onboard-warn mt-2' },
-            el('strong', null, 'Placeholder link — your maintainer fills this in.'),
-            el('div', { class: 'mt-1' },
-              el('a', {
-                href: ONBOARD_PLACEHOLDER_URL,
-                target: '_blank',
-                rel: 'noopener noreferrer',
-                class: 'text-amber-200 underline hover:text-amber-100 mono',
-              }, ONBOARD_PLACEHOLDER_URL),
-            ),
-          ),
-          el('p', { class: 'muted mt-3 text-[12px]' }, "When you click Finish, this tour won't auto-show again. Clear site data to replay it."),
-        );
-      },
+      title: "You're ready to start",
+      view: 'discover',
+      body: () => [
+        el('p', null,
+          'You now know every page. From here, talk to Claude for what to do next — pick a strategy, deploy it to paper, watch how it performs.'),
+        el('p', null,
+          'The achievements track will celebrate as you progress through the roadmap.'),
+        el('p', { class: 'muted text-[12px]' },
+          "Refresh the tour anytime by clearing your browser's site data for this dashboard."),
+      ],
     });
 
     return steps;
   }
 
-  // Live snapshot helper. mode='full' renders all 7 checks. mode='rpc-only'
-  // shows just the headline ok flag for step 5. Fetches /debug/health
-  // best-effort; renders a pending state if the endpoint isn't ready.
-  function renderHealthSnapshot(body, mode) {
-    const box = el('div', { class: 'onboard-livecheck' });
-    const pending = el('div', { class: 'row pending' },
-      el('span', null, 'Fetching live status…'),
-      el('span', { class: 'mono' }, '—'));
-    box.append(pending);
+  // ── Sample data injection ────────────────────────────────────────────
+  // Steps 6 + 7 inject mock paper/live bots so empty views still demo
+  // what real data looks like. Tracked in `onboardSampleNodes` so we
+  // can yank them when leaving the step or dismissing the tour.
 
-    fetch('/debug/health')
-      .then((r) => r.json().catch(() => ({})).then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        while (box.firstChild) box.removeChild(box.firstChild);
-        if (mode === 'rpc-only') {
-          const overall = (j && j.ok === true) || ok;
-          box.append(el('div', { class: 'row' },
-            el('span', null, 'Solana RPC reachable'),
-            el('span', { class: overall ? 'ok' : 'bad' }, overall ? 'OK' : 'DOWN')));
-          return;
-        }
-        // Full mode — derive 7 row-like checks from whatever /debug/health
-        // returns. The exact schema differs by fork; we do best-effort.
-        const checks = extractHealthChecks(j);
-        if (!checks.length) {
-          box.append(el('div', { class: 'row pending' },
-            el('span', null, '/debug/health responded but no checks parsed'),
-            el('span', { class: 'mono' }, '—')));
-          return;
-        }
-        for (const c of checks) {
-          const cls = c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'pending';
-          const label = c.ok === true ? 'OK' : c.ok === false ? 'FAIL' : 'PENDING';
-          box.append(el('div', { class: 'row' },
-            el('span', null, c.name),
-            el('span', { class: cls }, label)));
-        }
-      })
-      .catch(() => {
-        while (box.firstChild) box.removeChild(box.firstChild);
-        box.append(el('div', { class: 'row pending' },
-          el('span', null, '/debug/health unreachable — server may not expose it'),
-          el('span', { class: 'mono' }, '—')));
-      });
-
-    return box;
+  function buildSampleBotCard(opts) {
+    // Mirrors the visual language of botCard() without trying to mock
+    // every internal field — a single descriptive card per spec, with
+    // a SAMPLE pill so the user knows it's preview, not their data.
+    const accent = opts.live ? '#fb7185' : '#7dd3fc';
+    return el('article', {
+      class: 'card rounded-xl p-5 glow-up',
+      style: '--accent: ' + accent + '; border-left: 3px solid ' + accent + ';',
+    },
+      el('header', { class: 'flex items-start justify-between gap-3 mb-3' },
+        el('div', { class: 'flex items-center gap-2 flex-wrap' },
+          el('span', { class: 'text-sm font-semibold text-zinc-50' }, opts.name),
+          el('span', {
+            class: 'text-[10px] mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+          }, 'RUNNING'),
+          el('span', {
+            class: 'text-[10px] mono px-1.5 py-0.5 rounded ' + (opts.live
+              ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30'
+              : 'bg-sky-500/10 text-sky-300 border border-sky-500/30'),
+          }, opts.live ? 'LIVE' : 'PAPER'),
+          el('span', { class: 'onboard-sample-pill' }, 'SAMPLE'),
+        ),
+        el('div', { class: 'text-right' },
+          el('div', { class: 'label' }, 'Lifetime PnL'),
+          el('div', { class: 'text-2xl mono leading-none ' + (opts.pnlPositive ? 'text-emerald-400' : 'text-rose-400') }, opts.pnl),
+          el('div', { class: 'text-[12px] mono opacity-80 muted' }, opts.age + ' · ' + opts.closed + ' closed'),
+        ),
+      ),
+      el('div', { class: 'grid grid-cols-2 gap-3 text-[12px] mono text-zinc-300' },
+        el('div', null, el('div', { class: 'label' }, 'Strategy'), el('div', null, opts.strategy)),
+        el('div', null, el('div', { class: 'label' }, 'Last tick'), el('div', null, opts.lastTick)),
+      ),
+    );
   }
 
-  // Best-effort mapper from /debug/health JSON to a list of named checks.
-  // Supports two common shapes: a `checks: {name: {ok}}` map, or the
-  // top-level `ok` + an arbitrary set of boolean leaves.
-  function extractHealthChecks(j) {
-    if (!j || typeof j !== 'object') return [];
-    if (j.checks && typeof j.checks === 'object') {
-      return Object.entries(j.checks).map(([name, v]) => ({
-        name,
-        ok: v && typeof v === 'object' ? v.ok : Boolean(v),
-      }));
-    }
-    const flat = [];
-    for (const [k, v] of Object.entries(j)) {
-      if (k === 'ok' || k === 'timestamp' || k === 'ts') continue;
-      if (typeof v === 'boolean') flat.push({ name: k, ok: v });
-      else if (v && typeof v === 'object' && 'ok' in v) flat.push({ name: k, ok: Boolean(v.ok) });
-    }
-    if ('ok' in j) flat.unshift({ name: 'overall', ok: Boolean(j.ok) });
-    return flat;
+  function injectSamplePaperBots() {
+    removeSampleNodes();
+    const host = document.getElementById('bot-cards');
+    if (!host) return;
+    const cards = [
+      buildSampleBotCard({
+        name: 'paper-eg-1', strategy: 'mean_reversion', live: false,
+        pnl: '+4.7%', pnlPositive: true, age: 'up 2h', closed: '3',
+        lastTick: '12s ago',
+      }),
+      buildSampleBotCard({
+        name: 'paper-eg-2', strategy: 'pm25_zscore', live: false,
+        pnl: '+1.2%', pnlPositive: true, age: 'up 8h', closed: '7',
+        lastTick: '8s ago',
+      }),
+    ];
+    const wrap = el('div', { id: 'onboard-paper-sample', class: 'contents' });
+    cards.forEach((c) => wrap.append(c));
+    host.append(wrap);
+    onboardSampleNodes.push(wrap);
   }
+
+  function injectSampleLiveBots() {
+    removeSampleNodes();
+    const view = document.getElementById('view-live');
+    if (!view) return;
+    // The live view is currently a single empty-state card. Insert the
+    // samples ABOVE the empty card so the user sees both: the layout
+    // they'll get once funded, and the real empty state below it.
+    const wrap = el('section', {
+      id: 'onboard-live-sample',
+      class: 'grid grid-cols-3 gap-4',
+    },
+      buildSampleBotCard({
+        name: 'live-eg-1', strategy: 'mean_reversion', live: true,
+        pnl: '+2.1%', pnlPositive: true, age: 'up 1d', closed: '5',
+        lastTick: '10s ago',
+      }),
+      buildSampleBotCard({
+        name: 'live-eg-2', strategy: 'pm25_zscore', live: true,
+        pnl: '-0.4%', pnlPositive: false, age: 'up 3d', closed: '12',
+        lastTick: '6s ago',
+      }),
+    );
+    view.prepend(wrap);
+    onboardSampleNodes.push(wrap);
+  }
+
+  function removeSampleNodes() {
+    while (onboardSampleNodes.length) {
+      const node = onboardSampleNodes.pop();
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+    }
+  }
+
+  // ── Highlight + step rendering ───────────────────────────────────────
 
   function onboardHighlight(selector) {
     document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
@@ -3375,30 +3390,112 @@
     }
   }
 
-  function updateOnboardButtons() {
-    const prev = document.getElementById('onboard-prev');
-    const next = document.getElementById('onboard-next');
-    const step = onboardSteps[onboardCurrent];
-    if (prev) prev.disabled = onboardCurrent === 0;
-    if (next) {
-      const allowed = step.gate ? step.gate() : true;
-      next.disabled = !allowed;
-      next.textContent = onboardCurrent === onboardSteps.length - 1
-        ? 'Finish & start exploring'
-        : 'Next';
+  function clearGateCleanup() {
+    if (typeof onboardGateCleanup === 'function') {
+      try { onboardGateCleanup(); } catch { /* swallow — listener already gone */ }
     }
+    onboardGateCleanup = null;
+  }
+
+  function advanceOnboard() {
+    if (onboardCurrent >= onboardSteps.length - 1) {
+      finishOnboarding(false);
+      return;
+    }
+    onboardCurrent++;
+    renderOnboardStep();
   }
 
   function renderOnboardStep() {
+    // Tear down the previous step: cleanup any gate listener, run the
+    // outgoing step's onLeave (e.g. remove injected samples) only if
+    // the next step doesn't share the same one.
+    clearGateCleanup();
+    // Always clear samples — each step that wants them re-injects in
+    // onEnter. This keeps the live/paper sample data isolated.
+    removeSampleNodes();
+
     const step = onboardSteps[onboardCurrent];
+
+    // View navigation BEFORE the modal repaints so the page settles
+    // under the dim backdrop while the user reads.
+    if (step.view && typeof showView === 'function') {
+      try { showView(step.view); } catch { /* showView guarded internally */ }
+    }
+    if (typeof step.onEnter === 'function') {
+      try { step.onEnter(); } catch { /* injection failures are non-fatal */ }
+    }
+
     document.getElementById('onboard-stepnum').textContent = 'Step ' + (onboardCurrent + 1) + ' of ' + onboardSteps.length;
     document.getElementById('onboard-title').textContent = step.title;
+
     const body = document.getElementById('onboard-body');
     while (body.firstChild) body.removeChild(body.firstChild);
-    step.build(body);
+    for (const node of step.body()) body.append(node);
+
     renderOnboardDots();
-    updateOnboardButtons();
     onboardHighlight(step.highlight || null);
+    updateOnboardControls();
+
+    // Wire the gate AFTER controls are rendered (so the "Just continue"
+    // link exists to receive its click handler). Auto-advance fires
+    // after a 600ms delay so the user sees their action register.
+    if (step.gate && typeof step.gate.listen === 'function') {
+      const advanceWithDelay = () => {
+        clearGateCleanup();
+        setTimeout(() => {
+          // Re-check we're still on the same step before advancing —
+          // a manual click on "Just continue" may have already moved
+          // us forward.
+          if (onboardSteps[onboardCurrent] === step) advanceOnboard();
+        }, 600);
+      };
+      onboardGateCleanup = step.gate.listen(advanceWithDelay);
+    }
+  }
+
+  function updateOnboardControls() {
+    const step = onboardSteps[onboardCurrent];
+    const prev = document.getElementById('onboard-prev');
+    const next = document.getElementById('onboard-next');
+    const body = document.getElementById('onboard-body');
+    if (prev) prev.disabled = onboardCurrent === 0;
+    if (!next || !body) return;
+
+    if (step.gate) {
+      // Gated step — replace the Next button with a "Waiting for…" pill
+      // plus an escape link, and surface a confirm button if the gate
+      // provides one (steps 8 + 9 where no real DOM target exists).
+      next.classList.add('hidden');
+      const gateWrap = el('div', { class: 'mt-3 flex items-center gap-3 flex-wrap' });
+      gateWrap.append(el('span', { class: 'onboard-waiting' }, step.gate.description));
+      if (step.gate.confirmLabel) {
+        const confirmBtn = el('button', {
+          type: 'button',
+          class: 'border border-emerald-500/50 text-emerald-300 rounded px-3 py-1.5 hover:bg-emerald-500/10 transition text-[12px]',
+        }, step.gate.confirmLabel);
+        confirmBtn.addEventListener('click', () => {
+          clearGateCleanup();
+          advanceOnboard();
+        });
+        gateWrap.append(confirmBtn);
+      }
+      const skipLink = el('button', {
+        type: 'button', class: 'onboard-skip-gate',
+      }, 'Just continue →');
+      skipLink.addEventListener('click', () => {
+        clearGateCleanup();
+        advanceOnboard();
+      });
+      gateWrap.append(skipLink);
+      body.append(gateWrap);
+    } else {
+      next.classList.remove('hidden');
+      next.disabled = false;
+      next.textContent = onboardCurrent === onboardSteps.length - 1
+        ? 'Finish'
+        : 'Next';
+    }
   }
 
   function openOnboardOverlay() {
@@ -3410,6 +3507,8 @@
   }
 
   function closeOnboardOverlay(showToast) {
+    clearGateCleanup();
+    removeSampleNodes();
     document.getElementById('onboard-backdrop').classList.add('hidden');
     document.getElementById('onboard-modal').classList.add('hidden');
     onboardHighlight(null);
@@ -3437,6 +3536,8 @@
       }
     });
     document.getElementById('onboard-next').addEventListener('click', () => {
+      // Gated steps hide this button entirely, so this branch only
+      // fires for non-gated steps (and the final Finish).
       if (onboardCurrent < onboardSteps.length - 1) {
         onboardCurrent++;
         renderOnboardStep();
