@@ -327,7 +327,7 @@ harness, dashboard, or pipeline, grep for the existing one:
 ```bash
 find bots/src -type f
 Grep "top.trader|decode|discover" bots/src
-Grep "fetcher|decoder|harness" lab/runners
+Grep "fetcher|decoder|harness" bear-scout/runners
 ```
 
 If a parallel build is genuinely warranted (different invariants,
@@ -482,6 +482,6 @@ every response so the user's preview pane always works.
 | Audit reports (when you start writing them) | `PBX-Stratos/_context/<scope>/audit-report-<YYYY-MM-DD>.md` |
 | Audit protocol templates | `PBX-Stratos/_context/protocols/audit-brief.md`, `audit-professional.md` |
 | Ops scripts (runnable, not meta) | `PBX-Stratos/bear-watch/` |
-| Research code (runnable, not meta) | `PBX-Stratos/lab/runners/` |
+| Research code (runnable, not meta) | `PBX-Stratos/bear-scout/runners/` |
 | Dashboard themes | `PBX-Stratos/themes/` |
 | User runtime state (NEVER commit) | `~/.pbx-lab/`, `~/.pbx-bots/` |

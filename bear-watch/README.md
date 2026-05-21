@@ -42,7 +42,7 @@ tier policy in `_context/CLAUDE.md`).
 
 ## What does NOT live here
 
-- Strategy code → lives in `lab/runners/`
+- Strategy code → lives in `bear-scout/runners/`
 - Live bot logic → lives in `bots/src/` (in the integrated starter repo)
 - Dashboard UI → lives in `bots/src/server/dashboard.html` + `themes/`
 - Per-scope journals + STATUS + audit reports → live in `_context/bear-watch/`

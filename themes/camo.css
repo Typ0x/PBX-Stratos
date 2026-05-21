@@ -1,0 +1,40 @@
+/* PBX Stratos — Camo theme (military green + amber alerts, paired with Drill Sergeant)
+ *
+ * Functional. Disciplined. No frills. Sage green canvas, amber for
+ * anything that needs your attention, red only for ACTUAL emergencies.
+ * Built to be readable under fluorescent lights.
+ */
+
+:root {
+  --bg-primary:    #2b3a2f; /* deep sage */
+  --bg-secondary:  #3a4a3e; /* panel olive */
+  --bg-tertiary:   #4a5b4e; /* lighter olive for inputs */
+  --text-primary:  #e8eadf; /* off-white parchment */
+  --text-muted:    #9aa48f; /* muted khaki */
+  --text-accent:   #f59e0b; /* amber — callouts, links */
+  --border-color:  #4a5b4e;
+  --success:       #84cc16; /* lime-500 — mission accomplished */
+  --warning:       #f59e0b; /* amber — standard alert */
+  --error:         #dc2626; /* red — ACTUAL emergency */
+  --info:          #a3a3a3; /* neutral gray — informational */
+
+  --font-body:     "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:     "Roboto Mono", "SF Mono", Consolas, monospace;
+  --font-display:  "Roboto Condensed", "Roboto", -apple-system, sans-serif;
+
+  --density:       compact;
+  --radius:        2px; /* very sharp corners — feels regulation */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+/* Caps treatment for headings — drill sergeant likes ALL CAPS for callouts */
+h1, h2, h3, h4 {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
+}

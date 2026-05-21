@@ -4,14 +4,14 @@ Wallet-strategy evolution loop. Systematic, reusable, persistent.
 
 For a given wallet pubkey:
   1. Load the wallet's actual buys from prod DB (real, on-chain).
-  2. Compute a snapshot at every rebalance cycle × region (real engine
+  2. Compute a snapshot at every rebalance cycle Ã— region (real engine
      movements + real per-region prices, no synthesis). Snapshots cache
      to <out>/snapshots.json so we don't recompute on each run.
   3. Evaluate a population of hypotheses (single-feature thresholds,
      parameter sweeps, AND-combinations, region-specific variants,
      wallet-state-aware, post-cycle timing windows).
   4. Rank by F1; persist all results to evolution.json + EVOLUTION.md.
-  5. Loop: if no hypothesis hits F1>0.30 with lift>5×, try a meaningfully
+  5. Loop: if no hypothesis hits F1>0.30 with lift>5Ã—, try a meaningfully
      different feature axis next epoch.
 
 Designed to be applied to ANY wallet. Each wallet gets its own folder
@@ -34,7 +34,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Import the shared HTTP helper from this directory (works when invoked
-# as `python3 lab/runners/wallet-evolve.py ...` or from cwd).
+# as `python3 bear-scout/runners/wallet-evolve.py ...` or from cwd).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _api
 
@@ -52,11 +52,11 @@ def log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
-# ─── snapshot construction (cached) ───────────────────────────────────
+# â”€â”€â”€ snapshot construction (cached) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def reconstruct_wallet_state(pubkey, days=60):
     """Walk the wallet's trade log chronologically and reconstruct:
-       - cumulative USDC inflow / outflow → USDC balance at each tx
+       - cumulative USDC inflow / outflow â†’ USDC balance at each tx
        - cumulative per-region position (in USDC-equivalent at trade-time)
        - time since last trade (any region)
        - time since last trade per region
@@ -112,7 +112,7 @@ def reconstruct_wallet_state(pubkey, days=60):
 
 
 def state_at(states, ts):
-    """Get wallet state as of just before ts (most recent state ≤ ts)."""
+    """Get wallet state as of just before ts (most recent state â‰¤ ts)."""
     prev = None
     for s in states:
         if datetime.fromisoformat(s['ts']) <= ts:
@@ -183,7 +183,7 @@ def compute_snapshots(out_dir, pubkey=None, rebuild=False, days=60):
             if c['sold'] == region: f -= 1
         return f
 
-    log("  computing snapshots (this is the slow part — ~30s for 6k cycles)...")
+    log("  computing snapshots (this is the slow part â€” ~30s for 6k cycles)...")
     snapshots = []
     last_log = 0
     for idx, c in enumerate(cycles):
@@ -326,7 +326,7 @@ def label_snapshots(snapshots, buys, match_window_minutes=15):
     return matched
 
 
-# ─── evaluation ───────────────────────────────────────────────────────
+# â”€â”€â”€ evaluation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def evaluate(snapshots, predicate, name):
     """Evaluate hypothesis on snapshots. If a snapshot has 'split' key,
@@ -367,11 +367,11 @@ def evaluate_train_test(train, test, predicate, name):
     }
 
 
-# ─── hypothesis library ──────────────────────────────────────────────
+# â”€â”€â”€ hypothesis library â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def hyp_singles():
     H = []
-    # User's hypothesis: simple — cross-region spread + engine direction.
+    # User's hypothesis: simple â€” cross-region spread + engine direction.
     # Lean heavily into these axes.
     for thr in [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.10, 0.12, 0.15]:
         H.append((f"H1.spread>={thr}", lambda s, t=thr: s['spread'] >= t))
@@ -433,7 +433,7 @@ def hyp_triple_combinations(top_singles_by_name):
 
 def hyp_region_specific():
     """Each region might have different thresholds (the wallet's NYC behavior
-    might differ from CHI/TOR — they're not symmetric in PM2.5 cycle)."""
+    might differ from CHI/TOR â€” they're not symmetric in PM2.5 cycle)."""
     H = []
     for region in REGION.values():
         for thr_spread in [0.03, 0.05, 0.07]:
@@ -465,26 +465,26 @@ def hyp_tightened_around(top, snapshots):
 def write_markdown(out_dir, pubkey, history, wallet_buys_n, snapshots_n):
     base_rate = sum(1 for h in history for r in h['results']) and 0
     with open(f"{out_dir}/EVOLUTION.md", 'w', encoding="utf-8") as f:
-        f.write(f"# Wallet decoder — {pubkey}\n\n")
+        f.write(f"# Wallet decoder â€” {pubkey}\n\n")
         f.write(f"Reverse-engineering this wallet's strategy via systematic hypothesis evolution.\n\n")
         f.write(f"- **Wallet buys (real, on-chain):** {wallet_buys_n}\n")
-        f.write(f"- **Snapshots tested:** {snapshots_n} (every engine cycle × 3 regions)\n")
-        f.write(f"- **Convergence target:** recall ≥ {CONVERGE_RECALL:.0%}, lift ≥ {CONVERGE_LIFT}×\n\n")
+        f.write(f"- **Snapshots tested:** {snapshots_n} (every engine cycle Ã— 3 regions)\n")
+        f.write(f"- **Convergence target:** recall â‰¥ {CONVERGE_RECALL:.0%}, lift â‰¥ {CONVERGE_LIFT}Ã—\n\n")
         for h in history:
-            f.write(f"## Epoch {h['epoch']} — {h.get('label', '')}\n\n")
+            f.write(f"## Epoch {h['epoch']} â€” {h.get('label', '')}\n\n")
             f.write(f"Evaluated **{len(h['results'])}** hypotheses.\n\n")
             f.write(f"| # | Hypothesis | Train F1 | Test F1 | Test Precision | Test Recall | Test Lift | Test Fires |\n")
             f.write(f"|---|---|---|---|---|---|---|---|\n")
             for i, r in enumerate(sorted(h['results'], key=lambda r: -r['f1_test'])[:10], 1):
                 tr = r.get('f1_train', r.get('f1', 0))
                 te = r.get('f1_test', r.get('f1', 0))
-                f.write(f"| {i} | `{r['name']}` | {tr:.3f} | {te:.3f} | {r.get('precision_test', r['precision']):.2%} | {r.get('recall_test', r['recall']):.2%} | {r.get('lift_test', r['lift']):.1f}× | {r.get('fires_test', r['n_fires'])} |\n")
+                f.write(f"| {i} | `{r['name']}` | {tr:.3f} | {te:.3f} | {r.get('precision_test', r['precision']):.2%} | {r.get('recall_test', r['recall']):.2%} | {r.get('lift_test', r['lift']):.1f}Ã— | {r.get('fires_test', r['n_fires'])} |\n")
             if 'learning' in h:
                 f.write(f"\n**Learning:** {h['learning']}\n")
             f.write("\n")
 
 
-# ─── main ─────────────────────────────────────────────────────────────
+# â”€â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def main():
     ap = argparse.ArgumentParser()
@@ -508,10 +508,10 @@ def main():
     buys = load_wallet_buys(args.pubkey, days=args.days)
     log(f"wallet buys: {len(buys)}")
     matched = label_snapshots(snapshots, buys, args.match_window)
-    log(f"buys matched to snapshots within ±{args.match_window}min: {len(matched)}/{len(buys)}")
+    log(f"buys matched to snapshots within Â±{args.match_window}min: {len(matched)}/{len(buys)}")
 
     # Train/test split: chronological 70/30. Test set is held out from
-    # all parameter tuning — final ranking uses test F1 to penalize overfit.
+    # all parameter tuning â€” final ranking uses test F1 to penalize overfit.
     snapshots_sorted = sorted(snapshots, key=lambda s: s['ts'])
     split_idx = int(len(snapshots_sorted) * 0.7)
     train_snaps = snapshots_sorted[:split_idx]
@@ -560,7 +560,7 @@ def main():
             top_dict = {r['name']: fn_by_name[r['name']] for r in top}
             hypotheses = hyp_triple_combinations(top_dict)
         elif epoch == 7:
-            label = "Hourly bucket × deviation × spread (full grid)"
+            label = "Hourly bucket Ã— deviation Ã— spread (full grid)"
             H = []
             for hr_range in [(0,3),(4,7),(8,11),(12,15),(16,19),(20,23),(0,7),(8,15),(16,23)]:
                 for dev_thr in [-0.03, -0.05, -0.08]:
@@ -586,7 +586,7 @@ def main():
         elif epoch == 9:
             label = "Loose threshold variants (catch the remaining 46%)"
             H = []
-            # Maybe they take buys with WEAKER signal too — sweep weaker thresholds
+            # Maybe they take buys with WEAKER signal too â€” sweep weaker thresholds
             for sp_thr in [0.04, 0.06, 0.08]:
                 for dev_thr in [-0.005, -0.01, -0.015, -0.02]:
                     H.append((f"spread>={sp_thr}.dev<={dev_thr}",
@@ -618,7 +618,7 @@ def main():
                                                           and s['dev_1440m'] <= -0.03))
             hypotheses = H
         elif epoch == 11:
-            label = "WALLET-STATE × signal: AND the best wallet-state filter with best signal"
+            label = "WALLET-STATE Ã— signal: AND the best wallet-state filter with best signal"
             # Get top 3 from epoch 10 and AND with top 3 from earlier
             all_results = [r for h in history for r in h['results']]
             wallet_rules = [r for r in all_results if r['name'].startswith('w_') and 'spread' not in r['name']]
@@ -660,7 +660,7 @@ def main():
         ranked = sorted(results, key=lambda r: -r['f1_test'])
         log(f"  evaluated {len(results)} hypotheses; top 5 (by TEST f1):")
         for r in ranked[:5]:
-            log(f"    {r['name'][:48]:48s} tr_f1={r['f1_train']:.3f}/te_f1={r['f1_test']:.3f} te_P={r['precision_test']:.2%} te_R={r['recall_test']:.2%} te_lift={r['lift_test']:.1f}×")
+            log(f"    {r['name'][:48]:48s} tr_f1={r['f1_train']:.3f}/te_f1={r['f1_test']:.3f} te_P={r['precision_test']:.2%} te_R={r['recall_test']:.2%} te_lift={r['lift_test']:.1f}Ã—")
 
         history.append({'epoch': epoch, 'label': label, 'results': results})
         write_markdown(out_dir, args.pubkey, history, len(buys), len(snapshots))
@@ -671,17 +671,17 @@ def main():
         if score > prev_score + 0.05:
             best_metric = top_metric
             no_improve = 0
-            log(f"  ↑ progress: recall={top_metric[0]:.2%}, lift={top_metric[1]:.1f}×")
+            log(f"  â†‘ progress: recall={top_metric[0]:.2%}, lift={top_metric[1]:.1f}Ã—")
         else:
             no_improve += 1
-            log(f"  → no meaningful gain (best so far recall={best_metric[0]:.2%}, lift={best_metric[1]:.1f}×)")
+            log(f"  â†’ no meaningful gain (best so far recall={best_metric[0]:.2%}, lift={best_metric[1]:.1f}Ã—)")
 
         # Note: don't early-exit. The convergence target is a milestone, not
-        # the stopping criterion — we want to keep evolving past initial finds.
+        # the stopping criterion â€” we want to keep evolving past initial finds.
         if ranked and ranked[0]['recall_test'] >= CONVERGE_RECALL and ranked[0]['lift_test'] >= CONVERGE_LIFT:
-            log(f"  ✓ milestone: {ranked[0]['name']}  recall={ranked[0]['recall_test']:.2%} lift={ranked[0]['lift_test']:.1f}× (continuing search)")
+            log(f"  âœ“ milestone: {ranked[0]['name']}  recall={ranked[0]['recall_test']:.2%} lift={ranked[0]['lift_test']:.1f}Ã— (continuing search)")
         if no_improve >= 3:
-            log(f"  ! stalled 3 epochs — would benefit from a meaningfully different feature axis next")
+            log(f"  ! stalled 3 epochs â€” would benefit from a meaningfully different feature axis next")
 
     # Persist everything
     train_base = train_buys / len(train_snaps) if train_snaps else 0

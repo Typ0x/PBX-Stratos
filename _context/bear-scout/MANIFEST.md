@@ -23,8 +23,8 @@ IT LOOK GOOD).
 
 | Path | Why |
 |------|-----|
-| `lab/runners/*` | All research scripts: backtests, paper trader, sweeps, analysis |
-| `lab/runners/strategy-registry.json` | The canonical strategy list |
+| `bear-scout/runners/*` | All research scripts: backtests, paper trader, sweeps, analysis |
+| `bear-scout/runners/strategy-registry.json` | The canonical strategy list |
 | `bots/src/strategies/*` | Live trading strategy code (when in the integrated starter repo, and ONLY with appropriate consent — see Tier 2 in `_context/CLAUDE.md`) |
 | `_context/bear-scout/*` | This scope's own meta files |
 

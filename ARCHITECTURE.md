@@ -98,7 +98,7 @@ What "not slop" means in practice:
 | User-facing entry points | `PBX-Stratos/README.md`, `ROADMAP.md`, `ARCHITECTURE.md` (this file), `INSTALL.md`, `PROMPT.md` | Top-level so a new user reading the repo sees them first |
 | Claude behavior + personality system | `PBX-Stratos/.claude/UNIVERSAL-CORE.md`, `.claude/personalities/`, `.claude/achievements/`, `.claude/skills/` | Inside `.claude/` because Claude Code auto-loads them at session start |
 | Dashboard visual themes | `PBX-Stratos/themes/` | Top-level so users editing CSS find them easily; the dashboard server reads from here |
-| Lab research workbench | `PBX-Stratos/lab/runners/`, `lab/aq-price/`, `lab/data/` | Where the wallet decoders, evolvers, paper-trader, and AQ-price models live. Outputs land in `~/.pbx-lab/` (user state, not committed) |
+| Lab research workbench | `PBX-Stratos/bear-scout/runners/`, `bear-scout/aq-price/`, `bear-scout/data/` | Where the wallet decoders, evolvers, paper-trader, and AQ-price models live. Outputs land in `~/.pbx-lab/` (user state, not committed) |
 | Live bot fleet (opt-in) | `PBX-Stratos/bots/src/`, `bots/scripts/`, `bots/package.json` | Fastify dashboard + orchestrator + strategies + swap router integration. Gated behind `HELIUS_MAINNET_URL`. |
 | Swap router (multi-venue exec) | `PBX-Stratos/packages/swap-router/` | Meteora / Orca / Jupiter venue adapters + router that picks best per trade. Used by both paper trader (for quote-only simulation) and live bot (for real fills). |
 | `pbx` CLI + Python package | `PBX-Stratos/pbx` (CLI entry), `PBX-Stratos/src/pbx_trader_lab/` (Python package: achievements tracker, event evaluator) | CLI is the offline side of the lab; the Python package powers event-driven achievement tracking |
@@ -163,15 +163,15 @@ the box.
 
 | Tier | What it covers | Consent required? |
 |------|---------------|---------------|
-| **0** | Files outside `bots/src/`, dashboard.html, css, log files, docs, `lab/aq-price/` analytical scripts | Never |
-| **1** | `.ts` files under `bots/src/` (triggers pm2 reload), `lab/runners/` decoder scripts, `packages/swap-router/src/` venue adapters | Only if live bot has open position |
+| **0** | Files outside `bots/src/`, dashboard.html, css, log files, docs, `bear-scout/aq-price/` analytical scripts | Never |
+| **1** | `.ts` files under `bots/src/` (triggers pm2 reload), `bear-scout/runners/` decoder scripts, `packages/swap-router/src/` venue adapters | Only if live bot has open position |
 | **2** | `bots/src/strategies/`, `runner.ts`, `regions.ts`, `perf.ts`, `bots/src/server/workflow/agentic_decode.ts`, `bots/src/server/workflow/claude_decode.ts` (live-bot logic + decode workflow that touches keys) | Yes, EVEN with no open position |
 | **3** | `.env`, `pm2.config.cjs`, `bots/src/server/hd.ts`, `bots/src/server/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
 
 Documented authoritatively in `_context/CLAUDE.md` (the multi-scope
 policy doc). Personalities can never override these tiers.
 
-The lab decoders (`lab/runners/wallet-evolve.py`, `agentic-decode.py`)
+The lab decoders (`bear-scout/runners/wallet-evolve.py`, `agentic-decode.py`)
 are Tier 1 because they read/write `~/.pbx-lab/wallets/` outputs but
 never touch on-chain signing. The swap router venue adapters are
 Tier 1 for the same reason — they construct unsigned instructions; the

@@ -50,24 +50,27 @@ fires WAY before that.
 ## Section 1 — Genesis
 
 > Install, get safe, get oriented. Claude does almost all the typing
-> — you just understand and approve.
+> — you just understand and approve. Tasks are 1:1 with the actual
+> install order the `pbx-stratos-setup` wizard walks through. Finishing
+> them in order = a working dashboard + paper trader + scheduled
+> watchdogs in ~30 minutes.
 
 | ID | Task | Done when |
 |----|------|-----------|
-| `s1.t1` | Install Claude Desktop and sign into an account that has the **Pro Plan** (required for Claude Code) | installer succeeds, you're signed in with a Pro Plan account |
-| `s1.t2` | Tell Claude to verify if PBX Stratos Repo is safe and start the onboarding process in .README | Claude responds and begins the walkthrough |
-| `s1.t3` | Have Claude verify the repo is safe (Step 0 audit — code reads, wallet stays local, no telemetry, no backdoors) | Claude reports findings in plain language, you approve |
-| `s1.t4` | Complete the 5-question personality quiz (Claude leads — you pick answers) | `~/.pbx-lab/user-profile.json` is written |
-| `s1.t5` | Have a voice call with the team in the PBX Stratos AI Agent group | call scheduled or completed |
-| `s1.t6` | Have Claude walk you through the README's "How the signal works" section | you can explain in your own words how PM2.5 connects to token prices |
-| `s1.t7` | Have Claude check your machine's prerequisites + explain what each tool does (Node, Python, git, pm2) | check complete, you can name what each tool is for |
-| `s1.t8` | Have Claude install the bot's dependencies | install complete |
-| `s1.t9` | Have Claude install pm2 + explain what process supervision means | pm2 installed, you can explain why pm2 vs just running scripts directly |
-| `s1.t10` | Have Claude explain each starter strategy's intent, then pick one knowing why | starter selected, you can defend the choice |
-| `s1.t11` | Pick a Claude personality + theme (first vibe pick — you'll customize deeper in Section 3) | `personality_id` + `theme_id` written to profile |
-| `s1.t12` | Open the dashboard + have Claude give you a tour of every panel | you can name what each panel shows |
-| `s1.t13` | Have Claude register the scheduled tasks | all 7 BEARWATCH-* tasks registered |
-| `s1.t14` | Run the 7-check health verification | all 7 health checks GREEN |
+| `s1.t1` | Install **Claude Desktop** with a Pro Plan account, then toggle **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass permissions" ON** | installer succeeded, signed in with Pro, both toggles ON (without these the install takes ~5× longer) |
+| `s1.t2` | Clone the repo + type the trigger phrase: *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* | Claude opens the wizard and starts the 4-stage audit |
+| `s1.t3` | Sit through the 4-stage safety audit (host / Claude CLI / clone-integrity / 4 security greps) + approve | Claude reports each stage in plain English, you click "Yes, let's go" |
+| `s1.t4` | Answer the 5-question personality quiz (tech level / comm style / goal / consent / autonomy) | `~/.pbx-lab/user-profile.json` is written with your 5 answers |
+| `s1.t5` | Paste your free **Helius RPC API key** when Claude asks — `.env` is written, ACL-locked, and `.gitignore` confirmed | `.env` exists at repo root, owner-only ACL, `HELIUS_MAINNET_URL` populated (key NEVER echoed) |
+| `s1.t6` | Decide on wallet generation (fresh / import / defer) — the server autogenerates the 24-word `BOT_HD_MNEMONIC` into `~/.pbx-bots/local.env` on first boot regardless | `~/.pbx-bots/local.env` exists at mode 0600 with `BOT_API_TOKEN` + `BOT_MASTER_KEY` (64-hex) + `BOT_HD_MNEMONIC` (24 words) |
+| `s1.t7` | **Back up your 24-word `BOT_HD_MNEMONIC` on PAPER** — this is the only thing that reconstructs every wallet your fleet derives | 24 words written on paper, paper stored somewhere fireproof, file closed (do NOT screenshot, do NOT paste into a cloud password manager unprotected) |
+| `s1.t8` | Let Claude install Node + Python dependencies (`npm install` at repo root via workspaces + `pip install -e .[decoder]` in `.venv`) | `node_modules/` populated, `.venv/` created, `pbx_trader_lab` + `sklearn` + `numpy` import cleanly, `.tooling/ready.json` written |
+| `s1.t9` | Pick a Claude personality (Default / Crypto Bro / Drill Sergeant / Surf Bro / Quant Professor / Hacker) — matching theme auto-applies to the dashboard | `personality_id` + `theme_id` saved in profile, `bots/src/server/active-theme.css` updated |
+| `s1.t10` | Watch Claude bring the pm2 fleet online — `bear-watch-server` (dashboard + bot server, port 8787) + `paper-trade-bot` (60s tick loop) | `pm2 list` shows both as `online`, `127.0.0.1:8787` listening, `/health` returns `{"ok":true}` |
+| `s1.t11` | Register the 6 Windows scheduled tasks (HealthCheck / WeatherPull / DailyDigest / StateBackup / CodebaseBackup / MetaWatchdog) via `register-scheduled-tasks.ps1` | `schtasks /query` shows all 6 `BEARWATCH-*` tasks `Ready` |
+| `s1.t12` | Dashboard opens automatically at `http://127.0.0.1:8787/dashboard` — confirm it renders + Claude gives you a panel tour | you can name what each panel shows (positions / AQI / health / alerts / strategy) |
+| `s1.t13` | Run `bear-watch/health-check.py` — the 7-check verification (server / dashboard / heartbeat / AQI / alerts / disk / RPC) | 5+ of 7 GREEN; any REDs explained (AQI populates after the first weather pull; disk REDs if your drive is <10% free) |
+| `s1.t14` | Schedule a voice call with the team in the **PBX Stratos AI Agent group** — meet other operators, get unstuck early | call scheduled or completed. **Section 1 complete → move to Section 2 (Pulse).** |
 
 ---
 
@@ -151,7 +154,7 @@ fires WAY before that.
 | `s4.t2` | Discuss it with Claude | Claude has helped you sharpen or reject the hypothesis |
 | `s4.t3` | Turn it into entry rules | concrete conditions that determine BUY |
 | `s4.t4` | Turn it into exit rules | concrete conditions that determine SELL |
-| `s4.t5` | Add to strategy registry | your strategy appears in `lab/runners/strategy-registry.json` |
+| `s4.t5` | Add to strategy registry | your strategy appears in `bear-scout/runners/strategy-registry.json` |
 | `s4.t6` | Backtest your strategy | backtest command completed with stats |
 | `s4.t7` | Iterate based on backtest | at least one revision of your strategy exists |
 | `s4.t8` | Deploy your strategy to paper trading | paper trader has loaded your strategy |
@@ -167,7 +170,7 @@ fires WAY before that.
 | `s4.t18` | Document your strategy logic | a markdown file explains what + why |
 | `s4.t19` | Use the `evolve-job` runner to find variants | evolutionary search returned candidates |
 | `s4.t20` | Discover a market pattern Claude didn't suggest | original observation, not derived from Claude's prompts |
-| `s4.t21` | Write a DSL predicate by hand in your strategy file (no Claude-in-the-loop) — pick a feature, pick a threshold, ship it to paper | the predicate appears in `lab/runners/strategy-registry.json` and paper trader picks it up cleanly |
+| `s4.t21` | Write a DSL predicate by hand in your strategy file (no Claude-in-the-loop) — pick a feature, pick a threshold, ship it to paper | the predicate appears in `bear-scout/runners/strategy-registry.json` and paper trader picks it up cleanly |
 
 ---
 
@@ -264,7 +267,7 @@ of the framework's current release. Section 6 starts with the $100 reward.**
 | `s7.t12` | Profitable monthly average for 3 months | 3 months in a row with positive monthly PnL |
 | `s7.t13` | Help another user onboard | someone you know has cloned the repo and gotten to Level 1 with your help |
 | `s7.t14` | Write a research note documenting a market discovery | a markdown note describing something you found, shareable |
-| `s7.t15` | Build a near-term PM2.5 → price forecasting model using `lab/aq-price/` and beat the persistence baseline on 7 days of held-out data | `aq-price/price_leaderboard.py` shows your model above persistence on the held-out window |
+| `s7.t15` | Build a near-term PM2.5 → price forecasting model using `bear-scout/aq-price/` and beat the persistence baseline on 7 days of held-out data | `aq-price/price_leaderboard.py` shows your model above persistence on the held-out window |
 | `s7.t16` | Integrate a new sensor source | not PurpleAir/AirNow — a different data feed |
 | `s7.t17` | Train a custom personality others would use | personality you wrote has been picked by at least one other user |
 | `s7.t18` | Run 90 days of live trading | continuous live uptime ≥ 2160h |

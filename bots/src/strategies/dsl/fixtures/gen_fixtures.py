@@ -2,7 +2,7 @@
 """Differential-test fixture generator for the DSL interpreter port.
 
 Loads the *real* predicate evaluator out of
-`lab/runners/agentic-decode.py` (via importlib, since the filename has a
+`bear-scout/runners/agentic-decode.py` (via importlib, since the filename has a
 hyphen and cannot be a normal import) and records, for a curated set of
 `(predicate, snapshot)` pairs, the Python result.
 

@@ -52,7 +52,7 @@ Pause after each step to report results — don't blast through silently.
 ### Step 1 — `wallet-decoder.py` (pull features)
 
 ```bash
-python3 lab/runners/wallet-decoder.py <pubkey>
+python3 bear-scout/runners/wallet-decoder.py <pubkey>
 ```
 
 Writes `features.csv` (one row per trade + market state at trade-time)
@@ -66,7 +66,7 @@ this pubkey is too thin to decode reliably.
 ### Step 2 — `wallet-evolve.py` (systematic decode)
 
 ```bash
-python3 lab/runners/wallet-evolve.py <pubkey> --epochs 10
+python3 bear-scout/runners/wallet-evolve.py <pubkey> --epochs 10
 ```
 
 Evolves a hand-crafted hypothesis space across 10 epochs (default).
@@ -86,7 +86,7 @@ rule, the population's best F1, the lift over baseline.
 ### Step 3 — `wallet-ml.py` (sklearn fit)
 
 ```bash
-python3 lab/runners/wallet-ml.py <pubkey>
+python3 bear-scout/runners/wallet-ml.py <pubkey>
 ```
 
 Trains a random forest classifier on the decoded snapshots. Writes
@@ -101,16 +101,16 @@ this rule blindly.
 ### Step 4 — `agentic-decode.py` (Claude in the loop)
 
 ```bash
-python3 lab/runners/agentic-decode.py <pubkey> --rounds 10
+python3 bear-scout/runners/agentic-decode.py <pubkey> --rounds 10
 ```
 
 This is where it gets interesting. Each round:
 
 - Claude proposes an entry+exit predicate pair in a simple DSL
   (`bots/src/strategies/dsl/interpreter.ts`)
-- Local evaluator (`lab/runners/_fitness.py`) scores precision /
+- Local evaluator (`bear-scout/runners/_fitness.py`) scores precision /
   recall / lift on the wallet's actual buys (entry) and sells (exit)
-- Round-trip simulator (`lab/runners/_simlib.py`) walks
+- Round-trip simulator (`bear-scout/runners/_simlib.py`) walks
   chronologically: entry fires → hold → exit fires (or 3-day
   max-hold) → close. Tracks real net return after 30 bps fees.
 - Claude sees metrics + sample false positives/negatives + sample
@@ -129,7 +129,7 @@ that landed the best predicate to the user.
 
 - ✅ PASS → tell the user the final rule, the held-out P&L, the
   Sharpe (if computed), and offer next steps:
-  1. Save the rule to `lab/runners/strategy-registry.json` as a paper
+  1. Save the rule to `bear-scout/runners/strategy-registry.json` as a paper
      strategy
   2. Deploy to the paper trader and watch for 24-48 hours
   3. If paper looks good, promote to live (only if `goal` is
@@ -187,10 +187,10 @@ needed.
 
 - Live trading deployment — that's `bots/src/runner.ts` + dashboard
 - Pure backtesting of a non-decoded strategy — use
-  `lab/runners/paper-trade.py --strategy <name>` directly
+  `bear-scout/runners/paper-trade.py --strategy <name>` directly
 - Strategy parameter tuning on a known rule — that's the Forge section
   workflow (s3.t1-s3.t10)
-- PM2.5 forecasting — that's `lab/aq-price/`
+- PM2.5 forecasting — that's `bear-scout/aq-price/`
 - Generating a fresh hypothesis from your own observation — that's
   Section 4 (Architect)
 

@@ -1,5 +1,5 @@
 /**
- * Spawns the Python `lab/runners/agentic-decode.py` (Claude-in-the-loop
+ * Spawns the Python `bear-scout/runners/agentic-decode.py` (Claude-in-the-loop
  * decoder with walk-forward validation + round-trip simulation) and
  * returns its structured result. Runs AFTER decode.ts has written
  * snapshots.json + features.csv to ~/.pbx-lab/wallets/<pubkey>/.
@@ -17,7 +17,7 @@
  * The Claude CLI is OPTIONAL. With it, agentic-decode.py runs an LLM
  * refinement loop (sharper, wallet-specific rules); without it, it falls
  * back to a data-driven search over the wallet's own feature thresholds.
- * Either way it returns a real rule + test metrics — `mode` says which.
+ * Either way it returns a real rule + test metrics â€” `mode` says which.
  *
  * Gracefully falls back to {ran: false, skipReason: ...} only if Python
  * itself isn't available, so the rest of the workflow still works.
@@ -32,7 +32,7 @@ const REPO_ROOT_ENV = 'PBX_REPO_ROOT';
 
 /** Hard cap on the agentic decoder's runtime. It runs up to `maxRounds`
  *  claude calls plus walk-forward simulation inside a single Python
- *  process — generous, but a wedged child must not hang the orchestrator
+ *  process â€” generous, but a wedged child must not hang the orchestrator
  *  forever. Override with PBX_AGENTIC_TIMEOUT_MS. */
 const AGENTIC_DECODE_TIMEOUT_MS = Number(
   process.env.PBX_AGENTIC_TIMEOUT_MS ?? 20 * 60 * 1000,
@@ -41,7 +41,7 @@ const AGENTIC_DECODE_TIMEOUT_MS = Number(
 function repoRoot(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
   if (envRoot) return resolve(envRoot);
-  // bots/src/server/workflow → ../../../.. (bots → repo root)
+  // bots/src/server/workflow â†’ ../../../.. (bots â†’ repo root)
   const here = dirname(fileURLToPath(import.meta.url));
   return resolve(here, '..', '..', '..', '..');
 }
@@ -173,14 +173,14 @@ export async function agenticDecodeWallet(
     const onAbort = () => { try { proc.kill('SIGTERM'); } catch { /* noop */ } };
     if (opts.signal) opts.signal.addEventListener('abort', onAbort, { once: true });
 
-    // Bound the decoder's runtime — a wedged Python child (or a stalled
+    // Bound the decoder's runtime â€” a wedged Python child (or a stalled
     // claude call inside it) would otherwise hang this Promise forever.
     const timeoutMs = opts.timeoutMs ?? AGENTIC_DECODE_TIMEOUT_MS;
     const clearProcTimeout = armProcessTimeout(proc, timeoutMs, () => {
       if (opts.signal) opts.signal.removeEventListener('abort', onAbort);
       resolveResult({
         ran: false,
-        skipReason: `agentic-decode.py timed out after ${Math.round(timeoutMs / 1000)}s — killed`,
+        skipReason: `agentic-decode.py timed out after ${Math.round(timeoutMs / 1000)}s â€” killed`,
       });
     });
 
@@ -191,7 +191,7 @@ export async function agenticDecodeWallet(
     proc.stderr.on('data', (c: Buffer) => {
       const s = c.toString('utf8');
       stderr += s;
-      // agentic-decode.py streams `PBXPROGRESS {json}` lines to stderr —
+      // agentic-decode.py streams `PBXPROGRESS {json}` lines to stderr â€”
       // scan them out line-by-line and forward to onProgress.
       if (!opts.onProgress) return;
       progressBuf += s;

@@ -1,0 +1,36 @@
+/* PBX Stratos — Matrix theme (green-on-black mono, paired with Hacker)
+ *
+ * Phosphor green on pure black. Everything mono. Sharp corners. Built
+ * to feel like a CRT terminal. Reduces ambient color enough that the
+ * dashboard reads like log output rather than a marketing landing page.
+ */
+
+:root {
+  --bg-primary:    #000000;
+  --bg-secondary:  #0a0a0a;
+  --bg-tertiary:   #141414;
+  --text-primary:  #00ff66; /* terminal green */
+  --text-muted:    #008833; /* dimmer green */
+  --text-accent:   #66ff99; /* brighter green for accents */
+  --border-color:  #003311; /* very dark green border */
+  --success:       #00ff66;
+  --warning:       #ffaa00; /* amber — old-school terminal warning */
+  --error:         #ff3030; /* bright red — only the truly bad */
+  --info:          #00aaff; /* electric blue — borrowed from sysadmin tools */
+
+  /* Everything mono — no sans, no serif */
+  --font-body:     "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
+  --font-mono:     "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
+  --font-display:  "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
+
+  --density:       compact;
+  --radius:        0; /* sharp corners only */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  /* faint CRT-like scanline feel via text-shadow */
+  text-shadow: 0 0 1px rgba(0, 255, 102, 0.3);
+}

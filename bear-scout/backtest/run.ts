@@ -5,7 +5,7 @@
  *   DATABASE_URL=...  (from .env.production)
  *   BIRDEYE_API_KEY=...
  *
- *   tsx bots/scripts/backtest/run.ts [--days 25] [--batch hodl|conviction|reversion|trend|all]
+ *   tsx bear-scout/backtest/run.ts [--days 25] [--batch hodl|conviction|reversion|trend|all]
  */
 import { fetchAlignedBars, type RegionKey } from './data.js';
 import { backtest, reportTable, reportTableBySharpe, type BacktestStrategy } from './harness.js';
@@ -134,7 +134,7 @@ function buildBatch(name: string): BacktestStrategy[] {
       ];
     case 'final-zone':
       return [
-        // Around 80-20_w14 — try longer windows
+        // Around 80-20_w14 â€” try longer windows
         pm25Band({ name: '80-20_w13', entryPct: 80, exitPct: 20, minHistoryHrs: 13 }),
         pm25Band({ name: '80-20_w15', entryPct: 80, exitPct: 20, minHistoryHrs: 15 }),
         pm25Band({ name: '80-20_w16', entryPct: 80, exitPct: 20, minHistoryHrs: 16 }),
@@ -148,7 +148,7 @@ function buildBatch(name: string): BacktestStrategy[] {
         pm25Band({ name: '85-15_w14', entryPct: 85, exitPct: 15, minHistoryHrs: 14 }),
         pm25Band({ name: '85-15_w16', entryPct: 85, exitPct: 15, minHistoryHrs: 16 }),
         pm25Band({ name: '88-12_w14', entryPct: 88, exitPct: 12, minHistoryHrs: 14 }),
-        // Asymmetric — wider upside, tight downside
+        // Asymmetric â€” wider upside, tight downside
         pm25Band({ name: '75-15_w14', entryPct: 75, exitPct: 15, minHistoryHrs: 14 }),
         pm25Band({ name: '80-10_w14', entryPct: 80, exitPct: 10, minHistoryHrs: 14 }),
         pm25Band({ name: '85-10_w14', entryPct: 85, exitPct: 10, minHistoryHrs: 14 }),
@@ -288,7 +288,7 @@ function buildBatch(name: string): BacktestStrategy[] {
         // Asymmetric (early entry, late exit)
         pm25Band({ name: 'BAND_60-40_w24', entryPct: 60, exitPct: 40, minHistoryHrs: 24 }),
         pm25Band({ name: 'BAND_55-45_w24', entryPct: 55, exitPct: 45, minHistoryHrs: 24 }),
-        // Inverted (try buying low pm25, selling high — opposite hypothesis)
+        // Inverted (try buying low pm25, selling high â€” opposite hypothesis)
         pm25Band({ name: 'BAND_INV_25-75_w24', entryPct: 25, exitPct: 75, minHistoryHrs: 24 }),
         // Pure price-based for comparison (does pm25 add anything?)
         priceBand({ name: 'BAND_PRICE_25-75_w24', entryPct: 25, exitPct: 75, minHistoryHrs: 24 }),
@@ -313,10 +313,10 @@ function buildBatch(name: string): BacktestStrategy[] {
         regionArb({ name: 'RA_fast_e3_x25',    entryT: 0.03, exitT: 0.025 }),
         regionArb({ name: 'RA_wide_e5_x4',     entryT: 0.05, exitT: 0.04 }),
         regionArb({ name: 'RA_deep_e6_x5',     entryT: 0.06, exitT: 0.05 }),
-        // Symmetric (exitT = entryT) — capture full overshoot
+        // Symmetric (exitT = entryT) â€” capture full overshoot
         regionArb({ name: 'RA_sym_e4',         entryT: 0.04, exitT: 0.04 }),
         regionArb({ name: 'RA_sym_e5',         entryT: 0.05, exitT: 0.05 }),
-        // Wider exits — patient holds
+        // Wider exits â€” patient holds
         regionArb({ name: 'RA_e4_x6',          entryT: 0.04, exitT: 0.06 }),
         regionArb({ name: 'RA_e5_x8',          entryT: 0.05, exitT: 0.08 }),
         // Back-to-mean exit (don't wait for held to be richest)
@@ -343,7 +343,7 @@ function buildBatch(name: string): BacktestStrategy[] {
         regionArb({ name: 'RA_e4_btm0_rot_ts24', entryT: 0.04, exitT: 0.99, backToMeanExit: 0.0, rotation: true, timeStopHrs: 24 }),
       ];
     case 'lab-e1':
-      // First experimental batch — counter-drift mean reversion variants.
+      // First experimental batch â€” counter-drift mean reversion variants.
       // Targets index-anchored single-region + patient (asymmetric)
       // region-arb, biased ADDITIVE (works with the rebalancer's fire
       // pattern rather than racing it).
@@ -367,16 +367,16 @@ function buildBatch(name: string): BacktestStrategy[] {
       ];
     case 'lab-e2':
       // Bulk parameter sweep over the lab-e1 winners. Sweeps:
-      //   indexAnchoredSingle: 3 regions × 5 entry × 3 exit = 45
-      //   regionArb (PATIENT family): 5 entryT × 4 BTM thresholds = 20
-      //   regionArb (TIGHT family): 4 entryT × 4 exitT × {rot, no-rot} = 32
+      //   indexAnchoredSingle: 3 regions Ã— 5 entry Ã— 3 exit = 45
+      //   regionArb (PATIENT family): 5 entryT Ã— 4 BTM thresholds = 20
+      //   regionArb (TIGHT family): 4 entryT Ã— 4 exitT Ã— {rot, no-rot} = 32
       // Plus 8 mixed control variants. Total ~105 variants.
       // Maintains additive bias.
       {
         const variants: BacktestStrategy[] = [];
         const regions: RegionKey[] = ['NYC', 'TOR', 'CHI'];
 
-        // 3 × 5 × 3 = 45 indexAnchoredSingle variants
+        // 3 Ã— 5 Ã— 3 = 45 indexAnchoredSingle variants
         for (const r of regions) {
           for (const ent of [0.02, 0.03, 0.04, 0.06, 0.08]) {
             for (const exi of [0.005, 0.01, 0.02]) {
@@ -388,7 +388,7 @@ function buildBatch(name: string): BacktestStrategy[] {
           }
         }
 
-        // 5 × 4 = 20 PATIENT regionArb variants (wide entry, BTM exit, rotation)
+        // 5 Ã— 4 = 20 PATIENT regionArb variants (wide entry, BTM exit, rotation)
         for (const ent of [0.06, 0.08, 0.10, 0.12, 0.15]) {
           for (const btm of [0.0, 0.03, 0.05, 0.08]) {
             variants.push(regionArb({
@@ -398,7 +398,7 @@ function buildBatch(name: string): BacktestStrategy[] {
           }
         }
 
-        // 4 × 4 × 2 = 32 TIGHT regionArb variants (exitT-driven, with/without rotation)
+        // 4 Ã— 4 Ã— 2 = 32 TIGHT regionArb variants (exitT-driven, with/without rotation)
         for (const ent of [0.03, 0.04, 0.05, 0.06]) {
           for (const exi of [0.02, 0.03, 0.04, 0.05]) {
             for (const rot of [false, true]) {
@@ -454,13 +454,13 @@ async function main() {
   }
 
   console.log(`\n=== Backtest @ ${new Date().toISOString()} ===`);
-  console.log(`Window: ${from.toISOString()} → ${to.toISOString()}  (${args.days}d)`);
+  console.log(`Window: ${from.toISOString()} â†’ ${to.toISOString()}  (${args.days}d)`);
   console.log(`Batch:  ${args.batch}  split=${split}\n`);
 
   console.log(`Fetching bars...`);
   let bars = await fetchAlignedBars(from, to);
   if (args.skipHours > 0) {
-    // Drop the first N hours of bars — useful to skip launch-spike
+    // Drop the first N hours of bars â€” useful to skip launch-spike
     // distortions where prices were extremely volatile and gappy.
     const before = bars.length;
     bars = bars.slice(args.skipHours);
@@ -487,17 +487,17 @@ async function main() {
   console.log(`  ${bars.length} aligned bars: ${withPrice} have price, ${withPm25} have pm25\n`);
 
   if (bars.length === 0) {
-    console.error('no bars — check DATABASE_URL + BIRDEYE_API_KEY');
+    console.error('no bars â€” check DATABASE_URL + BIRDEYE_API_KEY');
     process.exit(1);
   }
 
   const strategies = buildBatch(args.batch);
   const results = strategies.map((s) => backtest(s, bars));
 
-  console.log('═══ RANKED BY TOTAL RETURN ═══');
+  console.log('â•â•â• RANKED BY TOTAL RETURN â•â•â•');
   console.log(reportTable(results));
   console.log('');
-  console.log('═══ RANKED BY SHARPE (annualized, hourly bars) ═══');
+  console.log('â•â•â• RANKED BY SHARPE (annualized, hourly bars) â•â•â•');
   console.log(reportTableBySharpe(results));
   console.log('');
 
@@ -511,7 +511,7 @@ async function main() {
       `Best HODL: ${hodlBest.name} ${hodlBest.pnlPct.toFixed(2)}%  |  ` +
         `Best return: ${overall.name} ${overall.pnlPct.toFixed(2)}%  |  ` +
         `Best Sharpe: ${sharpeBest.name} ${sharpeBest.sharpe.toFixed(2)}  |  ` +
-        `Gap: ${gap >= 0 ? '+' : ''}${gap.toFixed(2)}pp ${gap > 1 ? '⭐' : gap < -1 ? '✗' : ''}`,
+        `Gap: ${gap >= 0 ? '+' : ''}${gap.toFixed(2)}pp ${gap > 1 ? 'â­' : gap < -1 ? 'âœ—' : ''}`,
     );
   }
 }

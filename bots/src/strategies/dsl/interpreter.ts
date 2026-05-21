@@ -1,15 +1,15 @@
 /**
  * TypeScript port of the Python predicate DSL evaluator in
- * `lab/runners/agentic-decode.py`.
+ * `bear-scout/runners/agentic-decode.py`.
  *
  * SECURITY-CRITICAL: model-derived predicates must run through this
  * hand-written recursive-descent interpreter. There is intentionally no
- * dynamic code execution anywhere in this module — a test asserts the
+ * dynamic code execution anywhere in this module â€” a test asserts the
  * source contains none of the forbidden dynamic-eval tokens.
  *
  * The semantics here are a verbatim port of the Python functions
  * `ALIASES`, `_split_top`, `_eval_or`, `_eval_and`, `_eval_atom`,
- * `_resolve` and the comparison logic. Do not "simplify" them — several
+ * `_resolve` and the comparison logic. Do not "simplify" them â€” several
  * subtle behaviours (UPPERCASE-only AND/OR, balanced-paren stripping,
  * bare-null then true) are deliberate and covered by differential tests.
  */
@@ -46,7 +46,7 @@ export class DslParseError extends Error {
  *  - rejects empty string
  * Returns `null` when the value would raise `ValueError` in Python.
  *
- * Note: JS `Number('')` is 0 and `Number('  ')` is 0 — we must reject
+ * Note: JS `Number('')` is 0 and `Number('  ')` is 0 â€” we must reject
  * those. JS `parseFloat` is too lenient (accepts trailing garbage), so
  * we validate with a regex first.
  */
@@ -69,7 +69,7 @@ function pyFloat(token: string): number | null {
 /**
  * Port of Python `_split_top`: split `s` on a padded ` SEP ` separator
  * that appears at paren-depth 0. The separator is matched literally
- * (case-sensitive) — this is why AND/OR must be UPPERCASE.
+ * (case-sensitive) â€” this is why AND/OR must be UPPERCASE.
  */
 function splitTop(s: string, sep: string): string[] {
   const parts: string[] = [];
@@ -161,7 +161,7 @@ function evalAtom(input: string, snap: Snapshot): boolean {
   const rhs = m[3].trim();
   const lv = resolve(lhs, snap);
   const rv = resolve(rhs, snap);
-  // None/null handling — w_last_action can be null on early snapshots.
+  // None/null handling â€” w_last_action can be null on early snapshots.
   if (lv === null || rv === null) {
     if (op === '==') return lv === null && rv === null;
     if (op === '!=') return !(lv === null && rv === null);
@@ -199,7 +199,7 @@ function evalAtom(input: string, snap: Snapshot): boolean {
 /**
  * Python truthiness for a resolved value. Resolved values are number |
  * string (null is handled by the caller). Mirrors `bool(v)`:
- *  - number: false iff 0 (NaN is truthy in Python — `bool(nan)` is True)
+ *  - number: false iff 0 (NaN is truthy in Python â€” `bool(nan)` is True)
  *  - string: false iff empty
  */
 function pyTruthy(v: number | string): boolean {
@@ -225,7 +225,7 @@ function resolve(token: string, snap: Snapshot): SnapValue {
   if (Object.prototype.hasOwnProperty.call(ALIASES, t)) {
     return snapGet(snap, ALIASES[t]);
   }
-  // (3) suffix-strip _this/_held/_self — check base in snapshot then in
+  // (3) suffix-strip _this/_held/_self â€” check base in snapshot then in
   // ALIASES, but FALL THROUGH if neither.
   for (const suffix of ['_this', '_held', '_self']) {
     if (t.endsWith(suffix)) {
@@ -245,7 +245,7 @@ function resolve(token: string, snap: Snapshot): SnapValue {
   return null;
 }
 
-/** Python `dict.get(key)` — returns null when the key is absent. */
+/** Python `dict.get(key)` â€” returns null when the key is absent. */
 function snapGet(snap: Snapshot, key: string): SnapValue {
   return Object.prototype.hasOwnProperty.call(snap, key) ? snap[key] : null;
 }
@@ -274,8 +274,8 @@ export function safeEvaluate(predicate: string, snap: Snapshot): boolean {
 }
 
 /**
- * Allowlist of known feature names — the snapshot fields produced by
- * `compute_snapshots` in `lab/runners/wallet-evolve.py`, plus the alias
+ * Allowlist of known feature names â€” the snapshot fields produced by
+ * `compute_snapshots` in `bear-scout/runners/wallet-evolve.py`, plus the alias
  * keys from `ALIASES`.
  *
  * Phase 2 finalizes this list (it must stay in sync with whatever
@@ -315,7 +315,7 @@ export const KNOWN_FEATURES: ReadonlySet<string> = new Set<string>([
   ...Object.keys(ALIASES),
 ]);
 
-/** The wallet-state subset of KNOWN_FEATURES — features describing the
+/** The wallet-state subset of KNOWN_FEATURES â€” features describing the
  *  BOT'S OWN wallet (balances, trade history), not the market. */
 const WALLET_FEATURES: ReadonlySet<string> = new Set(
   [...KNOWN_FEATURES].filter((f) => f.startsWith('w_')),
@@ -333,7 +333,7 @@ function referencesWalletFeature(expr: string): boolean {
  * Strip wallet-state (`w_*`) conjuncts from an ENTRY predicate.
  *
  * A decoded entry predicate often carries clauses like `w_n_trades > 5`
- * or `w_usdc > 100` — these describe the decoded wallet's OWN activity,
+ * or `w_usdc > 100` â€” these describe the decoded wallet's OWN activity,
  * not a market signal. Replayed on a fresh bot (0 trades, seed capital)
  * such clauses are permanently false and deadlock entry forever. An
  * entry predicate must gate on MARKET conditions only; wallet-state
@@ -345,14 +345,14 @@ function referencesWalletFeature(expr: string): boolean {
  * returned untouched.
  *
  * Returns the cleaned predicate and the conjuncts removed. The cleaned
- * predicate is empty when EVERY conjunct was wallet-state — the caller
+ * predicate is empty when EVERY conjunct was wallet-state â€” the caller
  * must treat that as an un-deployable rule.
  */
 export function stripWalletTermsFromEntry(
   predicate: string,
 ): { predicate: string; stripped: string[] } {
   const trimmed = predicate.trim();
-  // A top-level OR means this is not a pure AND chain — leave it alone.
+  // A top-level OR means this is not a pure AND chain â€” leave it alone.
   if (splitTop(trimmed, 'OR').length > 1) return { predicate: trimmed, stripped: [] };
   const kept: string[] = [];
   const stripped: string[] = [];
@@ -421,14 +421,14 @@ export function validatePredicate(predicate: string): ValidationResult {
   const identifiers: string[] = [];
   let termCount = 0;
 
-  // Recursive structural walk — mirrors the interpreter's grammar but
+  // Recursive structural walk â€” mirrors the interpreter's grammar but
   // collects identifiers / counts terms instead of evaluating.
   const walk = (raw: string): ValidationResult => {
     let s = raw.trim();
     if (s.length === 0) {
       return { ok: false, error: 'empty sub-expression' };
     }
-    // Balanced-paren strip — same loop as evalAtom.
+    // Balanced-paren strip â€” same loop as evalAtom.
     while (s.startsWith('(') && s.endsWith(')')) {
       let d = 0;
       let last = -1;
@@ -500,14 +500,14 @@ export function validatePredicate(predicate: string): ValidationResult {
     if (t.length === 0) {
       return { ok: false, error: 'empty identifier' };
     }
-    // Quoted string literal — always allowed.
+    // Quoted string literal â€” always allowed.
     if (
       (t.startsWith("'") && t.endsWith("'") && t.length >= 2) ||
       (t.startsWith('"') && t.endsWith('"') && t.length >= 2)
     ) {
       continue;
     }
-    // Numeric literal — always allowed.
+    // Numeric literal â€” always allowed.
     if (pyFloat(t) !== null) continue;
     // Exact alias / feature.
     if (Object.prototype.hasOwnProperty.call(ALIASES, t)) continue;

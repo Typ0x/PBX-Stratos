@@ -1,0 +1,34 @@
+/* PBX Stratos — Beach theme (coral + teal pastels, paired with Surf Bro)
+ *
+ * Light, breezy, low-stakes. Sand-colored canvas instead of the usual
+ * dark cockpit. Coral for gains, teal for chill informational stuff,
+ * salmon for the "uh oh dude" moments. Maintains contrast without
+ * being aggressive.
+ */
+
+:root {
+  --bg-primary:    #faf5ec; /* warm sand */
+  --bg-secondary:  #fff8e7; /* lighter sand */
+  --bg-tertiary:   #f5edd6; /* slightly darker sand for inputs */
+  --text-primary:  #2d3748; /* dark slate — for contrast on light bg */
+  --text-muted:    #718096; /* slate gray */
+  --text-accent:   #14b8a6; /* teal */
+  --border-color:  #e2d8c0; /* sandy border */
+  --success:       #fb7185; /* coral — PnL up (subverts the usual green) */
+  --warning:       #f97316; /* orange-500 */
+  --error:         #e11d48; /* rose-700 */
+  --info:          #14b8a6; /* teal */
+
+  --font-body:     "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:     "Fira Code", "SF Mono", Consolas, monospace;
+  --font-display:  "Quicksand", -apple-system, sans-serif;
+
+  --density:       spacious; /* relaxed vibe = more breathing room */
+  --radius:        12px; /* soft, rounded — beach-friendly */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}

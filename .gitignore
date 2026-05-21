@@ -91,6 +91,12 @@ _paper_trade_log.txt
 # === pm2 ===
 .pm2/
 
+# === bootstrap / setup runtime artifacts ===
+.tooling/
+_bootstrap_log.txt
+_srvr_test.txt
+_test_server.txt
+
 # === Generated artifacts ===
 active-theme.css
 ecosystem.config.js.lock

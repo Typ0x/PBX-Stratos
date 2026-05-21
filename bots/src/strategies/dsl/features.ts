@@ -3,11 +3,11 @@
  *
  * `LiveSnapshotBuilder` reproduces, tick-by-tick, the per-(cycle, region)
  * snapshot dicts that the Python decoder builds in `compute_snapshots`
- * (`lab/runners/wallet-evolve.py`). The output of `build()` feeds straight
+ * (`bear-scout/runners/wallet-evolve.py`). The output of `build()` feeds straight
  * into `evaluatePredicate` / `safeEvaluate` from `interpreter.ts`, so a
  * decoded DSL rule can be evaluated live and behave like its backtest.
  *
- * ── Snapshot keys (verbatim from compute_snapshots) ──────────────────
+ * â”€â”€ Snapshot keys (verbatim from compute_snapshots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *   ts, region, price, spread, spread_velocity_15m, cheapest, rank,
  *   dev_60m, dev_240m, dev_1440m, dev_velocity_15m, volatility_60m,
  *   flow_1, flow_2, flow_5, flow_10, hour_utc, cycle_sold, cycle_bought,
@@ -15,29 +15,29 @@
  *   w_last_action, w_last_region, w_sec_since_any_trade,
  *   w_sec_since_self_trade
  *
- * ── Parity notes (where live CANNOT match the Python decoder) ────────
+ * â”€â”€ Parity notes (where live CANNOT match the Python decoder) â”€â”€â”€â”€â”€â”€â”€â”€
  *  1. `nearest()`. Python's `px[r] = nearest(r, ts)` picks the price
- *     SAMPLE CLOSEST IN TIME to the cycle ts — which may be a FUTURE
+ *     SAMPLE CLOSEST IN TIME to the cycle ts â€” which may be a FUTURE
  *     sample. A live append-only buffer cannot see the future, so the
  *     live `price` is the latest sample at-or-before the tick. For a bot
  *     ticking every 15-60s against ~6-min engine cycles this is a tiny
- *     offset, but it IS a divergence — see features.parity.test.ts,
+ *     offset, but it IS a divergence â€” see features.parity.test.ts,
  *     which feeds the historical series and uses last-at-or-before to
  *     keep the harness deterministic, then documents the residual.
  *  2. `flow_*` and CHI/TOR. The Python `flow()` matches cycle labels
  *     against short region codes, but the cycles API returns Chicago/
- *     Toronto as full names — so CHI/TOR flow is structurally 0 in the
+ *     Toronto as full names â€” so CHI/TOR flow is structurally 0 in the
  *     decoder. `cycle_history.ts` reproduces this exactly (see its
  *     header). Reproduced here for parity, NOT correctness.
  *  3. Mean vs median. `dev_*` uses the arithmetic MEAN of the trailing
  *     window (`MedianBuffer.mean`), never the median. `volatility_60m`
  *     uses SAMPLE stdev (n-1), matching Python's `statistics.stdev`.
  *
- * ── Buffer sizing ────────────────────────────────────────────────────
+ * â”€â”€ Buffer sizing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * `dev_1440m` needs 24h of price history; `dev_60m` needs 75 min (60 +
  * the 15-min velocity look-back). The builder parses the predicate(s) it
  * will serve and sizes its per-region price buffers to the LONGEST
- * `dev_*` window actually referenced — carrying 24h only when needed.
+ * `dev_*` window actually referenced â€” carrying 24h only when needed.
  */
 
 import { MedianBuffer } from '../../core/median_price.js';
@@ -45,7 +45,7 @@ import { CycleHistory, type EngineCycle } from '../../core/cycle_history.js';
 import type { Snapshot, SnapValue } from './interpreter.js';
 
 /** The 3 active regions, in the iteration order the Python decoder uses
- *  (`REGION.values()` — dict insertion order: NYC, CHI, TOR). */
+ *  (`REGION.values()` â€” dict insertion order: NYC, CHI, TOR). */
 export const SNAPSHOT_REGIONS = ['NYC', 'CHI', 'TOR'] as const;
 export type SnapshotRegion = (typeof SNAPSHOT_REGIONS)[number];
 
@@ -81,7 +81,7 @@ export interface LiveSnapshotBuilderOpts {
    * empty, the builder conservatively carries the full 24h window.
    */
   predicates?: string[];
-  /** CycleHistory instance (defaults to a fresh one — pass the shared
+  /** CycleHistory instance (defaults to a fresh one â€” pass the shared
    *  singleton in production via `getCycleHistory()`). */
   cycleHistory?: CycleHistory;
   /** Minimum samples for a `dev_*` window mean (Python: len >= 2). */
@@ -104,7 +104,7 @@ const VELOCITY_LOOKBACK_MIN = 15;
  * Parse predicate strings to find which `dev_*` window fields they
  * reference. Conservative: a plain substring scan (the DSL has no
  * `dev_*`-lookalike identifiers, and over-reporting only widens a
- * buffer — never wrong, just larger).
+ * buffer â€” never wrong, just larger).
  */
 export function referencedDevWindows(predicates: string[]): Set<keyof typeof DEV_WINDOWS> {
   const out = new Set<keyof typeof DEV_WINDOWS>();
@@ -208,7 +208,7 @@ export class LiveSnapshotBuilder {
     wallet: WalletView,
     trades: BotTrade[],
   ): Record<SnapshotRegion, Snapshot> | null {
-    // ── Current price per region (latest sample at-or-before tsSec) ────
+    // â”€â”€ Current price per region (latest sample at-or-before tsSec) â”€â”€â”€â”€
     // Python uses nearest(); the live append-only buffer cannot see the
     // future, so we use last-at-or-before. Documented divergence.
     const px: Record<SnapshotRegion, number | null> = { NYC: null, CHI: null, TOR: null };
@@ -220,7 +220,7 @@ export class LiveSnapshotBuilder {
     );
     if (valid.length < 2) return null;
 
-    // ── spread / cheapest / rank from RAW prices ───────────────────────
+    // â”€â”€ spread / cheapest / rank from RAW prices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const spread = (Math.max(...valid) - Math.min(...valid)) / Math.min(...valid);
     let cheapest: SnapshotRegion = SNAPSHOT_REGIONS[0];
     let cheapestPx = Infinity;
@@ -239,7 +239,7 @@ export class LiveSnapshotBuilder {
     const rankByRegion: Record<SnapshotRegion, number> = { NYC: 0, CHI: 0, TOR: 0 };
     sortedRegions.forEach((r, i) => { rankByRegion[r] = i; });
 
-    // ── spread 15 min ago (for spread_velocity_15m) ────────────────────
+    // â”€â”€ spread 15 min ago (for spread_velocity_15m) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const ts15 = tsSec - VELOCITY_LOOKBACK_MIN * 60;
     const pastPx: Record<SnapshotRegion, number | null> = { NYC: null, CHI: null, TOR: null };
     for (const r of SNAPSHOT_REGIONS) pastPx[r] = this.priceAsOf(r, ts15);
@@ -252,12 +252,12 @@ export class LiveSnapshotBuilder {
         : null;
     const spreadVelocity = spread15 != null ? spread - spread15 : 0;
 
-    // ── engine cycle + flow (per engine cycle, not per tick) ───────────
+    // â”€â”€ engine cycle + flow (per engine cycle, not per tick) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const cycle = this.cycleHistory.cycleAt(tsSec);
 
     const hourUtc = new Date(tsSec * 1000).getUTCHours();
 
-    // ── wallet-state series (the BOT'S OWN state) ──────────────────────
+    // â”€â”€ wallet-state series (the BOT'S OWN state) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const wState = this.walletStateAt(tsSec, wallet, trades);
 
     const out: Record<SnapshotRegion, Snapshot> = {} as Record<SnapshotRegion, Snapshot>;
@@ -265,19 +265,19 @@ export class LiveSnapshotBuilder {
       const curP = px[region];
       if (curP == null) continue;
 
-      // dev_* — arithmetic mean of trailing window, (cur - mean)/mean.
+      // dev_* â€” arithmetic mean of trailing window, (cur - mean)/mean.
       const m60 = this.meanAsOf(region, tsSec, 60);
       const m240 = this.meanAsOf(region, tsSec, 240);
       const m1440 = this.meanAsOf(region, tsSec, 1440);
       const devNow = m60 ? (curP - m60) / m60 : 0;
 
-      // dev_velocity_15m — change in dev vs 15 min ago.
+      // dev_velocity_15m â€” change in dev vs 15 min ago.
       const m6015 = this.meanAsOf(region, ts15, 60);
       const p15 = this.priceAsOf(region, ts15) ?? curP;
       const dev15 = m6015 ? (p15 - m6015) / m6015 : devNow;
       const devVelocity = devNow - dev15;
 
-      // volatility_60m — SAMPLE stdev / mean of the last 60 min (n>=3).
+      // volatility_60m â€” SAMPLE stdev / mean of the last 60 min (n>=3).
       const vol = this.sampleVolAsOf(region, tsSec, 60);
 
       const snap: Snapshot = {
@@ -317,7 +317,7 @@ export class LiveSnapshotBuilder {
     return out;
   }
 
-  // ── internal helpers ─────────────────────────────────────────────────
+  // â”€â”€ internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Latest price sample at or before `tsSec` for `region`, or null. */
   private priceAsOf(region: SnapshotRegion, tsSec: number): number | null {
@@ -359,7 +359,7 @@ export class LiveSnapshotBuilder {
     if (vals.length < this.volMinSamples) return 0;
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
     if (mean === 0) return 0;
-    // SAMPLE variance — divide by (n - 1), matching statistics.stdev.
+    // SAMPLE variance â€” divide by (n - 1), matching statistics.stdev.
     const variance =
       vals.reduce((s, p) => s + (p - mean) ** 2, 0) / (vals.length - 1);
     return Math.sqrt(variance) / mean;
@@ -376,7 +376,7 @@ export class LiveSnapshotBuilder {
    *
    * NOTE on `w_n_trades`: Python's `state_at` returns the state captured
    * AT the most recent trade, whose `n_trades_so_far` is the index `i`
-   * of that trade (0-based) — i.e. the count of trades BEFORE it. So with
+   * of that trade (0-based) â€” i.e. the count of trades BEFORE it. So with
    * k trades at-or-before tsSec, w_n_trades = k - 1 (or 0 with no trades).
    * Reproduced exactly here.
    */

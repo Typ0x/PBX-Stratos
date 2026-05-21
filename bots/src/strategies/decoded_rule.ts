@@ -1,14 +1,14 @@
 /**
- * DecodedRuleStrategy — run a decoded DSL rule as a live bot (Phase 3a).
+ * DecodedRuleStrategy â€” run a decoded DSL rule as a live bot (Phase 3a).
  *
- * The wallet-decoder pipeline (`lab/runners/`) produces a competitor's
+ * The wallet-decoder pipeline (`bear-scout/runners/`) produces a competitor's
  * strategy as a pair of predicate strings (an ENTRY predicate and an EXIT
  * predicate) over the snapshot feature space in `compute_snapshots`. This
  * strategy evaluates those predicates each tick against the live snapshot
  * dicts built by `LiveSnapshotBuilder`, and turns a firing predicate into
  * a `TradeIntent`.
  *
- * ── Pipeline (mirrors RegionArbDipStrategy) ──────────────────────────
+ * â”€â”€ Pipeline (mirrors RegionArbDipStrategy) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *   1. First tick: pre-seed the snapshot builder's price history from the
  *      public lab API (depth = `preseedDepthSec()`), and seed engine
  *      cycles via CycleHistory.
@@ -19,8 +19,8 @@
  *   4. If FLAT (USDC): respect `cooldownSec`, then evaluate `entryPredicate`
  *      against each region; buy the first firing region.
  *
- * ── Safety (NON-NEGOTIABLE, independent of predicate content) ────────
- * Decoded predicates are model output. They can be degenerate — always
+ * â”€â”€ Safety (NON-NEGOTIABLE, independent of predicate content) â”€â”€â”€â”€â”€â”€â”€â”€
+ * Decoded predicates are model output. They can be degenerate â€” always
  * true, always false, or oscillating. Two ceilings are ALWAYS enforced
  * regardless of what the predicates say:
  *   - `cooldownSec`: a hard floor on seconds between trades. Defaults to
@@ -51,12 +51,12 @@ import {
 import { safeEvaluate, validatePredicate, type Snapshot } from './dsl/interpreter.js';
 
 export interface DecodedRuleOpts {
-  /** Strategy id — MUST equal the bot name; the orchestrator keys
+  /** Strategy id â€” MUST equal the bot name; the orchestrator keys
    *  per-bot wallet state on it. */
   id: string;
   /** Decoded ENTRY predicate. Validated at construction (fail-closed). */
   entryPredicate: string;
-  /** Decoded EXIT predicate. MAY be the empty string — that means "exit
+  /** Decoded EXIT predicate. MAY be the empty string â€” that means "exit
    *  only on maxHoldSec". Validated at construction unless empty. */
   exitPredicate: string;
   /** Minimum seconds between trades. ALWAYS enforced. Defaults to 300s
@@ -69,7 +69,7 @@ export interface DecodedRuleOpts {
   baseSizeUsdcRaw?: bigint;
   /** Internal test seam: override the per-region price source. Defaults
    *  to `getAllPrices` (live cp-amm pool quotes). Production callers
-   *  (the orchestrator) never set this — it exists so the strategy can
+   *  (the orchestrator) never set this â€” it exists so the strategy can
    *  be unit-tested with synthetic price series, no RPC. */
   priceSource?: () => Promise<Partial<Record<RegionKey, number | null>>>;
   /** Internal test seam: override the CycleHistory instance. Defaults to
@@ -88,7 +88,7 @@ export interface DecodedRuleOpts {
   entryAtByRegion?: Partial<Record<RegionKey, number>>;
 }
 
-/** Sane defaults — see the safety block in the file header for WHY. */
+/** Sane defaults â€” see the safety block in the file header for WHY. */
 const DEFAULT_COOLDOWN_SEC = 300;
 const DEFAULT_MAX_HOLD_SEC = 3 * 86400;
 const DEFAULT_BASE_SIZE_USDC_RAW = 100_000_000n; // $100
@@ -122,7 +122,7 @@ export class DecodedRuleStrategy implements Strategy {
   private preseedAttempted = false;
   private preseededAt: number | null = null;
 
-  /** Most recent decide() snapshot — surfaced via /debug/strategy-state. */
+  /** Most recent decide() snapshot â€” surfaced via /debug/strategy-state. */
   public lastDebug: {
     ts: number;
     holding: string;
@@ -138,7 +138,7 @@ export class DecodedRuleStrategy implements Strategy {
   } | null = null;
 
   constructor(opts: DecodedRuleOpts) {
-    // ── fail-closed validation gate ──────────────────────────────────
+    // â”€â”€ fail-closed validation gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Decoded predicates are model output. A malformed entry/exit
     // predicate must be rejected at CONSTRUCTION, never silently run.
     const entryCheck = validatePredicate(opts.entryPredicate);
@@ -147,7 +147,7 @@ export class DecodedRuleStrategy implements Strategy {
         `[decoded_rule:${opts.id}] invalid entryPredicate: ${entryCheck.error}`,
       );
     }
-    // An empty exitPredicate is explicitly ALLOWED — it means "exit only
+    // An empty exitPredicate is explicitly ALLOWED â€” it means "exit only
     // on maxHoldSec". validatePredicate fails closed on empty, so we
     // skip it for the empty case only.
     const exitRaw = opts.exitPredicate ?? '';
@@ -165,7 +165,7 @@ export class DecodedRuleStrategy implements Strategy {
     this.entryPredicate = opts.entryPredicate;
     this.exitPredicate = exitRaw;
 
-    // ── mandatory safety clamps ──────────────────────────────────────
+    // â”€â”€ mandatory safety clamps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // cooldownSec: a non-positive value would let a true-every-tick
     // predicate churn the book. Force a sane positive floor.
     const requestedCooldown = opts.cooldownSec ?? DEFAULT_COOLDOWN_SEC;
@@ -186,7 +186,7 @@ export class DecodedRuleStrategy implements Strategy {
 
     // The builder parses the predicates to size its price buffers to the
     // longest dev_* window actually referenced. An empty exit predicate
-    // contributes nothing — fine, the entry predicate still drives it.
+    // contributes nothing â€” fine, the entry predicate still drives it.
     this.builder = new LiveSnapshotBuilder({
       predicates: [this.entryPredicate, this.exitPredicate].filter(
         (p) => p.trim().length > 0,
@@ -216,7 +216,7 @@ export class DecodedRuleStrategy implements Strategy {
    * a failure leaves the bot working but cold-started.
    *
    * Same source + price-derivation as `RegionArbDipStrategy.preseedHistory`:
-   * `rebalance_trades.amount_in/amount_out` → execution price.
+   * `rebalance_trades.amount_in/amount_out` â†’ execution price.
    */
   private async preseedHistory(now: number): Promise<void> {
     if (this.preseededAt !== null || this.preseedAttempted) return;
@@ -225,7 +225,7 @@ export class DecodedRuleStrategy implements Strategy {
     const depthSec = this.builder.preseedDepthSec();
     try {
       const apiBase = process.env.PBX_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
-      // /api/lab/trades takes whole days — round up to cover the window.
+      // /api/lab/trades takes whole days â€” round up to cover the window.
       const days = Math.max(1, Math.ceil(depthSec / 86400));
       const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/lab/trades?days=${days}`);
       if (!res.ok) {
@@ -251,11 +251,11 @@ export class DecodedRuleStrategy implements Strategy {
         let region: RegionKey | null = null;
         let price: number | null = null;
         if (t.token_in === USDC_MINT) {
-          // engine BOUGHT region → price = USDC_in / region_out
+          // engine BOUGHT region â†’ price = USDC_in / region_out
           region = REGIONS.find((r) => r.mint === t.token_out)?.key ?? null;
           if (region && t.amount_out > 0) price = t.amount_in / t.amount_out;
         } else if (t.token_out === USDC_MINT) {
-          // engine SOLD region → price = USDC_out / region_in
+          // engine SOLD region â†’ price = USDC_out / region_in
           region = REGIONS.find((r) => r.mint === t.token_in)?.key ?? null;
           if (region && t.amount_in > 0) price = t.amount_out / t.amount_in;
         }
@@ -321,19 +321,19 @@ export class DecodedRuleStrategy implements Strategy {
       this.lastDebug = {
         ...debugBase,
         branch: 'no-snapshot',
-        decision: 'no snapshot — fewer than 2 regions priceable',
+        decision: 'no snapshot â€” fewer than 2 regions priceable',
       };
       return null;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // HOLDING a region → exit-check branch.
-    // ────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // HOLDING a region â†’ exit-check branch.
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (wallet.holding !== 'USDC') {
       const held = wallet.holding as RegionKey;
       // Entry time: prefer the in-memory `entryAt` (set when THIS process
-      // executed the entry). If absent — e.g. the position was injected
-      // by the orchestrator, or the process restarted — reconstruct it
+      // executed the entry). If absent â€” e.g. the position was injected
+      // by the orchestrator, or the process restarted â€” reconstruct it
       // from the bot's own trade log (most recent buy of the held
       // region). This keeps the maxHoldSec ceiling honest across
       // restarts; falling back to `now` would silently reset the clock.
@@ -355,10 +355,10 @@ export class DecodedRuleStrategy implements Strategy {
           ]
         : [{ region: held, predicateFired: null, features: {} }];
 
-      // MANDATORY force-exit ceiling — enforced FIRST, before the
+      // MANDATORY force-exit ceiling â€” enforced FIRST, before the
       // predicate, and even when exitPredicate is empty / never fires.
       if (holdSec >= this.maxHoldSec) {
-        const reason = `decoded-rule max-hold exit ${held} (held=${(holdSec / 3600).toFixed(1)}h ≥ ${(this.maxHoldSec / 3600).toFixed(1)}h)`;
+        const reason = `decoded-rule max-hold exit ${held} (held=${(holdSec / 3600).toFixed(1)}h â‰¥ ${(this.maxHoldSec / 3600).toFixed(1)}h)`;
         this.lastDebug = {
           ...debugBase,
           branch: 'exit-check',
@@ -370,12 +370,12 @@ export class DecodedRuleStrategy implements Strategy {
         return this.exitIntent(held, wallet.regionBalance, reason);
       }
 
-      // Empty exitPredicate → exit ONLY on maxHoldSec (handled above).
+      // Empty exitPredicate â†’ exit ONLY on maxHoldSec (handled above).
       if (this.exitPredicate.trim().length === 0) {
         this.lastDebug = {
           ...debugBase,
           branch: 'hold',
-          decision: `holding ${held} — no exitPredicate, awaiting max-hold (${(holdSec / 3600).toFixed(1)}h/${(this.maxHoldSec / 3600).toFixed(1)}h)`,
+          decision: `holding ${held} â€” no exitPredicate, awaiting max-hold (${(holdSec / 3600).toFixed(1)}h/${(this.maxHoldSec / 3600).toFixed(1)}h)`,
           firingRegion: held,
           perRegion,
           holdSec,
@@ -384,7 +384,7 @@ export class DecodedRuleStrategy implements Strategy {
       }
 
       // Evaluate the exit predicate against the held region's snapshot.
-      // safeEvaluate: a runtime DSL error → false (no exit), never a throw.
+      // safeEvaluate: a runtime DSL error â†’ false (no exit), never a throw.
       if (heldSnap == null) {
         this.lastDebug = {
           ...debugBase,
@@ -415,7 +415,7 @@ export class DecodedRuleStrategy implements Strategy {
       this.lastDebug = {
         ...debugBase,
         branch: 'hold',
-        decision: `holding ${held} — exitPredicate did not fire (${(holdSec / 3600).toFixed(1)}h/${(this.maxHoldSec / 3600).toFixed(1)}h)`,
+        decision: `holding ${held} â€” exitPredicate did not fire (${(holdSec / 3600).toFixed(1)}h/${(this.maxHoldSec / 3600).toFixed(1)}h)`,
         firingRegion: held,
         perRegion,
         holdSec,
@@ -423,24 +423,24 @@ export class DecodedRuleStrategy implements Strategy {
       return null;
     }
 
-    // ────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // FLAT (holding USDC).
-    // ────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // MANDATORY cooldown — a hard floor on trade frequency. Enforced
+    // MANDATORY cooldown â€” a hard floor on trade frequency. Enforced
     // before any predicate evaluation so a true-every-tick entry
     // predicate cannot round-trip the book every tick.
     if (cooldownRemaining > 0) {
       this.lastDebug = {
         ...debugBase,
         branch: 'cooldown',
-        decision: `cooldown — ${cooldownRemaining}s until re-eligible (cooldownSec=${this.cooldownSec})`,
+        decision: `cooldown â€” ${cooldownRemaining}s until re-eligible (cooldownSec=${this.cooldownSec})`,
       };
       return null;
     }
 
     // Entry-scan: evaluate entryPredicate against EVERY region snapshot.
-    // Tie-break: SNAPSHOT_REGIONS order (NYC, CHI, TOR) — the first
+    // Tie-break: SNAPSHOT_REGIONS order (NYC, CHI, TOR) â€” the first
     // region whose predicate fires wins. Deterministic and matches the
     // decoder's region iteration order.
     const perRegion: RegionEval[] = [];
@@ -460,13 +460,13 @@ export class DecodedRuleStrategy implements Strategy {
       this.lastDebug = {
         ...debugBase,
         branch: 'entry-scan',
-        decision: 'no entry — entryPredicate fired for no region',
+        decision: 'no entry â€” entryPredicate fired for no region',
         perRegion,
       };
       return null;
     }
 
-    // Sizing — same guard as region_arb_dip: scale down to available
+    // Sizing â€” same guard as region_arb_dip: scale down to available
     // (minus a $0.10 dust reserve for tx fees), but refuse to trade
     // below 50% of baseSize so the trade stays economically
     // representative of the decoded backtest.
@@ -479,14 +479,14 @@ export class DecodedRuleStrategy implements Strategy {
       this.lastDebug = {
         ...debugBase,
         branch: 'entry-scan',
-        decision: `underfunded — need ≥$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}), have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}`,
+        decision: `underfunded â€” need â‰¥$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}), have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}`,
         firingRegion: pick,
         perRegion,
       };
       return null;
     }
 
-    // NB: lastTradeAt / entryAt are NOT advanced here — decide() only
+    // NB: lastTradeAt / entryAt are NOT advanced here â€” decide() only
     // PROPOSES a trade. onFillConfirmed() advances them once the
     // orchestrator confirms the fill, so an intent it aborts (no route,
     // drift, a guard) never starts a false cooldown that locks the bot.
@@ -508,7 +508,7 @@ export class DecodedRuleStrategy implements Strategy {
   }
 
   /** Build the exit TradeIntent. lastTradeAt / entryAt are advanced by
-   *  onFillConfirmed() on a confirmed fill — not here, where the exit is
+   *  onFillConfirmed() on a confirmed fill â€” not here, where the exit is
    *  only proposed and the orchestrator may still abort it. */
   private exitIntent(
     region: RegionKey,
@@ -525,18 +525,18 @@ export class DecodedRuleStrategy implements Strategy {
 
   /** Orchestrator callback: a fill of the intent `decide()` returned has
    *  been CONFIRMED (paper-simulated or live-submitted). This is the ONLY
-   *  place the cooldown clock + per-region entry time advance — an intent
+   *  place the cooldown clock + per-region entry time advance â€” an intent
    *  the orchestrator aborts never reaches here, so a transient quote
    *  failure can't lock the bot out for `cooldownSec`. */
   onFillConfirmed(intent: TradeIntent): void {
     const now = Math.floor(Date.now() / 1000);
     this.lastTradeAt = now;
     if (intent.inputMint === USDC_MINT) {
-      // confirmed BUY — record the entry time of the bought region
+      // confirmed BUY â€” record the entry time of the bought region
       const r = REGIONS.find((x) => x.mint === intent.outputMint);
       if (r) this.entryAt.set(r.key, now);
     } else {
-      // confirmed SELL — clear entry tracking for the sold region
+      // confirmed SELL â€” clear entry tracking for the sold region
       const r = REGIONS.find((x) => x.mint === intent.inputMint);
       if (r) this.entryAt.delete(r.key);
     }
@@ -549,7 +549,7 @@ export class DecodedRuleStrategy implements Strategy {
   private botTrades(): BotTrade[] {
     const out: BotTrade[] = [];
     for (const t of getTrades(this.id)) {
-      // A buy is USDC → region; a sell is region → USDC.
+      // A buy is USDC â†’ region; a sell is region â†’ USDC.
       const buyRegion = REGIONS.find((r) => r.mint === t.outputMint);
       const sellRegion = REGIONS.find((r) => r.mint === t.inputMint);
       if (t.inputMint === USDC_MINT && buyRegion && isSnapshotRegion(buyRegion.key)) {
@@ -577,7 +577,7 @@ export class DecodedRuleStrategy implements Strategy {
   /**
    * Build the `WalletView` (human units) the snapshot builder needs for
    * the `w_*` features. `usdc` is the live balance; `posByRegion` marks
-   * the single held region with its USDC-terms value (current balance ×
+   * the single held region with its USDC-terms value (current balance Ã—
    * current price) and the rest 0.
    */
   private walletView(
@@ -603,7 +603,7 @@ function isSnapshotRegion(key: string): key is SnapshotRegion {
   return key === 'NYC' || key === 'CHI' || key === 'TOR';
 }
 
-/** A compact subset of snapshot features for lastDebug — the ones most
+/** A compact subset of snapshot features for lastDebug â€” the ones most
  *  useful when debugging why a decoded rule did/didn't fire. */
 function featureDigest(snap: Snapshot): Record<string, unknown> {
   return {

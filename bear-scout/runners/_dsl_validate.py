@@ -1,4 +1,4 @@
-# lab/runners/_dsl_validate.py
+# bear-scout/runners/_dsl_validate.py
 """Validate a DSL predicate string against the operators and features
 the interpreter currently supports. Returns the set of unknown
 identifiers; empty means the predicate is safe to run. Anything

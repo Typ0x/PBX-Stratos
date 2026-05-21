@@ -12,7 +12,7 @@
  * Caller pushes one sample per tick, then asks for `median()` (used as
  * fair-value reference) or `volatility()` (used as a regime filter).
  *
- * Returns `null` if not enough samples to span the window — caller should
+ * Returns `null` if not enough samples to span the window â€” caller should
  * skip decisions during warm-up rather than trade on a noisy estimate.
  */
 
@@ -48,7 +48,7 @@ export class MedianBuffer {
   /**
    * Median of samples in the window. Requires the buffer to span at least
    * 80% of the window (so we don't median-of-3 in a 5-min window) and have
-   * at least 5 samples — otherwise null. Tunable; the floor exists so a
+   * at least 5 samples â€” otherwise null. Tunable; the floor exists so a
    * cold start doesn't trade on a near-empty buffer.
    */
   median(minSamples = 5): number | null {
@@ -66,7 +66,7 @@ export class MedianBuffer {
    * Returns null if the buffer doesn't have enough samples in the lookback.
    * Used as a regime filter (skip when vol is "too high to mean-revert").
    *
-   * Note: lookbackMin can be different from the median window — vol is
+   * Note: lookbackMin can be different from the median window â€” vol is
    * usually computed over a wider window (e.g. 60 min) than the
    * fair-value reference (e.g. 30 min).
    */
@@ -88,13 +88,13 @@ export class MedianBuffer {
    *
    * Added for the DSL live-feature layer (Phase 2): the Python decoder's
    * `dev_60m/240m/1440m` features divide the current price by the
-   * arithmetic mean of the trailing window — NOT the median. This
-   * accessor reproduces `mean_over` from `lab/runners/wallet-evolve.py`:
+   * arithmetic mean of the trailing window â€” NOT the median. This
+   * accessor reproduces `mean_over` from `bear-scout/runners/wallet-evolve.py`:
    * it returns the mean iff there are at least `minSamples` (default 2,
    * matching Python's `len(vals) >= 2`) samples in the window, else null.
    *
    * Unlike `median()`/`volatility()`, this does NOT impose an 80%-span
-   * floor — Python's `mean_over` has no such guard, and matching it is
+   * floor â€” Python's `mean_over` has no such guard, and matching it is
    * required for snapshot parity.
    */
   mean(lookbackMin: number, minSamples = 2): number | null {
@@ -112,7 +112,7 @@ export class MedianBuffer {
   }
 
   /** Read-only snapshot of all samples in the buffer. Used by the
-   *  /debug/strategy-state endpoint to surface buffer contents — lets
+   *  /debug/strategy-state endpoint to surface buffer contents â€” lets
    *  us tell "buffer is full of identical samples (oracle stuck)" from
    *  "buffer has variation but median was higher than entry threshold". */
   samples(): ReadonlyArray<PriceSample> {

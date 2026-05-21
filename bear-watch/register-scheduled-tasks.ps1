@@ -25,7 +25,14 @@ if (-not (Test-Path "$RepoRoot\bear-watch\silent-run.vbs")) {
 $silentRun = "$RepoRoot\bear-watch\silent-run.vbs"
 $bearWatch  = "$RepoRoot\bear-watch"
 
-# Helper: build a schtasks command that uses silent-run.vbs to wrap a .bat
+# Helper: build a schtasks command that uses silent-run.vbs to wrap a .bat.
+#
+# IMPORTANT — argument splitting: PowerShell passes a single quoted
+# string to schtasks as ONE argument, but schtasks expects `/sc minute
+# /mo 5` to be FIVE separate args. We split the $Schedule on whitespace
+# and splat (@) the resulting array so each token becomes its own arg.
+# Previous bug: schtasks errored with "Invalid Schedule Type specified"
+# because it saw "minute /mo 5" as a single 14-char schedule type.
 function Register-BearwatchTask {
     param(
         [string]$Name,
@@ -37,8 +44,12 @@ function Register-BearwatchTask {
     $tr = "wscript.exe `"$silentRun`" `"$bearWatch\$BatFile`""
     Write-Host "  registering $Name  ($Description)"
 
-    # /sc accepts the schedule keyword; pass through extras directly
-    schtasks /create /tn $Name /tr $tr /sc $Schedule /f /rl LIMITED | Out-Null
+    # Tokenize the schedule string into separate args. /sc consumes the
+    # first token (minute|hourly|daily|weekly|onlogon|onstart|...) and
+    # any subsequent /flag value pairs are passed as their own args.
+    $scheduleTokens = $Schedule -split '\s+' | Where-Object { $_ -ne '' }
+
+    schtasks /create /tn $Name /tr $tr /sc @scheduleTokens /f /rl LIMITED | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "    schtasks returned $LASTEXITCODE for $Name"
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PBX Stratos — Paper trader (template stub)
+PBX Stratos â€” Paper trader (template stub)
 ===========================================
 
 A minimal paper-trade loop. Reads strategies from
@@ -10,8 +10,8 @@ exit decisions against live market prices, writes results to
 tick so health-check.py can detect stalls.
 
 This is a TEMPLATE. The actual filter / entry / exit / DCA logic is
-deliberately empty — the framework ships the scaffolding; you build
-the strategy. See `lab/runners/README.md` for the strategy spec
+deliberately empty â€” the framework ships the scaffolding; you build
+the strategy. See `bear-scout/runners/README.md` for the strategy spec
 format and the roadmap (sections 3-4) for how to design your own.
 
 Run:
@@ -112,7 +112,7 @@ def tick(registry: dict) -> None:
                 "ts": snapshot["ts"],
                 "strategy": strategy["id"],
                 "action": "entry",
-                "detail": "filters passed (template stub — no real fill)",
+                "detail": "filters passed (template stub â€” no real fill)",
             })
         for decision in manage_open_positions(strategy, snapshot):
             append_trade({

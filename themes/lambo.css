@@ -1,0 +1,46 @@
+/* PBX Stratos — Lambo theme (gold + black, paired with Crypto Bro)
+ *
+ * The "won early, sharing alpha" aesthetic. Matte black panels, gold
+ * accents on PnL + key callouts, no neon, no gradients. Looks like a
+ * trading terminal a real degen would actually run, not the Robinhood
+ * confetti screen.
+ *
+ * Calibrated for long sessions: gold reserved for the things that
+ * matter (PnL, alpha events), everything else stays neutral.
+ */
+
+:root {
+  /* Color palette — matte black base + lambo gold accents */
+  --bg-primary:    #0a0a0a; /* near-black, not pure #000 (reduces glare) */
+  --bg-secondary:  #141414; /* panel background */
+  --bg-tertiary:   #1f1f1f; /* nested panel / input */
+  --text-primary:  #f5e6c8; /* warm off-white — pairs with gold */
+  --text-muted:    #8a7a5c; /* muted gold-tan */
+  --text-accent:   #d4af37; /* lambo gold — for links, key values */
+  --border-color:  #2a2620; /* subtle dark warm border */
+  --success:       #d4af37; /* PnL up = gold (this IS the theme) */
+  --warning:       #c08020; /* darker amber — pre-rekt warning */
+  --error:         #c02020; /* dark red — rekt territory */
+  --info:          #a08850; /* muted gold-tan for info */
+
+  /* Typography — bias toward something that feels like a trading desk */
+  --font-body:     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:     "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --font-display:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Spacing + density */
+  --density:       comfortable;
+  --radius:        4px; /* sharper corners than default — feels harder-edged */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+/* Subtle gold highlight on hover for actionable elements — without this
+ * the theme reads as "just dark" instead of "lambo dark". */
+a:hover, button:hover, [role="button"]:hover {
+  color: var(--text-accent);
+}

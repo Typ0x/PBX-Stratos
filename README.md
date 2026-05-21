@@ -166,9 +166,9 @@ Three layers you can use independently:
   predicate evaluator + walk-forward 70/30 split + round-trip
   simulator with 30bps fees)
 - Backtest the decoded rule on cached price data
-- Near-term PM2.5 → price modeling (`lab/aq-price/`)
+- Near-term PM2.5 → price modeling (`bear-scout/aq-price/`)
 - Paper-trade your decoded rule against live market prices
-  (`lab/runners/paper-trade.py`)
+  (`bear-scout/runners/paper-trade.py`)
 - Track decoded wallets + best Sharpe via event-driven achievements
 
 **No keys, no money, no network calls except read-only GETs to
@@ -218,7 +218,7 @@ without losing the rigor underneath.
 
 ## How decoding works
 
-Two decoders ship in `lab/runners/`:
+Two decoders ship in `bear-scout/runners/`:
 
 **`wallet-evolve.py` — systematic search.** Pulls the wallet's PBX
 trades, joins them to market state at trade-time, evolves a
@@ -232,9 +232,9 @@ entry-and-exit rule pair with Claude. Each round:
 
 - Claude proposes a predicate pair in a simple DSL
   (`bots/src/strategies/dsl/interpreter.ts`)
-- Local evaluator (`lab/runners/_fitness.py`) scores precision /
+- Local evaluator (`bear-scout/runners/_fitness.py`) scores precision /
   recall / lift on the wallet's actual buys (entry) and sells (exit)
-- A round-trip simulator (`lab/runners/_simlib.py`) walks
+- A round-trip simulator (`bear-scout/runners/_simlib.py`) walks
   chronologically: entry fires → hold → exit fires (or 3-day max-hold)
   → close. Tracks real net return after 30 bps fees.
 - Claude sees the metrics + sample false positives / negatives +
@@ -503,12 +503,12 @@ type). The full list of currently-installed strategies is displayed
 by the dashboard's Strategy panel or via:
 
 ```bash
-python lab/runners/paper-trade.py --list-strategies
+python bear-scout/runners/paper-trade.py --list-strategies
 ```
 
 The framework gives you everything you need to build your own:
 
-- A **backtest harness** (`lab/runners/`) that runs strategy variants
+- A **backtest harness** (`bear-scout/runners/`) that runs strategy variants
   against historical data
 - A **paper trader** that runs your strategies against live market
   prices without risk
@@ -521,7 +521,7 @@ The framework gives you everything you need to build your own:
   just from synthetic backtests)
 - A **multi-venue swap router** (`packages/swap-router/`) that picks
   the best of Meteora / Orca / Jupiter per trade
-- A **strategy registry** (`lab/runners/strategy-registry.json`) where
+- A **strategy registry** (`bear-scout/runners/strategy-registry.json`) where
   you add your own creations alongside the starters
 
 What the framework deliberately does NOT ship:
@@ -539,7 +539,7 @@ follow the roadmap should end up with completely different strategies.
 step — the setup wizard makes you read the disclaimer + acknowledge that
 backtest stats don't guarantee future performance. The strategy's
 `status` field flips from `paper` to `live` in
-`lab/runners/strategy-registry.json`, and the live runner only picks
+`bear-scout/runners/strategy-registry.json`, and the live runner only picks
 up strategies marked `live` once `HELIUS_MAINNET_URL` is set.
 
 ---
@@ -797,8 +797,8 @@ the easiest contribution paths:
   matching one of your personalities. See
   `.claude/achievements/README.md` for the spec.
 - **Strategies** → add a JSON spec to
-  `lab/runners/strategy-registry.json`, then run
-  `python lab/runners/paper-trade.py --list-strategies` to verify.
+  `bear-scout/runners/strategy-registry.json`, then run
+  `python bear-scout/runners/paper-trade.py --list-strategies` to verify.
 - **Skills** → drop a SKILL.md in `.claude/skills/<your-skill>/`. The
   skill runtime auto-discovers them.
 - **Lab tooling** (decoders, evolvers, swap-router venues, AQ models)

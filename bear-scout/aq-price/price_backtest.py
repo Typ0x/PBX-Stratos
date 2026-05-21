@@ -1,14 +1,14 @@
-"""Cost-aware, out-of-sample backtest of the AQ→price directional signal.
+"""Cost-aware, out-of-sample backtest of the AQâ†’price directional signal.
 
 This is the real test: not classification accuracy, but net-of-cost
-trading P&L. The TS backtest factory (`bots/scripts/backtest/factory/`)
-cannot run this — its snapshot is price-only (no PM2.5) — so the same
+trading P&L. The TS backtest factory (`bear-scout/backtest/factory/`)
+cannot run this â€” its snapshot is price-only (no PM2.5) â€” so the same
 discipline is applied here: walk-forward folds, transaction costs, every
 fold compared to buy-and-hold.
 
 Strategy `aq-rotate`: each hour, hold the region whose bucketed-AQ-forecast
-1/PM2.5 target weight is rising fastest (max `dw`) — if that `dw` is
-positive — otherwise sit in USDC.
+1/PM2.5 target weight is rising fastest (max `dw`) â€” if that `dw` is
+positive â€” otherwise sit in USDC.
 
 Costs: 80 bps per leg (matches the factory's PBX_FEE_BPS default).
 Baseline: equal-weight buy-and-hold of the three region tokens.
@@ -29,13 +29,13 @@ warnings.filterwarnings('ignore')
 import price_harness as H
 import rebalance_target as RT
 
-FEE = 0.008  # 80 bps per leg — matches the backtest factory's cost model
+FEE = 0.008  # 80 bps per leg â€” matches the backtest factory's cost model
 
 
 def _frame(horizon: int) -> pd.DataFrame:
     """Joined frame with the per-city future PM2.5 the forecaster needs.
 
-    Only `price` is required of every row — `future_pm25` is needed just
+    Only `price` is required of every row â€” `future_pm25` is needed just
     to TRAIN the forecaster (and is NaN for the last `horizon` hours of
     each city). Those late rows are still tradeable, so they are kept;
     the embargo guarantees they never enter a training set anyway.
@@ -51,8 +51,8 @@ def _frame(horizon: int) -> pd.DataFrame:
 
 
 def _build_dw(df: pd.DataFrame, horizon: int, tm: np.ndarray) -> pd.DataFrame:
-    """Add `dw` — the predicted change in the faithful `target_allocations`
-    share (1/(PM2.5·price), price held fixed) per row. The bucketed PM2.5
+    """Add `dw` â€” the predicted change in the faithful `target_allocations`
+    share (1/(PM2.5Â·price), price held fixed) per row. The bucketed PM2.5
     forecaster is fitted only on the embargoed train rows `tm`, so `dw`
     for test rows carries no lookahead."""
     df = df.copy()
@@ -70,7 +70,7 @@ def _build_dw(df: pd.DataFrame, horizon: int, tm: np.ndarray) -> pd.DataFrame:
         if not ok:
             dw.append(np.nan)
             continue
-        # Faithful engine target: allocation ∝ 1/(PM2.5·price), price held
+        # Faithful engine target: allocation âˆ 1/(PM2.5Â·price), price held
         # fixed so dw is the AQ-forecast-driven shift in the target.
         prices = {r: px.loc[dt, r] for r in H.REGIONS}
         wn = RT.target_allocations({r: pm_now.loc[dt, r] for r in H.REGIONS}, prices)
@@ -125,7 +125,7 @@ def run(horizon: int = 6, k: int = 3) -> list[dict]:
 
     Folds are chunked over the TRADEABLE timeline (hours where all three
     tokens are priced), so every fold has a comparable number of real
-    bars — not over all timestamps, which would leave gappy folds tiny.
+    bars â€” not over all timestamps, which would leave gappy folds tiny.
     """
     df = _frame(horizon)
     px_all = df.pivot_table(index='datetime', columns='city', values='price')
@@ -134,7 +134,7 @@ def run(horizon: int = 6, k: int = 3) -> list[dict]:
         if not px_all.loc[t].reindex(H.REGIONS).isna().any()))
     chunk = len(tradeable) // (k + 1)
     if chunk < 20:
-        raise SystemExit(f'only {len(tradeable)} tradeable hours — too few')
+        raise SystemExit(f'only {len(tradeable)} tradeable hours â€” too few')
 
     folds = []
     for i in range(1, k + 1):
@@ -158,7 +158,7 @@ def run(horizon: int = 6, k: int = 3) -> list[dict]:
 
 
 if __name__ == '__main__':
-    print('Cost-aware out-of-sample backtest — aq-rotate strategy')
+    print('Cost-aware out-of-sample backtest â€” aq-rotate strategy')
     print('80 bps/leg, walk-forward, vs equal-weight buy-and-hold\n')
     for horizon in (6, 12, 24):
         folds = run(horizon=horizon, k=3)
@@ -173,5 +173,5 @@ if __name__ == '__main__':
                   f"({f['trades']} trades, {f['bars']} bars)")
         mean_vh = np.mean([f['ret_vs_hodl'] for f in folds])
         beat = sum(1 for f in folds if f['ret_vs_hodl'] > 0)
-        print(f"  → mean {mean_vh:+.1f}pp vs B&H, beat B&H in "
+        print(f"  â†’ mean {mean_vh:+.1f}pp vs B&H, beat B&H in "
               f"{beat}/{len(folds)} folds\n")

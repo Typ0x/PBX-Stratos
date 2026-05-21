@@ -1,0 +1,40 @@
+/* PBX Stratos — Academia theme (cream + serif, paired with Quant Professor)
+ *
+ * Reads like a working paper. Cream canvas (avoids the stark-white glare
+ * of a fresh LaTeX render), serif body for prose, mono for numbers.
+ * Restrained palette — color is reserved for the things that actually
+ * carry information.
+ */
+
+:root {
+  --bg-primary:    #f8f5ed; /* old-paper cream */
+  --bg-secondary:  #fffdf6; /* lighter cream */
+  --bg-tertiary:   #efeadc; /* slightly darker cream */
+  --text-primary:  #1a1a1a; /* near-black ink */
+  --text-muted:    #6b6760; /* muted slate */
+  --text-accent:   #7f1d1d; /* dark academic red */
+  --border-color:  #d4cfc0; /* faded cream border */
+  --success:       #166534; /* forest green */
+  --warning:       #b45309; /* burnt amber */
+  --error:         #991b1b; /* darker red */
+  --info:          #1e40af; /* deep blue — like a footnote */
+
+  --font-body:     "Lora", "Charter", "Georgia", "Times New Roman", serif;
+  --font-mono:     "JetBrains Mono", "Computer Modern Typewriter", "Courier New", monospace;
+  --font-display:  "Lora", "Charter", "Georgia", serif;
+
+  --density:       comfortable;
+  --radius:        2px; /* very subtle rounding — feels printed */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-feature-settings: "kern", "liga"; /* let the serif font breathe */
+}
+
+/* Italicize emphasis the way a paper would */
+em, i {
+  font-style: italic;
+}

@@ -1,4 +1,4 @@
-# lab/runners/test_dsl_validate.py
+# bear-scout/runners/test_dsl_validate.py
 import unittest
 from _dsl_validate import validate_predicate, KNOWN_FEATURES
 

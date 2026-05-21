@@ -8,7 +8,7 @@
  *
  * Why this exists:
  *   The factory leaderboard's top entries are typically PARAMETRIC
- *   strategies — e.g. `REGION_ARB_e0.05_x0.04`. Before this translator
+ *   strategies â€” e.g. `REGION_ARB_e0.05_x0.04`. Before this translator
  *   `paper-deploy --top N` skipped every parametric row with "no
  *   live-registry mapping". For the regionArb research output that meant
  *   nothing ever got promoted to paper. This module closes that loop by
@@ -17,14 +17,14 @@
  *   via the existing `deployPaperRule` path, which is fully working.
  *
  * Translation faithfulness:
- *   - The factory strategies in `bots/scripts/backtest/strategies.ts`
+ *   - The factory strategies in `bear-scout/backtest/strategies.ts`
  *     compute their own per-bar cross-region statistics (cheapest /
  *     richest / spread = max(dev) - min(dev)).
  *   - The DSL feature namespace exposes `rank` (region's rank among
  *     all regions by price), `dev_60m / dev_240m / dev_1440m` (region's
  *     price vs. its own median over a window), and `spread` (cross-region
  *     normalised spread (max-min)/min).
- *   These are not bit-identical to the strategy's internal stats — the
+ *   These are not bit-identical to the strategy's internal stats â€” the
  *   strategy uses *current cross-region mean*, the DSL `dev_*` uses
  *   *the region's own rolling median*. The translation captures the
  *   same SIGNAL DIRECTION; the predicate produced is a faithful
@@ -34,7 +34,7 @@
  *
  * Anything the DSL feature namespace cannot express (lookback windows,
  * cooldowns, per-strategy state machines like `lastTradeAt` or model
- * outputs) returns null — the caller surfaces those as a clean skip.
+ * outputs) returns null â€” the caller surfaces those as a clean skip.
  */
 
 /** Available DSL features (sourced from `bots/src/strategies/dsl/interpreter.ts`):
@@ -47,7 +47,7 @@
  *    w_sec_since_any_trade, w_sec_since_self_trade
  */
 
-/** The output shape — matches the `DecodedRuleInput` interface in
+/** The output shape â€” matches the `DecodedRuleInput` interface in
  *  `paper-deploy.ts` so a caller can hand it straight to
  *  `deployPaperRule()`. */
 export interface DslRule {
@@ -55,9 +55,9 @@ export interface DslRule {
   ruleName: string;
   /** One-line summary of the translated logic. Surfaces in logs / UIs. */
   summary: string;
-  /** ENTRY predicate — fires when the bot is in USDC. */
+  /** ENTRY predicate â€” fires when the bot is in USDC. */
   entryWhen: { predicate: string; description: string };
-  /** EXIT predicate — fires when the bot is holding a region. */
+  /** EXIT predicate â€” fires when the bot is holding a region. */
   exitWhen: { predicate: string; description: string };
   /** Sizing note (carried into `decodedRule.sizing`, audit/UI only). */
   sizing: 'full_balance';
@@ -76,7 +76,7 @@ export interface DslSkip {
  * lookback windows, cooldowns, or model outputs the DSL does not see).
  *
  * For unsupported kinds the second arm of the union carries a `reason`
- * the caller can surface — never throws.
+ * the caller can surface â€” never throws.
  */
 export function configToDsl(config: Record<string, unknown>): DslRule | DslSkip {
   const c = config as Record<string, unknown>;
@@ -101,7 +101,7 @@ export function configToDsl(config: Record<string, unknown>): DslRule | DslSkip 
       return {
         reason:
           'reversionPatience holds per-strategy state (lastTradeAt, cooldown) the DSL ' +
-          'cannot represent — translation would silently drop the cooldown.',
+          'cannot represent â€” translation would silently drop the cooldown.',
       };
     case 'trendRider':
       return {
@@ -122,7 +122,7 @@ export function configToDsl(config: Record<string, unknown>): DslRule | DslSkip 
         reason:
           'custom-code strategies are evolve-loop TypeScript; they may already encode ' +
           'their logic as DSL predicates internally (via dslFeatures()), but the config ' +
-          'does not expose those predicates in a portable form — promote via the evolve ' +
+          'does not expose those predicates in a portable form â€” promote via the evolve ' +
           'loop\'s own deploy path rather than this translator.',
       };
     case '':
@@ -139,12 +139,12 @@ function num(x: number): string {
   return String(Math.round(x * 1e4) / 1e4);
 }
 
-// ─── hodl ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ hodl â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // hodl(target): always switch from USDC to `target`, never sell.
 // DSL representation:
 //   entry: `region == '<target>'`      (fires only on the target region's snapshot)
-//   exit : `0 > 1`                     (always false — never exits)
+//   exit : `0 > 1`                     (always false â€” never exits)
 //
 // The orchestrator iterates regions and evaluates the entry predicate
 // against each region's snapshot; the `region` feature is the snapshot's
@@ -164,13 +164,13 @@ function translateHodl(c: Record<string, unknown>): DslRule | DslSkip {
     },
     exitWhen: {
       predicate: '0 > 1',
-      description: 'Never exit — hodl strategies do not sell.',
+      description: 'Never exit â€” hodl strategies do not sell.',
     },
     sizing: 'full_balance',
   };
 }
 
-// ─── regionArb ─────────────────────────────────────────────────────────
+// â”€â”€â”€ regionArb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // regionArb({ entryT, exitT }): hold USDC until the cross-region SPREAD
 // exceeds entryT and the cheapest region's deviation is below 0; then
@@ -182,14 +182,14 @@ function translateHodl(c: Record<string, unknown>): DslRule | DslSkip {
 //     - `rank == 0` selects the cheapest region (rank by current price).
 //     - `spread > entryT` keeps the trade gated on the SAME cross-region
 //       dispersion the strategy measures (DSL spread = (max-min)/min,
-//       strategy spread = max(dev)-min(dev) — close but not identical).
-//     - `dev_240m < 0` keeps the entry below the region's own median —
+//       strategy spread = max(dev)-min(dev) â€” close but not identical).
+//     - `dev_240m < 0` keeps the entry below the region's own median â€”
 //       the strategy's `cheapest.deviation < 0` is per-bar against the
 //       cross-region mean, this is the rolling-window analogue.
 //   exit : `w_pos_self > 0 AND dev_240m > exitT`
 //     - `w_pos_self > 0` ensures we only fire on the region the bot holds.
 //     - `dev_240m > exitT` is the "this region has rallied above its
-//       rolling median by at least exitT" — captures the strategy's
+//       rolling median by at least exitT" â€” captures the strategy's
 //       held-is-richest-with-tight-spread idea via region's own dev.
 //
 // Caveat (documented in README): the cross-region spread the strategy
@@ -223,7 +223,7 @@ function translateRegionArb(c: Record<string, unknown>): DslRule | DslSkip {
   }
   return {
     ruleName: `region_arb_e${num(entryT)}_x${num(exitT)}`,
-    summary: `Region arbitrage — buy cheapest when cross-region spread > ${num(entryT)}, exit when held region's dev_240m > ${num(exitT)}.`,
+    summary: `Region arbitrage â€” buy cheapest when cross-region spread > ${num(entryT)}, exit when held region's dev_240m > ${num(exitT)}.`,
     entryWhen: {
       predicate: `rank == 0 AND spread > ${num(entryT)} AND dev_240m < 0`,
       description:
@@ -240,13 +240,13 @@ function translateRegionArb(c: Record<string, unknown>): DslRule | DslSkip {
   };
 }
 
-// ─── indexAnchoredSingle ───────────────────────────────────────────────
+// â”€â”€â”€ indexAnchoredSingle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // indexAnchoredSingle({ region, entryDevPct, exitDevPct }): hold USDC
 // until `region`'s per-bar dev (vs cross-region mean) drops below
 // -entryDevPct; sell when it rises above +exitDevPct.
 //
-// DSL approximation (cleanest of all kinds — the structure maps almost
+// DSL approximation (cleanest of all kinds â€” the structure maps almost
 // 1:1, only the dev base differs):
 //   entry: `region == '<R>' AND dev_240m < -entryDevPct`
 //   exit : `w_pos_self > 0 AND dev_240m > exitDevPct`
@@ -263,7 +263,7 @@ function translateIndexAnchoredSingle(c: Record<string, unknown>): DslRule | Dsl
   }
   return {
     ruleName: `idx_anchored_${region.toLowerCase()}_e${num(entryDevPct)}_x${num(exitDevPct)}`,
-    summary: `Single-region mean reversion on ${region} — enter at dev_240m < -${num(entryDevPct)}, exit at dev_240m > ${num(exitDevPct)}.`,
+    summary: `Single-region mean reversion on ${region} â€” enter at dev_240m < -${num(entryDevPct)}, exit at dev_240m > ${num(exitDevPct)}.`,
     entryWhen: {
       predicate: `region == '${region}' AND dev_240m < -${num(entryDevPct)}`,
       description:
@@ -278,7 +278,7 @@ function translateIndexAnchoredSingle(c: Record<string, unknown>): DslRule | Dsl
   };
 }
 
-// ─── priceBand ─────────────────────────────────────────────────────────
+// â”€â”€â”€ priceBand â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // priceBand({ entryPct, exitPct, minHistoryHrs }): buy lowest region when
 // its price-percentile rank within the lookback window is <= entryPct;
@@ -290,7 +290,7 @@ function translateIndexAnchoredSingle(c: Record<string, unknown>): DslRule | Dsl
 //   entryPct = 25  -> dev_240m below -0.02   (mild dip below median)
 //   entryPct = 10  -> dev_240m below -0.04   (deeper dip)
 //   etc.
-// This is a coarse approximation — flagged in README; for fine-grained
+// This is a coarse approximation â€” flagged in README; for fine-grained
 // percentile gating, evolve a custom-code strategy instead.
 
 function translatePriceBand(c: Record<string, unknown>): DslRule | DslSkip {
@@ -309,7 +309,7 @@ function translatePriceBand(c: Record<string, unknown>): DslRule | DslSkip {
   const exitDev = (exitPct - 50) / 50 * 0.04;
   return {
     ruleName: `price_band_e${entryPct}_x${exitPct}`,
-    summary: `Price band — enter at dev_240m < ${num(entryDev)} (≈p${entryPct}), exit at dev_240m > ${num(exitDev)} (≈p${exitPct}).`,
+    summary: `Price band â€” enter at dev_240m < ${num(entryDev)} (â‰ˆp${entryPct}), exit at dev_240m > ${num(exitDev)} (â‰ˆp${exitPct}).`,
     entryWhen: {
       predicate: `dev_240m < ${num(entryDev)}`,
       description: `Enter when the region's 240m deviation is below ${num(entryDev)} (approximates price-percentile <= ${entryPct}).`,
