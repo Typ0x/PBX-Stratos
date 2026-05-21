@@ -1,6 +1,6 @@
 # PBX Stratos — Scheduled task installer (Windows)
 #
-# Registers the standard BEARWATCH-* scheduled tasks via schtasks.
+# Registers the standard STRATOS-* scheduled tasks via schtasks.
 # Run this ONCE during install. Re-running is safe — /f forces
 # overwrite of any existing task with the same name.
 #
@@ -15,7 +15,7 @@ param(
     [string]$RepoRoot = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path))
 )
 
-Write-Host "Registering BEARWATCH-* scheduled tasks for repo at: $RepoRoot"
+Write-Host "Registering STRATOS-* scheduled tasks for repo at: $RepoRoot"
 
 if (-not (Test-Path "$RepoRoot\bear-watch\silent-run.vbs")) {
     Write-Error "Could not find $RepoRoot\bear-watch\silent-run.vbs. Pass -RepoRoot to point at your install."
@@ -56,15 +56,15 @@ function Register-BearwatchTask {
 }
 
 # Core tasks shipped with the framework
-Register-BearwatchTask -Name "BEARWATCH-HealthCheck"   -BatFile "run-health-check.bat"   -Schedule "minute /mo 5"        -Description "7-check health verification, every 5 min"
-Register-BearwatchTask -Name "BEARWATCH-WeatherPull"   -BatFile "run-weather-pull.bat"   -Schedule "hourly /mo 1"        -Description "Pull latest weather data, every hour"
-Register-BearwatchTask -Name "BEARWATCH-DailyDigest"   -BatFile "run-daily-digest.bat"   -Schedule "daily /st 06:00"     -Description "Daily PnL + ops summary, 6 AM"
-Register-BearwatchTask -Name "BEARWATCH-StateBackup"   -BatFile "run-backup-state.bat"   -Schedule "daily /st 03:00"     -Description "Daily state snapshot, 3 AM"
-Register-BearwatchTask -Name "BEARWATCH-CodebaseBackup" -BatFile "run-backup-codebase.bat" -Schedule "weekly /d SUN /st 03:30" -Description "Weekly codebase backup, Sun 3:30 AM"
-Register-BearwatchTask -Name "BEARWATCH-MetaWatchdog"  -BatFile "run-meta-watchdog.bat"  -Schedule "minute /mo 5"        -Description "HTTP-based outage detection + pm2 recovery, every 5 min"
+Register-BearwatchTask -Name "STRATOS-HealthCheck"   -BatFile "run-health-check.bat"   -Schedule "minute /mo 5"        -Description "7-check health verification, every 5 min"
+Register-BearwatchTask -Name "STRATOS-WeatherPull"   -BatFile "run-weather-pull.bat"   -Schedule "hourly /mo 1"        -Description "Pull latest weather data, every hour"
+Register-BearwatchTask -Name "STRATOS-DailyDigest"   -BatFile "run-daily-digest.bat"   -Schedule "daily /st 06:00"     -Description "Daily PnL + ops summary, 6 AM"
+Register-BearwatchTask -Name "STRATOS-StateBackup"   -BatFile "run-backup-state.bat"   -Schedule "daily /st 03:00"     -Description "Daily state snapshot, 3 AM"
+Register-BearwatchTask -Name "STRATOS-CodebaseBackup" -BatFile "run-backup-codebase.bat" -Schedule "weekly /d SUN /st 03:30" -Description "Weekly codebase backup, Sun 3:30 AM"
+Register-BearwatchTask -Name "STRATOS-MetaWatchdog"  -BatFile "run-meta-watchdog.bat"  -Schedule "minute /mo 5"        -Description "HTTP-based outage detection + pm2 recovery, every 5 min"
 
 Write-Host ""
-Write-Host "Done. Verify with:  schtasks /query /fo table | findstr BEARWATCH"
+Write-Host "Done. Verify with:  schtasks /query /fo table | findstr STRATOS"
 Write-Host ""
 Write-Host "Add more tasks following the same pattern. Naming convention:"
-Write-Host "  BEARWATCH-<PascalCase>  (so they're grep-able in schtasks output)"
+Write-Host "  STRATOS-<PascalCase>  (so they're grep-able in schtasks output)"

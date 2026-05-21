@@ -26,14 +26,14 @@ const REPO_ROOT  = join(__dirname, '..');
 
 const THEMES   = ['default', 'lambo', 'camo', 'beach', 'academia', 'matrix'];
 const RESTORE  = 'lambo'; // user is on crypto-bro
-const DASH_URL = process.env.PBX_DASHBOARD_BASE || 'http://127.0.0.1:8787';
+const DASH_URL = process.env.STRATOS_DASHBOARD_BASE || 'http://127.0.0.1:8787';
 const OUT_DIR  = join(REPO_ROOT, 'screenshots');
 const THEME_SRC_DIR = join(REPO_ROOT, 'themes');
 const ACTIVE_THEME_DST = join(REPO_ROOT, 'bots', 'src', 'server', 'active-theme.css');
 const VIEWPORT = { width: 1440, height: 900 };
 
 function readToken() {
-  const path = join(homedir(), '.pbx-bots', 'local.env');
+  const path = join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'local.env');
   const content = readFileSync(path, 'utf8');
   const m = /^BOT_API_TOKEN=(\S+)\s*$/m.exec(content);
   if (!m) throw new Error(`no BOT_API_TOKEN in ${path}`);
@@ -59,7 +59,7 @@ async function main() {
     // suppresses the onboarding tour.
     const ctx = await browser.newContext({ viewport: VIEWPORT });
     await ctx.addInitScript((t) => {
-      try { localStorage.setItem('PBX_BOT_API_TOKEN', t); } catch {}
+      try { localStorage.setItem('STRATOS_BOT_API_TOKEN', t); } catch {}
       try { localStorage.setItem('pbx_onboarding_v1_done', '1'); } catch {}
     }, token);
 

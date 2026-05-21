@@ -65,7 +65,7 @@ import type { ExperimentRecord } from './contract.js';
 /** Default location for provenance files. Tests pass an explicit dir to
  *  avoid touching the user's real data dir. */
 export function defaultProvenanceDir(): string {
-  return join(process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'provenance');
+  return join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'provenance');
 }
 
 /** Where this bot's deploy came from. `sourceName` is the human-readable
@@ -615,7 +615,7 @@ type CustomCodePromotion =
 /** Default location of the evolve loop's strategy files. Tests pass an
  *  explicit dir to avoid touching the user's real ~/.pbx-lab. */
 function defaultCustomCodeDir(): string {
-  return join(homedir(), '.pbx-lab', 'strategies');
+  return join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'strategies');
 }
 
 /**
@@ -705,7 +705,7 @@ export function loadAgenticRule(path: string): DecodedRuleInput | null {
 /** Convenience: load an agentic.json by pubkey under the standard layout
  *  ~/.pbx-lab/wallets/<pubkey>/agentic.json. */
 export function agenticPathForPubkey(pubkey: string): string {
-  return join(homedir(), '.pbx-lab', 'wallets', pubkey, 'agentic.json');
+  return join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'wallets', pubkey, 'agentic.json');
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────

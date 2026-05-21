@@ -224,7 +224,7 @@ export class DecodedRuleStrategy implements Strategy {
 
     const depthSec = this.builder.preseedDepthSec();
     try {
-      const apiBase = process.env.PBX_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
+      const apiBase = process.env.STRATOS_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
       // /api/lab/trades takes whole days â€” round up to cover the window.
       const days = Math.max(1, Math.ceil(depthSec / 86400));
       const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/lab/trades?days=${days}`);

@@ -70,7 +70,7 @@ def test_sessions_redacts_secret_in_transcript(tmp_path, monkeypatch):
     sessions.mkdir(parents=True)
     f = sessions / 'chat.jsonl'
     f.write_text('{"text": "my key is sk-' + 'B' * 32 + ' ok"}\n')
-    monkeypatch.setenv('PBX_SESSIONS_DIR', str(tmp_path / 'projects'))
+    monkeypatch.setenv('STRATOS_SESSIONS_DIR', str(tmp_path / 'projects'))
     r = subprocess.run([sys.executable, SCRUB, '--sessions'],
                        capture_output=True, text=True)
     assert r.returncode == 0

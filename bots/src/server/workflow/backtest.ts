@@ -11,7 +11,7 @@
  * needed — works from any machine.
  *
  * Fee model: 80bps per leg (matches what live Orca splash pool trades
- * measured at $5-10 size). PBX_FEE_BPS env var overrides; bump to 200
+ * measured at $5-10 size). STRATOS_FEE_BPS env var overrides; bump to 200
  * to stress-test slippage on larger trade sizes.
  *
  * Strategy templates supported:
@@ -36,8 +36,8 @@ const MINT_BY_REGION: Record<RegionKey, string> = {
 };
 
 const DEFAULT_API_BASE =
-  process.env.PBX_LAB_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
-const FEE_BPS = Math.max(0, Math.min(1000, Number(process.env.PBX_FEE_BPS ?? '80')));
+  process.env.STRATOS_LAB_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
+const FEE_BPS = Math.max(0, Math.min(1000, Number(process.env.STRATOS_FEE_BPS ?? '80')));
 
 export interface Bar {
   /** Unix seconds. Resolution depends on the period chosen for the

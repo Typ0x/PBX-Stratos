@@ -28,7 +28,7 @@ const REPO_ROOT  = join(__dirname, '..');
 
 const THEMES   = ['default', 'lambo', 'camo', 'beach', 'academia', 'matrix'];
 const RESTORE  = 'lambo';
-const DASH_URL = process.env.PBX_DASHBOARD_BASE || 'http://127.0.0.1:8787';
+const DASH_URL = process.env.STRATOS_DASHBOARD_BASE || 'http://127.0.0.1:8787';
 const OUT_DIR  = join(REPO_ROOT, 'screenshots', 'audit');
 const THEME_SRC_DIR = join(REPO_ROOT, 'themes');
 const ACTIVE_THEME_DST = join(REPO_ROOT, 'bots', 'src', 'server', 'active-theme.css');
@@ -44,7 +44,7 @@ function readToken() {
   // `.pbx-stratos-runtime/bots/local.env` which the current install uses.
   const candidates = [
     join(homedir(), '.pbx-stratos-runtime', 'bots', 'local.env'),
-    join(homedir(), '.pbx-bots', 'local.env'),
+    join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'local.env'),
   ];
   for (const path of candidates) {
     try {
@@ -96,7 +96,7 @@ async function shootTheme(browser, theme, token) {
 
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   await ctx.addInitScript((t) => {
-    try { localStorage.setItem('PBX_BOT_API_TOKEN', t); } catch {}
+    try { localStorage.setItem('STRATOS_BOT_API_TOKEN', t); } catch {}
     try { localStorage.setItem('pbx_onboarding_v1_done', '1'); } catch {}
   }, token);
 

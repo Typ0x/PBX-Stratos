@@ -85,7 +85,7 @@ export class CycleHistory {
 
   private async refresh(): Promise<EngineCycle[]> {
     try {
-      const apiBase = process.env.PBX_LAB_API_BASE ?? process.env.PBX_API_BASE ?? DEFAULT_API_BASE;
+      const apiBase = process.env.STRATOS_LAB_API_BASE ?? process.env.STRATOS_API_BASE ?? DEFAULT_API_BASE;
       const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/lab/cycles?days=${this.days}`);
       if (!res.ok) {
         console.warn(`[cycle-history] fetch failed: HTTP ${res.status}`);

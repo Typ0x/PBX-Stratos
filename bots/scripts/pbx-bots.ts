@@ -3,7 +3,7 @@
  * pbx-bots — a small wallet manager for the bots workspace.
  *
  * One command, a handful of subcommands, all state lives in
- * ~/.config/pbx-bots/ (override via PBX_BOTS_HOME). The funder keypair is
+ * ~/.config/pbx-bots/ (override via STRATOS_BOTS_HOME). The funder keypair is
  * kept separate from your main wallet and capped at $1k USDC / 2 SOL so
  * bugs never drain more than pocket change. Bot wallets are addressed by
  * name (`alpha`, `beta`, ...) rather than 44-char pubkeys.
@@ -45,9 +45,9 @@ import {
 
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
-const HOME = process.env.PBX_BOTS_HOME ?? join(homedir(), '.config', 'pbx-bots');
+const HOME = process.env.STRATOS_BOTS_HOME ?? join(homedir(), '.config', 'pbx-bots');
 const REGISTRY_PATH = join(HOME, 'registry.json');
-const DEFAULT_FUNDER_PATH = process.env.PBX_FUNDER_KEYPAIR ?? join(HOME, 'funder.json');
+const DEFAULT_FUNDER_PATH = process.env.STRATOS_FUNDER_KEYPAIR ?? join(HOME, 'funder.json');
 
 // Funder tripwires — anything above and we abort to force keeping it small.
 const FUNDER_MAX_USDC_RAW = 1_000_000_000n; // $1000
@@ -450,8 +450,8 @@ Commands:
 
 Env:
   HELIUS_MAINNET_URL           mainnet RPC (required for on-chain commands)
-  PBX_BOTS_HOME                config dir (default ~/.config/pbx-bots)
-  PBX_FUNDER_KEYPAIR           override funder path
+  STRATOS_BOTS_HOME                config dir (default ~/.config/pbx-bots)
+  STRATOS_FUNDER_KEYPAIR           override funder path
 
 Guardrails:
   - funder balance capped at \$1000 USDC + 2 SOL (abort if exceeded)

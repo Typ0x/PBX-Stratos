@@ -109,3 +109,9 @@ desktop.ini
 # Screenshot output (regenerable via scripts/screenshot-onboarding.mjs)
 screenshots/
 
+
+# Self-contained runtime state (per migration)
+runtime/
+.env
+.env.local
+

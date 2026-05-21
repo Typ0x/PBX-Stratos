@@ -174,7 +174,7 @@ Create `PBX-Stratos/.env`:
 
 ```bash
 # Required
-PBX_ALLOW_AUTOGEN=1
+STRATOS_ALLOW_AUTOGEN=1
 
 # Live trading only (skip if paper-only or explore-only):
 HELIUS_MAINNET_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY_HERE

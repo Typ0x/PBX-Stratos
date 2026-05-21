@@ -14,7 +14,7 @@ Runs 7 GREEN/RED checks on the running bot setup:
     7. RPC reachable      — Helius getSlot returns a slot number
 
 Exits 0 if all GREEN, 1 if any RED. Designed to be called from a
-scheduled task (BEARWATCH-HealthCheck every 5 min) — its stdout is
+scheduled task (STRATOS-HealthCheck every 5 min) — its stdout is
 both a human-readable summary and a machine-parseable status line.
 
 Each check has been written to be CHEAP — none take more than a few
@@ -35,11 +35,11 @@ from pathlib import Path
 
 # ---- Configuration (override via env vars if you want) ------------------
 
-DASHBOARD_BASE   = os.environ.get("PBX_DASHBOARD_BASE", "http://localhost:8787")
+DASHBOARD_BASE   = os.environ.get("STRATOS_DASHBOARD_BASE", "http://localhost:8787")
 HEALTH_URL       = f"{DASHBOARD_BASE}/health"
 DASHBOARD_URL    = f"{DASHBOARD_BASE}/dashboard"
 RPC_URL          = os.environ.get("HELIUS_MAINNET_URL", "")   # required for check 7
-LAB_DIR          = Path.home() / ".pbx-lab"
+LAB_DIR          = Path(os.environ.get("STRATOS_LAB_HOME") or str(Path.home() / ".pbx-lab"))
 HEARTBEAT_FILE   = LAB_DIR / "paper-trade-heartbeat"
 AQI_SNAPSHOT     = LAB_DIR / "aqi-snapshot.json"
 ALERTS_FILE      = LAB_DIR / "alerts.jsonl"
@@ -156,6 +156,6 @@ for name, ok, detail in results:
     mark = f"{GREEN}GREEN{RESET}" if ok else f"{RED}RED  {RESET}"
     print(f"  {mark}  {name:<26}  {detail}")
 print()
-print(f"PBX_HEALTH_STATUS={'GREEN' if green_count == total else 'RED'}")
+print(f"STRATOS_HEALTH_STATUS={'GREEN' if green_count == total else 'RED'}")
 
 sys.exit(0 if green_count == total else 1)

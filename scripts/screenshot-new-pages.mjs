@@ -21,12 +21,12 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const DASH_URL = process.env.PBX_DASHBOARD_BASE || 'http://127.0.0.1:8787';
+const DASH_URL = process.env.STRATOS_DASHBOARD_BASE || 'http://127.0.0.1:8787';
 const OUT_DIR  = join(process.cwd(), 'screenshots');
 const VIEWPORT = { width: 1440, height: 900 }; // matches max-w-[1440px] shell
 
 function readTokenFromLocalEnv() {
-  const path = join(homedir(), '.pbx-bots', 'local.env');
+  const path = join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'local.env');
   try {
     const content = readFileSync(path, 'utf8');
     const m = /^BOT_API_TOKEN=(\S+)\s*$/m.exec(content);
@@ -51,7 +51,7 @@ async function main() {
 
   // Pre-inject auth token + skip the onboarding tour.
   await ctx.addInitScript((t) => {
-    try { localStorage.setItem('PBX_BOT_API_TOKEN', t); } catch {}
+    try { localStorage.setItem('STRATOS_BOT_API_TOKEN', t); } catch {}
     try { localStorage.setItem('pbx_onboarding_v1_done', '1'); } catch {}
   }, token);
 

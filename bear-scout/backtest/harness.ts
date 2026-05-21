@@ -82,8 +82,8 @@ export interface TripRecord {
 // model used during initial exploration.
 // Per-leg fee, configurable via env. Default 80bps matches what we
 // measured on live Orca splash pool trades at $5-10 size. Stress-test
-// with PBX_FEE_BPS=200 to model 2.5× worse slippage on live $30k pools.
-const FEE_PER_TRADE_BPS = BigInt(process.env.PBX_FEE_BPS ?? '80');
+// with STRATOS_FEE_BPS=200 to model 2.5× worse slippage on live $30k pools.
+const FEE_PER_TRADE_BPS = BigInt(process.env.STRATOS_FEE_BPS ?? '80');
 
 /**
  * Run a strategy through the bars. Starts with $100 in USDC, executes

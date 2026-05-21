@@ -6,7 +6,7 @@ the runners need NO `DATABASE_URL` — just internet access. Each helper
 returns parsed dicts with `datetime` timestamps so the runner code can
 work with them just like it would with psycopg2 rows.
 
-Optional override: set PBX_LAB_API_BASE to point at a local API server
+Optional override: set STRATOS_LAB_API_BASE to point at a local API server
 (default: https://pbx-mainnet-api.onrender.com).
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ RETRY_BACKOFF_SEC = 2
 
 
 def api_base() -> str:
-    return os.environ.get("PBX_LAB_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    return os.environ.get("STRATOS_LAB_API_BASE", DEFAULT_API_BASE).rstrip("/")
 
 
 def _fetch_json(path: str, params: dict[str, Any] | None = None) -> dict:

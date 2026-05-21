@@ -21,7 +21,7 @@ Usage:
   python3 wallet-evolve.py <pubkey> [--epochs N] [--rebuild] [--days 60]
 
 Data source: public PBX lab API (`pbx-mainnet-api.onrender.com`). No
-DATABASE_URL needed. Override via PBX_LAB_API_BASE if running against a
+DATABASE_URL needed. Override via STRATOS_LAB_API_BASE if running against a
 local API server.
 """
 from __future__ import annotations

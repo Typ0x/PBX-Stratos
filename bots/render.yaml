@@ -32,7 +32,7 @@ services:
       # Local dev defaults to 127.0.0.1 — see apps/bots/README.md.
       - key: HOST
         value: 0.0.0.0
-      - key: BOTS_DATA_DIR
+      - key: STRATOS_BOTS_DATA_DIR
         value: /var/data/pbx-bots
       # Set these manually in the Render dashboard, do not commit values:
       - key: BOT_API_TOKEN

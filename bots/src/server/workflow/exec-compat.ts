@@ -32,11 +32,11 @@ export const CLAUDE_NEEDS_SHELL = IS_WINDOWS;
 /** Lowest Python the lab supports. */
 const MIN_PYTHON_MINOR = 10; // i.e. 3.10
 
-/** Repo root — for locating the project virtualenv. PBX_REPO_ROOT
+/** Repo root — for locating the project virtualenv. STRATOS_REPO_ROOT
  *  overrides; otherwise derived from this file's path
  *  (bots/src/server/workflow/exec-compat.ts → up four). */
 function repoRoot(): string {
-  const env = process.env.PBX_REPO_ROOT;
+  const env = process.env.STRATOS_REPO_ROOT;
   if (env) return resolve(env);
   return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 }

@@ -204,13 +204,12 @@ function main() {
   resetProfileFields();
 
   logHeader('5. Restarting pm2 server (drops in-memory caches)');
-  // Stratos-only restart. Prior version of this block also tried a
-  // suffixed app name as a fallback, which could touch another
-  // installation's process on a shared machine. Only restart the
-  // stratos app by exact name now.
+  // Stratos-only restart, exact app name. Any other installation on
+  // the same machine uses a different pm2 app name; this can never
+  // touch it.
   try {
-    execSync('pm2 restart bear-watch-server', { stdio: 'ignore' });
-    logOk('bear-watch-server restarted');
+    execSync('pm2 restart bear-watch-server-stratos', { stdio: 'ignore' });
+    logOk('bear-watch-server-stratos restarted');
   } catch {
     logWarn('could not restart pm2 (server may not be managed by pm2 — that\'s fine)');
   }

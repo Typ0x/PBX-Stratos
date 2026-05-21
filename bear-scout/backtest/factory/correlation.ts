@@ -94,7 +94,7 @@ const SEV_DUPLICATE = 0.9;
 
 function defaultNavHistoryPath(): string {
   return join(
-    process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'),
+    process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'),
     'state',
     'nav-history.jsonl',
   );

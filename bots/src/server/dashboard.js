@@ -21,7 +21,7 @@
   const t = (s) => document.createTextNode(String(s));
 
   // ============ auth ============
-  let TOKEN = localStorage.getItem('PBX_BOT_API_TOKEN');
+  let TOKEN = localStorage.getItem('STRATOS_BOT_API_TOKEN');
   // On localhost the server bypasses bearer auth for loopback sockets, so
   // we don't need a token at all — but we still grab the autogen value from
   // /api/local-token to keep the same code path (bearer header is harmless
@@ -33,7 +33,7 @@
     const v = document.getElementById('token-input').value.trim();
     if (!v) return;
     TOKEN = v;
-    localStorage.setItem('PBX_BOT_API_TOKEN', v);
+    localStorage.setItem('STRATOS_BOT_API_TOKEN', v);
     hideAuth();
     refreshAll();
     setInterval(refreshAll, 15000);
@@ -51,7 +51,7 @@
         // it rather than silently looping if something is misconfigured.
         throw new Error('localhost returned 401 (server auth misconfigured)');
       }
-      localStorage.removeItem('PBX_BOT_API_TOKEN');
+      localStorage.removeItem('STRATOS_BOT_API_TOKEN');
       TOKEN = null;
       const errEl = document.getElementById('token-err');
       errEl.textContent = 'Bad token. Try again.';
@@ -3291,7 +3291,7 @@
           'The Health page is your one-screen ops view. The 7-check above tracks server uptime, ',
           'paper-trade heartbeat freshness, AQI feed, disk space, and the Solana RPC connection — all live.'),
         el('p', null,
-          'Six background watchdogs (BEARWATCH-* scheduled tasks) also run on their own cadence ',
+          'Six background watchdogs (STRATOS-* scheduled tasks) also run on their own cadence ',
           'every 5 min / hourly / daily — they handle health checks, weather pulls, daily digests, ',
           'state + codebase backups, and outage recovery without you ever clicking anything.'),
         el('p', { class: 'muted text-[12px]' },
@@ -3892,7 +3892,7 @@
     const tasksHeader = el('header', { class: 'mb-3' },
       el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Scheduled watchdogs'),
       el('div', { class: 'text-[12px] muted mt-0.5' },
-        tasks.length + ' BEARWATCH-* task' + (tasks.length === 1 ? '' : 's')),
+        tasks.length + ' STRATOS-* task' + (tasks.length === 1 ? '' : 's')),
     );
 
     let tasksBody;

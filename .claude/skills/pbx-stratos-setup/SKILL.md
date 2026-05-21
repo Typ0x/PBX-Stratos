@@ -427,7 +427,7 @@ project hit a 4-minute live-bot outage from this exact failure mode.
 Generate `PBX-Stratos/.env` (at repo root) with just two lines:
 
 ```
-PBX_ALLOW_AUTOGEN=1
+STRATOS_ALLOW_AUTOGEN=1
 HELIUS_MAINNET_URL=<the URL the user pasted>
 ```
 
@@ -435,7 +435,7 @@ That's it. **Do NOT put `BOT_MASTER_KEY`, `BOT_API_TOKEN`, or
 `BOT_HD_MNEMONIC` in this `.env`.** The dashboard server autogenerates
 those itself — `bots/src/server/index.ts` creates a properly-formatted
 `~/.pbx-bots/local.env` (mode 0600) on first boot when
-`PBX_ALLOW_AUTOGEN=1` is in process.env. It writes:
+`STRATOS_ALLOW_AUTOGEN=1` is in process.env. It writes:
 
 - `BOT_API_TOKEN` — 64-hex (32 random bytes hex-encoded)
 - `BOT_MASTER_KEY` — 64-hex (AES-256-GCM key)

@@ -7,9 +7,9 @@ import { armProcessTimeout } from './proc-timeout.js';
 
 /** Hard cap on a single Python decoder runner (wallet-decoder.py /
  *  wallet-evolve.py). A wedged runner would otherwise hang the
- *  orchestrator forever. Override with PBX_DECODE_TIMEOUT_MS. */
+ *  orchestrator forever. Override with STRATOS_DECODE_TIMEOUT_MS. */
 const DECODE_RUNNER_TIMEOUT_MS = Number(
-  process.env.PBX_DECODE_TIMEOUT_MS ?? 10 * 60 * 1000,
+  process.env.STRATOS_DECODE_TIMEOUT_MS ?? 10 * 60 * 1000,
 );
 
 /**
@@ -27,7 +27,7 @@ const DECODE_RUNNER_TIMEOUT_MS = Number(
  * relay it to the dashboard.
  */
 
-const REPO_ROOT_ENV = 'PBX_REPO_ROOT';
+const REPO_ROOT_ENV = 'STRATOS_REPO_ROOT';
 
 /** wallet-decoder.py exit code meaning "no trades for this wallet in the
  *  window" â€” an expected skip, not a failure. Kept in sync with the
@@ -36,7 +36,7 @@ const NO_DATA_EXIT = 3;
 
 /** Resolve the absolute path to bear-scout/runners/. The bot server's cwd is
  *  the `bots/` workspace dir under the repo root, so the runners live
- *  at `../bear-scout/runners/`. Override via PBX_REPO_ROOT for non-standard
+ *  at `../bear-scout/runners/`. Override via STRATOS_REPO_ROOT for non-standard
  *  layouts (e.g. running the server out-of-tree). */
 function runnersDir(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
@@ -98,7 +98,7 @@ function isValidPubkey(s: string): boolean {
 }
 
 function defaultOutDir(pubkey: string): string {
-  return join(homedir(), '.pbx-lab', 'wallets', pubkey);
+  return join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'wallets', pubkey);
 }
 
 /** Spawn a runner, stream its lines, resolve on exit 0 or reject. */

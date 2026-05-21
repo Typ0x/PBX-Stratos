@@ -11,7 +11,7 @@ class SimlibRegression(unittest.TestCase):
         if wallet_dir is None:
             self.skipTest('no wallet fixture with both snapshots.json and features.csv')
         pubkey = os.path.basename(wallet_dir)
-        env = dict(os.environ, PBX_CLAUDE_BIN='/nonexistent')
+        env = dict(os.environ, STRATOS_CLAUDE_BIN='/nonexistent')
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agentic-decode.py')
         out = subprocess.run(
             [sys.executable, script, pubkey,

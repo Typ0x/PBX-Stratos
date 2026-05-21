@@ -90,13 +90,13 @@ export interface BacktestVsPaperRow {
 
 /** Default location for NAV history (single shared file across bots). */
 function defaultNavHistoryPath(): string {
-  return join(process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'state', 'nav-history.jsonl');
+  return join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'state', 'nav-history.jsonl');
 }
 function defaultMetaDir(): string {
-  return join(process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'meta');
+  return join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'meta');
 }
 function defaultLogsDir(): string {
-  return join(process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'logs');
+  return join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'logs');
 }
 
 const DRIFT_MILD_PP_PER_DAY = 5;

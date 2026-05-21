@@ -37,7 +37,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-API = os.environ.get("PBX_LAB_API_BASE", "https://pbx-mainnet-api.onrender.com").rstrip("/")
+API = os.environ.get("STRATOS_LAB_API_BASE", "https://pbx-mainnet-api.onrender.com").rstrip("/")
 USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 REGION = {
     "C751KzNWYDdhELHvZGChnadMhWxpGT8FCGzNWfJJzfh3": "NYC",

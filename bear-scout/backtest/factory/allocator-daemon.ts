@@ -207,7 +207,7 @@ export async function runAllocatorDaemon(
 // ─── Helpers ───────────────────────────────────────────────────────────
 
 function defaultStopFlagPath(): string {
-  return join(homedir(), '.pbx-lab', 'allocator-stop');
+  return join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'allocator-stop');
 }
 
 /** Build the real Store + BotOrchestrator deps for the daemon. Same

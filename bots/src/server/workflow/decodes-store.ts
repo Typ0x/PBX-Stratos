@@ -9,7 +9,7 @@ import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export const DECODES_DIR = join(homedir(), '.pbx-lab', 'decodes');
+export const DECODES_DIR = join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'decodes');
 
 export interface PersistedDecode {
   pubkey: string;

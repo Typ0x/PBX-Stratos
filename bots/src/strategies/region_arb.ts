@@ -808,7 +808,7 @@ export class RegionArbDipStrategy implements Strategy {
     if (this.preseededAt !== null || this.preseedAttempted) return;
     this.preseedAttempted = true;
     try {
-      const apiBase = process.env.PBX_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
+      const apiBase = process.env.STRATOS_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
       const res = await fetch(`${apiBase}/api/lab/trades?days=1`);
       if (!res.ok) {
         console.warn(`[region_arb_dip:${this.id}] pre-seed fetch failed: HTTP ${res.status}`);

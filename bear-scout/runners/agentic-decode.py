@@ -279,9 +279,9 @@ def run_claude(messages: list[dict], model: str | None = None) -> tuple[str, flo
     #   --output-format stream-json  → NDJSON event stream
     #   --verbose                    → required for result/cost events in -p mode
     #   --include-partial-messages   → enables incremental assistant chunks
-    # PBX_CLAUDE_BIN is set by the dashboard (agentic_decode.ts) to the
+    # STRATOS_CLAUDE_BIN is set by the dashboard (agentic_decode.ts) to the
     # resolved claude binary path; falls back to bare name for CLI use.
-    args = [os.environ.get('PBX_CLAUDE_BIN', 'claude'),
+    args = [os.environ.get('STRATOS_CLAUDE_BIN', 'claude'),
             '-p', '--output-format', 'stream-json', '--verbose',
             '--include-partial-messages']
     if model:
@@ -478,12 +478,12 @@ def main() -> int:
     # (sharper, wallet-specific rules); if not, we fall back to the
     # data-driven search. Be loud about the difference either way.
     #
-    # PBX_CLAUDE_BIN is set by the dashboard (agentic_decode.ts → resolveClaude)
+    # STRATOS_CLAUDE_BIN is set by the dashboard (agentic_decode.ts → resolveClaude)
     # to the claude binary it located — which works even when `claude` is not
     # on this subprocess's PATH. shutil.which() still validates it (a path
     # arg is checked for executability; a bare name is searched on PATH), so
     # a stale or missing value correctly falls through to the data search.
-    claude_path = shutil.which(os.environ.get('PBX_CLAUDE_BIN', 'claude'))
+    claude_path = shutil.which(os.environ.get('STRATOS_CLAUDE_BIN', 'claude'))
     if not claude_path:
         print(
             '\n' + '=' * 68 +

@@ -28,7 +28,7 @@ const WINDOW_HOURS = 30 * 24;
 const WINDOW_SEC = WINDOW_HOURS * 3600;
 
 function defaultStorePath(): string {
-  const dir = process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots');
+  const dir = process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots');
   return join(dir, 'airquality.json');
 }
 

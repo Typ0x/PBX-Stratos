@@ -24,12 +24,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
-const DASH_URL = process.env.PBX_DASHBOARD_BASE || 'http://127.0.0.1:8787';
+const DASH_URL = process.env.STRATOS_DASHBOARD_BASE || 'http://127.0.0.1:8787';
 const OUT_DIR  = join(process.cwd(), 'screenshots');
 const VIEWPORT = { width: 1280, height: 800 };
 
 function readTokenFromLocalEnv() {
-  const path = join(homedir(), '.pbx-bots', 'local.env');
+  const path = join(process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'), 'local.env');
   try {
     const content = readFileSync(path, 'utf8');
     const m = /^BOT_API_TOKEN=(\S+)\s*$/m.exec(content);
@@ -58,7 +58,7 @@ async function main() {
   // overlay always re-appears for screenshot runs. addInitScript runs
   // before any page script.
   await ctx.addInitScript((t) => {
-    try { localStorage.setItem('PBX_BOT_API_TOKEN', t); } catch {}
+    try { localStorage.setItem('STRATOS_BOT_API_TOKEN', t); } catch {}
     try { localStorage.removeItem('pbx_onboarding_v1_done'); } catch {}
   }, token);
 

@@ -28,14 +28,14 @@ import { fileURLToPath } from 'node:url';
 import { resolveClaude, resolvePython } from './exec-compat.js';
 import { armProcessTimeout } from './proc-timeout.js';
 
-const REPO_ROOT_ENV = 'PBX_REPO_ROOT';
+const REPO_ROOT_ENV = 'STRATOS_REPO_ROOT';
 
 /** Hard cap on the agentic decoder's runtime. It runs up to `maxRounds`
  *  claude calls plus walk-forward simulation inside a single Python
  *  process â€” generous, but a wedged child must not hang the orchestrator
- *  forever. Override with PBX_AGENTIC_TIMEOUT_MS. */
+ *  forever. Override with STRATOS_AGENTIC_TIMEOUT_MS. */
 const AGENTIC_DECODE_TIMEOUT_MS = Number(
-  process.env.PBX_AGENTIC_TIMEOUT_MS ?? 20 * 60 * 1000,
+  process.env.STRATOS_AGENTIC_TIMEOUT_MS ?? 20 * 60 * 1000,
 );
 
 function repoRoot(): string {
@@ -162,10 +162,10 @@ export async function agenticDecodeWallet(
   return new Promise<AgenticDecodeResult>((resolveResult) => {
     let proc;
     try {
-      // PBX_CLAUDE_BIN lets agentic-decode.py find the claude CLI even
+      // STRATOS_CLAUDE_BIN lets agentic-decode.py find the claude CLI even
       // when it isn't on this subprocess's PATH (see resolveClaude).
       proc = spawn(resolvePython(), args, {
-        env: { ...process.env, PBX_CLAUDE_BIN: resolveClaude() },
+        env: { ...process.env, STRATOS_CLAUDE_BIN: resolveClaude() },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (err) {

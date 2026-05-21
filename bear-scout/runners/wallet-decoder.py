@@ -12,7 +12,7 @@ Usage:
   python3 wallet-decoder.py <pubkey> [--out path.csv] [--days N]
 
 Data source: public PBX lab API (no DATABASE_URL needed). Override with
-PBX_LAB_API_BASE for a local API.
+STRATOS_LAB_API_BASE for a local API.
 """
 from __future__ import annotations
 import argparse

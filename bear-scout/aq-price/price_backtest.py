@@ -10,7 +10,7 @@ Strategy `aq-rotate`: each hour, hold the region whose bucketed-AQ-forecast
 1/PM2.5 target weight is rising fastest (max `dw`) â€” if that `dw` is
 positive â€” otherwise sit in USDC.
 
-Costs: 80 bps per leg (matches the factory's PBX_FEE_BPS default).
+Costs: 80 bps per leg (matches the factory's STRATOS_FEE_BPS default).
 Baseline: equal-weight buy-and-hold of the three region tokens.
 Walk-forward: K folds; the PM2.5 forecaster is retrained before each fold
 on the time-embargoed history that precedes it.

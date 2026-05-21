@@ -11,7 +11,7 @@
  */
 
 const DEFAULT_API_BASE =
-  process.env.PBX_LAB_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
+  process.env.STRATOS_LAB_API_BASE ?? 'https://pbx-mainnet-api.onrender.com';
 
 interface RawTrade {
   ts: string;

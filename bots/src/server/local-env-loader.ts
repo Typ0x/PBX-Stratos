@@ -13,7 +13,7 @@
  *
  * The loader closes that gap. Calling it is idempotent and safe; it
  * never overwrites an env var that's already set, never generates new
- * secrets (only the server's autogen path under PBX_ALLOW_AUTOGEN=1
+ * secrets (only the server's autogen path under STRATOS_ALLOW_AUTOGEN=1
  * does that), and returns a {loaded, source, dataDir} outcome so
  * callers can log what happened.
  *
@@ -34,7 +34,7 @@ import { join } from 'node:path';
 /** Default data dir, matching bots/src/server/index.ts and
  *  paper-deploy.ts:defaultProvenanceDir. */
 export function defaultBotsDataDir(): string {
-  return join(homedir(), '.pbx-bots');
+  return (process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'));
 }
 
 export interface LocalEnvLoadResult {
