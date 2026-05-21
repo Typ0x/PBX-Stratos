@@ -4323,29 +4323,38 @@
     layer.className = 'motif-layer';
     layer.setAttribute('aria-hidden', 'true');
 
-    const counts = { dollar: 14, chart: 10, bar: 8 };
+    // 48 elements total (16 of each type) — enough density that
+    // ~12 are visibly peaking at any given moment with the 25%-duty
+    // opacity envelope. With negative-delay seeding (below) the
+    // bottom of the visibility distribution rarely drops under 8,
+    // which is the user-requested minimum.
+    const counts = { bitcoin: 16, chart: 16, lambo: 16 };
     for (const type in counts) {
       for (let i = 0; i < counts[type]; i++) {
         const span = document.createElement('span');
         span.className = 'motif motif-' + type;
-        // Per-element randomness. Position is in viewport units so the
-        // motif scales with viewport size. Delay is randomized across
-        // the full animation duration so elements peak at independent
-        // moments. Duration also jittered slightly so two elements
-        // with identical delays still drift out of sync over time.
-        //
-        // --dx / --dy seed the slight drift each element does over its
-        // full cycle: random direction (0-360°), 18-38px of total
-        // displacement. Because the visible window is only 25% of the
-        // cycle, the user sees ~5-10px of actual motion per element —
-        // "alive but not floating away."
+        // Per-element randomness:
+        //  --mx / --my : random viewport position (covers any size).
+        //  --d         : NEGATIVE animation-delay so each element jumps
+        //                straight into a random mid-cycle phase on
+        //                first render. Without this, elements with
+        //                large positive delays sit invisible for up to
+        //                15s after page load — that's the "first 10-15
+        //                seconds nothing loads" the user reported.
+        //  --dur       : 10-16s jitter so elements with identical
+        //                delays still drift out of sync over time.
+        //  --dx / --dy : random direction (0-360°) + 18-38px total
+        //                displacement. Visible window is only 25% of
+        //                the cycle, so the user sees ~5-10px of actual
+        //                motion per element — alive but not floating
+        //                away.
         const angle = Math.random() * Math.PI * 2;
         const distance = 18 + Math.random() * 20;
         const dx = Math.cos(angle) * distance;
         const dy = Math.sin(angle) * distance;
         span.style.setProperty('--mx', (Math.random() * 100).toFixed(2) + 'vw');
         span.style.setProperty('--my', (Math.random() * 100).toFixed(2) + 'vh');
-        span.style.setProperty('--d',  (Math.random() * 14).toFixed(2) + 's');
+        span.style.setProperty('--d',  (-Math.random() * 16).toFixed(2) + 's');
         span.style.setProperty('--dur', (10 + Math.random() * 6).toFixed(2) + 's');
         span.style.setProperty('--dx', dx.toFixed(1) + 'px');
         span.style.setProperty('--dy', dy.toFixed(1) + 'px');

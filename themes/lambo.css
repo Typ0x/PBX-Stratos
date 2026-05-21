@@ -344,11 +344,14 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   background-position: center;
 }
 
-/* ── $ symbol — bold gold dollar sign ─────────────────────────────── */
-.motif-dollar {
-  width: 14px;
-  height: 20px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 20'><text x='0' y='15' font-family='Inter,system-ui,sans-serif' font-size='16' font-weight='700' fill='%23d4af37'>$</text></svg>");
+/* ── Bitcoin coin — gold circle with ₿ glyph inside ──────────────── */
+/* Gold disc + dark ₿ symbol = recognizable bitcoin badge at small
+ * sizes. Outer circle stays solid gold; inner ₿ uses near-black so
+ * the symbol reads against the gold even at 7% opacity. */
+.motif-bitcoin {
+  width: 22px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='%23d4af37'/><text x='11' y='16.5' font-family='Arial,system-ui,sans-serif' font-size='15' font-weight='900' fill='%231a1a1a' text-anchor='middle'>₿</text></svg>");
 }
 
 /* ── Chart-up — small upward polyline with terminus dot ──────────── */
@@ -358,11 +361,15 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'><polyline points='2,24 16,20 30,14 46,7 60,2' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='60' cy='2' r='2' fill='%23d4af37'/></svg>");
 }
 
-/* ── Gold-bar pill — small gold rectangle with mid-line ──────────── */
-.motif-bar {
-  width: 30px;
-  height: 10px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 10'><rect x='0' y='0' width='30' height='10' rx='2' fill='%23d4af37'/><line x1='4' y1='5' x2='26' y2='5' stroke='%23a08828' stroke-width='0.7'/></svg>");
+/* ── Lambo — low-slung supercar silhouette in gold ───────────────── *
+ * Profile of an Aventador-style supercar: pointed nose, steep
+ * windshield rake, compact cockpit (darker gold), two visible
+ * wheels. Solid gold body so it reads even at the 14%-peak opacity
+ * the twinkle keyframe enforces. */
+.motif-lambo {
+  width: 56px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 22'><path d='M 3 17 L 6 12 L 13 11 L 18 7 L 36 7 L 43 11 L 52 12 L 54 17 Z' fill='%23d4af37'/><path d='M 19 8 L 23 5 L 33 5 L 37 8 Z' fill='%23a08828'/><circle cx='13' cy='18' r='3' fill='%231a1a1a'/><circle cx='13' cy='18' r='1.2' fill='%23d4af37'/><circle cx='43' cy='18' r='3' fill='%231a1a1a'/><circle cx='43' cy='18' r='1.2' fill='%23d4af37'/></svg>");
 }
 
 /* ── Twinkle keyframes ────────────────────────────────────────────── *
