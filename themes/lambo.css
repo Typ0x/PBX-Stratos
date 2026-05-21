@@ -263,59 +263,114 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
 .shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25) !important; }
 .shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(212, 175, 55, 0.25) !important; }
 
-/* ── Atmospheric background motif ─────────────────────────────────────
+/* ── Atmospheric background motif (shooting-star variant) ─────────────
  * Crypto Bro vibe: $ symbols + tiny upward-chart fragments + gold-bar
- * pills, all rendered in gold-on-matte at ~7% opacity. Tiled SVG so
- * the pattern repeats across any viewport size; gentle horizontal
- * drift to give the surface motion without ever being distracting.
+ * pills, all rendered in gold-on-matte. Instead of a single tiled
+ * surface that drifts (the v1 approach), each MOTIF TYPE lives on
+ * its own layer with its own fade-in / fade-out cycle. At any moment
+ * one type might be peaking visible while another is fading out and
+ * a third is still invisible — so elements appear to pop in and
+ * disappear independently, like shooting stars or fireflies.
  *
- * Implementation choices:
- *   - `body::before` rather than a real DOM element so the motif is
- *     pure theme-CSS and ships without touching dashboard.html.
- *   - `position: fixed` + `pointer-events: none` keeps it under all
- *     interactive surfaces and never blocks clicks.
- *   - `z-index: 0` puts it above the body's solid background-color
- *     but below the dashboard content (which has its own stacking).
- *   - Inline SVG data-URI — zero extra HTTP requests, no font loads.
- *   - Animation drifts `background-position` by exactly one tile so
- *     the pattern stays seamless at the loop point. Linear easing so
- *     the motion is constant (ease-in-out reads as "breathing").
- *   - `prefers-reduced-motion` disables the drift but keeps the
- *     static pattern — accessibility without losing the vibe.
+ * Three pseudo-element layers (CSS gives 4 slots total per page —
+ * html::before, html::after, body::before, body::after — and we use
+ * three, leaving body::after free for future polish):
  *
- * Motif tile (240×240 SVG, gold #d4af37):
- *   • A bold `$` top-left
- *   • An upward-chart polyline with terminus dot, mid-right
- *   • A gold-bar pill (rect with mid-line) mid-left
- *   • A smaller `$` bottom-right
- *   • A second smaller chart-up bottom-left
- *   • A second smaller gold-bar bottom-center
+ *   Layer A (html::before) → $ symbols only.
+ *     Cycle: 13s. Peak opacity ~10%. Invisible 60% of the cycle.
+ *   Layer B (html::after) → upward-chart polylines only.
+ *     Cycle: 17s. Peak opacity ~9%. Invisible 65% of the cycle.
+ *     Delay: 4s.
+ *   Layer C (body::before) → gold-bar pills only.
+ *     Cycle: 11s. Peak opacity ~8%. Invisible 70% of the cycle.
+ *     Delay: 7s.
  *
- * Net: looks like the surface of a degen's trading terminal at idle —
- * symbols of upside scattered like coffee stains on a desk pad.
+ * Because the three cycle lengths are co-prime-ish (13 / 17 / 11),
+ * the three layers never resync — the moments when "everything's
+ * visible at once" land at unpredictable times over a long viewing,
+ * which sells the shooting-star feel. Each layer also has a slightly
+ * different background-size so the underlying grids don't line up,
+ * breaking visible repetition.
+ *
+ * Why three layers instead of one canvas:
+ *   - CSS pseudos can't randomize per-tile-element animation timing.
+ *     Splitting the motif by TYPE is the closest we get to "each
+ *     element fades independently" without touching the DOM.
+ *   - Each layer's opacity-only animation is GPU-composited (no
+ *     paint thrash) — performant even on integrated-graphics laptops.
+ *
+ * Reduced-motion: opacity holds at a stable mid value (~5%) with no
+ * animation. The vibe stays, the motion stops.
  */
-body::before {
+
+html::before, html::after, body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.07;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240' width='240' height='240'><text x='28' y='38' font-family='Inter,system-ui,sans-serif' font-size='16' font-weight='700' fill='%23d4af37'>$</text><polyline points='100,60 120,52 140,42 160,28 175,18' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='175' cy='18' r='2' fill='%23d4af37'/><rect x='38' y='118' width='34' height='10' rx='2' fill='%23d4af37'/><line x1='44' y1='123' x2='66' y2='123' stroke='%23a08828' stroke-width='0.8'/><text x='170' y='180' font-family='Inter,system-ui,sans-serif' font-size='12' font-weight='600' fill='%23d4af37'>$</text><polyline points='30,200 50,192 70,182 88,172' stroke='%23d4af37' stroke-width='1.2' fill='none' stroke-linecap='round'/><rect x='115' y='215' width='26' height='8' rx='1.5' fill='%23d4af37'/></svg>");
-  background-size: 240px 240px;
   background-repeat: repeat;
-  animation: lambo-drift 14s linear infinite;
-  will-change: background-position;
+  opacity: 0;
+  will-change: opacity;
 }
 
-@keyframes lambo-drift {
-  from { background-position: 0 0; }
-  to   { background-position: 240px 0; }
+/* ── Layer A — $ symbols only ──────────────────────────────────────── */
+html::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240' width='240' height='240'><text x='28' y='38' font-family='Inter,system-ui,sans-serif' font-size='16' font-weight='700' fill='%23d4af37'>$</text><text x='170' y='180' font-family='Inter,system-ui,sans-serif' font-size='12' font-weight='600' fill='%23d4af37'>$</text><text x='90' y='130' font-family='Inter,system-ui,sans-serif' font-size='10' font-weight='600' fill='%23d4af37'>$</text></svg>");
+  background-size: 240px 240px;
+  animation: lambo-twinkle-dollar 13s ease-in-out infinite;
 }
 
-/* Static motif when the user has reduced-motion preferred. */
+/* ── Layer B — chart-up polylines only ─────────────────────────────── */
+html::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 260' width='260' height='260'><polyline points='100,60 120,52 140,42 160,28 175,18' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='175' cy='18' r='2' fill='%23d4af37'/><polyline points='30,210 50,202 70,192 88,182' stroke='%23d4af37' stroke-width='1.2' fill='none' stroke-linecap='round'/><polyline points='180,150 195,142 210,130 222,120' stroke='%23d4af37' stroke-width='1.1' fill='none' stroke-linecap='round'/><circle cx='222' cy='120' r='1.6' fill='%23d4af37'/></svg>");
+  background-size: 260px 260px;
+  background-position: 60px 30px;
+  animation: lambo-twinkle-chart 17s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+/* ── Layer C — gold-bar pills only ─────────────────────────────────── */
+body::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 280' width='280' height='280'><rect x='38' y='118' width='34' height='10' rx='2' fill='%23d4af37'/><line x1='44' y1='123' x2='66' y2='123' stroke='%23a08828' stroke-width='0.8'/><rect x='195' y='40' width='28' height='8' rx='1.5' fill='%23d4af37'/><line x1='200' y1='44' x2='219' y2='44' stroke='%23a08828' stroke-width='0.7'/><rect x='115' y='235' width='26' height='8' rx='1.5' fill='%23d4af37'/><line x1='120' y1='239' x2='137' y2='239' stroke='%23a08828' stroke-width='0.7'/></svg>");
+  background-size: 280px 280px;
+  background-position: 120px 80px;
+  animation: lambo-twinkle-bar 11s ease-in-out infinite;
+  animation-delay: -7s;
+}
+
+/* ── Keyframes — long invisible periods + brief peaks ─────────────────
+ * Each layer follows: invisible → quick rise → brief peak → slow
+ * decay → invisible. The asymmetric curve (sharper rise, slower
+ * decay) reads as "blink in, then drift out" which sells the
+ * shooting-star feel better than a symmetric sine wave would.
+ */
+@keyframes lambo-twinkle-dollar {
+  0%, 60%, 100% { opacity: 0; }
+  68%           { opacity: 0.10; }
+  76%           { opacity: 0.10; }
+  92%           { opacity: 0; }
+}
+@keyframes lambo-twinkle-chart {
+  0%, 55%, 100% { opacity: 0; }
+  64%           { opacity: 0.09; }
+  72%           { opacity: 0.09; }
+  90%           { opacity: 0; }
+}
+@keyframes lambo-twinkle-bar {
+  0%, 50%, 100% { opacity: 0; }
+  60%           { opacity: 0.08; }
+  68%           { opacity: 0.08; }
+  88%           { opacity: 0; }
+}
+
+/* Static motif when user prefers reduced motion — hold at a low,
+ * stable opacity so the vibe stays but the movement stops. */
 @media (prefers-reduced-motion: reduce) {
-  body::before { animation: none; }
+  html::before, html::after, body::before {
+    animation: none;
+    opacity: 0.05;
+  }
 }
 
 /* Ensure dashboard chrome sits above the motif. Sidebar, header, and
