@@ -2741,6 +2741,55 @@ function readDashboardAsset(name: string): string {
 app.get('/dashboard', async (_req, reply) => {
   reply.type('text/html').send(readDashboardAsset('dashboard.html'));
 });
+// /dashboard/fresh — tiny HTML stub that clears the browser-side tour
+// state (onboarding-done flag, nav-view persistence, hidden-series
+// preferences) and redirects to /dashboard. Used after running
+// `npm run reset` so the next open feels like a first visit.
+// Intentionally KEEPS PBX_BOT_API_TOKEN so the user doesn't have to
+// re-paste it on every reset.
+app.get('/dashboard/fresh', async (_req, reply) => {
+  reply.type('text/html').send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Resetting dashboard…</title>
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif;
+         background: #0a0d13; color: #cbd5e1;
+         min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: linear-gradient(180deg,#131720,#0e1219); border: 1px solid #232a36;
+          border-radius: 12px; padding: 24px 32px; max-width: 400px; }
+  .ok { color: #34d399; font-weight: 600; margin-bottom: 8px; }
+  .muted { color: #94a3b8; font-size: 12px; }
+  a { color: #34d399; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="ok">Resetting browser state…</div>
+  <div class="muted">Clearing tour flags + view preferences. Your API token stays. Redirecting in a moment.</div>
+  <div class="muted" style="margin-top: 12px;">
+    If not redirected: <a href="/dashboard">open /dashboard</a>
+  </div>
+</div>
+<script>
+  // Wipe every PBX_* localStorage key EXCEPT the API token so the
+  // user doesn't have to re-paste it.
+  try {
+    const keep = new Set(['PBX_BOT_API_TOKEN']);
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && !keep.has(k)) toRemove.push(k);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+  } catch {}
+  // Brief delay so the user sees the message land, then redirect.
+  setTimeout(() => { location.href = '/dashboard'; }, 350);
+</script>
+</body>
+</html>`);
+});
 app.get('/dashboard.css', async (_req, reply) => {
   reply.type('text/css').send(readDashboardAsset('dashboard.css'));
 });
