@@ -7,6 +7,11 @@
  *
  * Gold replaces emerald as the primary accent: buttons, PnL, links.
  * Every Tailwind emerald-* utility on the page gets remapped to gold.
+ *
+ * Tailwind utility classes carry specificity 10 and would otherwise
+ * beat element-level rules. We override the specific utilities the
+ * dashboard's HTML applies (bg-[#0a0d13], bg-emerald-500, text-zinc-*,
+ * etc.) with !important so the theme wins regardless of class order.
  */
 
 :root {
@@ -17,6 +22,9 @@
   --text-muted:    #8a7a5c;
   --text-accent:   #d4af37;
   --border-color:  #2a2620;
+  --gold:          #d4af37;
+  --gold-bright:   #e6c560;
+  --gold-dim:      rgba(212, 175, 55, 0.5);
 }
 
 /* Body — matte black, warm off-white text. */
@@ -40,9 +48,8 @@ header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 10, 10, 0.95) !important
   border-radius: 4px !important;
 }
 
-/* Accent: emerald → lambo gold (#d4af37). The dashboard uses
- * bg-emerald-500 for primary CTAs (Save, Confirm, Decode, Deploy).
- * Gold buttons on black text reads as exchange-terminal premium. */
+/* ── Emerald → Gold ────────────────────────────────────────────────── */
+/* Solid fills (primary CTAs). */
 .bg-emerald-500, .bg-emerald-400 {
   background-color: #d4af37 !important;
   color: #0a0a0a !important;
@@ -50,32 +57,83 @@ header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 10, 10, 0.95) !important
 .bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
   background-color: #e6c560 !important;
 }
-.text-emerald-300, .text-emerald-400 { color: #d4af37 !important; }
-.border-emerald-500\/40, .border-emerald-500\/30 { border-color: rgba(212, 175, 55, 0.4) !important; }
-.bg-emerald-500\/10, .bg-emerald-500\/5 { background-color: rgba(212, 175, 55, 0.08) !important; }
+/* Transparent emerald tints used for chips/badges/pills. */
+.bg-emerald-500\/5  { background-color: rgba(212, 175, 55, 0.05) !important; }
+.bg-emerald-500\/10 { background-color: rgba(212, 175, 55, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(212, 175, 55, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(212, 175, 55, 0.20) !important; }
 
-/* Health/status emerald pulse dot → gold pulse. */
-.bg-emerald-400 { background-color: #d4af37 !important; }
+/* Text shades. */
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #d4af37 !important; }
+.hover\:text-emerald-300:hover, .hover\:text-emerald-200:hover { color: #e6c560 !important; }
 
-/* Muted text → muted gold-tan. */
+/* Borders. */
+.border-emerald-500\/20 { border-color: rgba(212, 175, 55, 0.25) !important; }
+.border-emerald-500\/30 { border-color: rgba(212, 175, 55, 0.35) !important; }
+.border-emerald-500\/40 { border-color: rgba(212, 175, 55, 0.45) !important; }
+.border-emerald-500\/50 { border-color: rgba(212, 175, 55, 0.55) !important; }
+.border-emerald-500\/60 { border-color: rgba(212, 175, 55, 0.65) !important; }
+
+/* Pulse-dot in the header (bg-emerald-400 + pulse-dot). */
+.pulse-dot { animation: pulse 2s ease-in-out infinite; }
+
+/* ── Sky (recommended pill, links, info chips) → soft gold ───────── */
+.bg-sky-500, .bg-sky-400 { background-color: #d4af37 !important; color: #0a0a0a !important; }
+.bg-sky-500\/5  { background-color: rgba(212, 175, 55, 0.05) !important; }
+.bg-sky-500\/10 { background-color: rgba(212, 175, 55, 0.10) !important; }
+.bg-sky-500\/15 { background-color: rgba(212, 175, 55, 0.15) !important; }
+.bg-sky-500\/20 { background-color: rgba(212, 175, 55, 0.20) !important; }
+.text-sky-300, .text-sky-400 { color: #d4af37 !important; }
+.border-sky-500\/20, .border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(212, 175, 55, 0.45) !important; }
+/* "view on Solscan" anchor — explicitly forced. */
+a.text-sky-300, a.text-sky-400 { color: #d4af37 !important; }
+
+/* ── Violet (evolution-invented badge) → warm copper ─────────────── */
+.text-violet-300, .text-violet-400 { color: #b87a2b !important; }
+.bg-violet-500\/10, .bg-violet-500\/15 { background-color: rgba(184, 122, 43, 0.12) !important; }
+.border-violet-500\/30, .border-violet-500\/40 { border-color: rgba(184, 122, 43, 0.4) !important; }
+
+/* ── Muted, value, label custom classes ─────────────────────────── */
 .muted { color: #8a7a5c !important; }
 .value { color: #f5e6c8 !important; }
 .label { color: #8a7a5c !important; }
 
-/* Text utility overrides — zinc → warm cream tones. */
-.text-zinc-50, .text-zinc-100 { color: #f5e6c8 !important; }
+/* ── Zinc text scale — every shade remapped to a cream tone. ─────── */
+.text-zinc-50  { color: #fbf5e8 !important; }
+.text-zinc-100 { color: #f5e6c8 !important; }
 .text-zinc-200 { color: #ddc99f !important; }
 .text-zinc-300 { color: #b8a474 !important; }
-.text-zinc-400, .text-zinc-500 { color: #8a7a5c !important; }
+.text-zinc-400 { color: #8a7a5c !important; }
+.text-zinc-500 { color: #6f624a !important; }
+.text-zinc-600 { color: #594e3b !important; }
+.text-zinc-700 { color: #43392c !important; }
+
+/* ── Zinc backgrounds (input fields, nested panels, fleet selector). */
+.bg-zinc-700 { background-color: #1f1a14 !important; }
+.bg-zinc-800 { background-color: #141414 !important; }
+.bg-zinc-900 { background-color: #0a0a0a !important; }
+.bg-zinc-700\/30 { background-color: rgba(31, 26, 20, 0.45) !important; }
+
+/* ── Zinc borders ────────────────────────────────────────────────── */
+.border-zinc-700        { border-color: #2a2620 !important; }
+.border-zinc-700\/60    { border-color: rgba(42, 38, 32, 0.7) !important; }
+.border-zinc-800        { border-color: #2a2620 !important; }
+.border-zinc-800\/40    { border-color: rgba(42, 38, 32, 0.5) !important; }
+.border-zinc-800\/60    { border-color: rgba(42, 38, 32, 0.7) !important; }
+.border-zinc-900        { border-color: #1a1610 !important; }
+.hover\:border-zinc-500:hover { border-color: #6f624a !important; }
 
 /* Inputs/dark surfaces — push to the matte-black baseline. */
 .bg-\[\#0a0d13\] { background-color: #0a0a0a !important; }
 .bg-\[\#0a0d13\]\/60 { background-color: rgba(10, 10, 10, 0.6) !important; }
-.border-zinc-700, .border-zinc-800\/60 { border-color: #2a2620 !important; }
 .focus\:border-emerald-500:focus { border-color: #d4af37 !important; }
 
 /* Mono font — JetBrains, like a real desk. */
 .mono { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important; }
+
+/* Checkbox accent (show-stopped toggle). */
+input[type="checkbox"].accent-emerald-500 { accent-color: #d4af37 !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #c9512c !important; }
 
 /* Sidebar active nav item — gold, not emerald. */
 .nav-btn[aria-current="true"] {
@@ -89,3 +147,102 @@ header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 10, 10, 0.95) !important
   border-color: #d4af37 !important; color: #d4af37 !important;
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25), 0 0 14px rgba(212, 175, 55, 0.5) !important;
 }
+
+/* ── Modal backdrop dim ────────────────────────────────────────────── */
+.modal-bg { background: rgba(0, 0, 0, 0.85) !important; }
+
+/* ── PnL glows: keep semantic up=green/down=red so charts read, but tinted */
+.glow-up   { box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18), 0 0 24px rgba(212, 175, 55, 0.06) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(201, 81, 44, 0.20), 0 0 24px rgba(201, 81, 44, 0.06) !important; }
+
+/* ── Workflow + Evolution rank-1 row tints ────────────────────────── */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.02)) !important;
+  box-shadow: inset 2px 0 0 #d4af37 !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.40), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(212, 175, 55, 0.28); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(212, 175, 55, 0.22); } 100% { background-color: transparent; } }
+
+/* ── Evolution origin badges ──────────────────────────────────────── */
+.evo-badge-decoded  { background: rgba(212, 175, 55, .15) !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-badge-invented { background: rgba(184, 122, 43, .15) !important; color: #c9933f !important; border-color: rgba(184, 122, 43, .35) !important; }
+.evo-badge-mutated  { background: rgba(230, 197, 96, .15) !important; color: #e6c560 !important; border-color: rgba(230, 197, 96, .35) !important; }
+.evo-badge-crossed  { background: rgba(245, 230, 200, .12) !important; color: #f5e6c8 !important; border-color: rgba(245, 230, 200, .30) !important; }
+
+/* ── Evolution metric stat cards (live behind dashboard.css with hard colors) */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #0d0c08 !important; border-color: #2a2620 !important;
+}
+.evo-metric-val { color: #f5e6c8 !important; }
+.evo-metric-val.pos { color: #d4af37 !important; }
+.evo-metric-val.neg { color: #c9512c !important; }
+.evo-strat-row { background: #0d0c08 !important; border-color: #2a2620 !important; }
+.evo-strat-row .evo-res-pred { background: #060503 !important; }
+.evo-strat-chip-val.pos { color: #d4af37 !important; }
+.evo-strat-chip-val.neg { color: #c9512c !important; }
+.evo-strat-deploy { background: #d4af37 !important; border-color: #d4af37 !important; color: #0a0a0a !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #e6c560 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .55) !important; }
+.evo-hero { background: rgba(212, 175, 55, .07) !important; border-color: rgba(212, 175, 55, .45) !important; }
+.evo-hero-label { color: #e6c560 !important; }
+.evo-res-status-ok   { color: #d4af37 !important; }
+.evo-res-status-warn { color: #e6b540 !important; }
+.evo-ledger { background: #141414 !important; border-color: #2a2620 !important; color: #ddc99f !important; }
+.evo-ledger-h2 { color: #f5e6c8 !important; }
+.evo-ledger-li, .evo-ledger-p { color: #ddc99f !important; }
+.evo-pop-mult { background: rgba(138, 122, 92, .15) !important; color: #b8a474 !important; border-color: rgba(138, 122, 92, .35) !important; }
+.evo-chip-running { background: rgba(212, 175, 55, .15) !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-chip-done    { background: rgba(212, 175, 55, .15) !important; color: #e6c560 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-chip-failed  { background: rgba(201, 81, 44, .15) !important; color: #d97757 !important; border-color: rgba(201, 81, 44, .35) !important; }
+
+/* ── Deploy modal mode-selector chips ─────────────────────────────── */
+.deploy-mode-btn { border-color: #2a2620 !important; background: #0a0a0a !important; }
+.deploy-mode-btn:hover { border-color: #594e3b !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #d4af37 !important; box-shadow: 0 0 0 1px rgba(212, 175, 55, .4) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #c9512c !important; box-shadow: 0 0 0 1px rgba(201, 81, 44, .4) !important; }
+
+/* ── Onboarding tour overlays ─────────────────────────────────────── */
+.onboard-backdrop { background: rgba(0, 0, 0, 0.65) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.45), 0 0 36px 6px rgba(212, 175, 55, 0.28); }
+  50%      { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0.75), 0 0 56px 10px rgba(212, 175, 55, 0.45); }
+}
+.onboard-highlight { outline-color: rgba(230, 197, 96, 0.95) !important; }
+.onboard-dot.current { background: #d4af37 !important; }
+.onboard-dot.done    { background: #b8a474 !important; }
+.onboard-waiting { border-color: rgba(212, 175, 55, 0.45) !important; background: rgba(212, 175, 55, 0.08) !important; color: #f5e6c8 !important; }
+.onboard-waiting::before { background: #d4af37 !important; }
+.onboard-livecheck { background: #0a0a0a !important; border-color: #2a2620 !important; }
+.onboard-livecheck .ok  { color: #d4af37 !important; }
+.onboard-livecheck .bad { color: #c9512c !important; }
+.onboard-livecheck .pending { color: #8a7a5c !important; }
+
+/* ── Workflow page chart legend area + tab-buttons ────────────────── */
+.tabbtn[aria-selected="true"] { background: #1f1a14 !important; color: #f5e6c8 !important; }
+.tabbtn { color: #8a7a5c !important; }
+.tabbtn:hover { color: #ddc99f !important; }
+
+/* ── Scrollbar — match the matte palette ──────────────────────────── */
+.scrollbar::-webkit-scrollbar-thumb { background: #2a2620 !important; }
+
+/* ── Inline-styled personality avatar circle ──────────────────────────
+ * The achievements page renders a 40×40 round avatar whose color is
+ * baked inline by personalityColor() in dashboard.js — `style="background:
+ * #10b981"` for the "default" personality. With !important we can
+ * still beat the inline style. We re-tint each known color to the
+ * lambo gold family so a "default" or "drill-sergeant" user lands
+ * on a theme-consistent circle. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #d4af37 !important;
+}
+
+/* ── Achievements section progress bars (inline-styled bg-emerald-500). */
+.bg-emerald-500[style*="width"] { background-color: #d4af37 !important; }
+
