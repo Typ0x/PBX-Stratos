@@ -12,7 +12,7 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260521-6">
+<link rel="stylesheet" href="/dashboard.css?v=20260521-7">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 
@@ -163,11 +163,10 @@
 
     <!-- 10-dot step indicator. Filled emerald = current, zinc-400 =
          completed, zinc-700 = pending. Rebuilt on every step change. -->
-    <div id="onboard-dots" class="flex items-center gap-1.5 mb-5 pt-1"></div>
+    <div id="onboard-dots" class="flex items-center gap-1.5 mb-4 pt-1"></div>
 
     <header class="mb-3">
-      <div class="text-[11px] mono muted" id="onboard-stepnum">Step 1 of 10</div>
-      <h2 id="onboard-title" class="text-lg font-semibold text-zinc-50 mt-0.5">You're set up</h2>
+      <h2 id="onboard-title" class="text-lg font-semibold text-zinc-50">You're set up</h2>
     </header>
 
     <section id="onboard-body" class="text-[13px] text-zinc-200 leading-relaxed space-y-3 min-h-[120px]"></section>
@@ -177,6 +176,12 @@
       <div class="flex-1"></div>
       <button id="onboard-next" type="button" class="bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 px-5 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
     </div>
+
+    <!-- Step counter, tucked at bottom-right of the card. Mirrors the
+         Skip-tutorial link at top-right. Plain "X of 10" — no "Step"
+         prefix here, since the body's title already starts with
+         "Step N: ..." and showing the word twice was noisy. -->
+    <div id="onboard-stepnum" class="absolute bottom-3 right-4 text-[11px] mono muted">1 of 10</div>
   </div>
 </div>
 

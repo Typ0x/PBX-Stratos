@@ -3211,72 +3211,60 @@
       ],
     });
 
-    // 8 — Back to Discover, save a discovery result
+    // 8 — Wallet setup reminder (while discovery finishes in background)
+    //
+    // Skip-able by design: the user might be exploring with no
+    // intent to trade live. Live-trading endpoints stay 503 until
+    // BOT_HD_MNEMONIC is set up + funded, so deferring is safe.
     steps.push({
-      title: 'Step 7: Save the discovery',
+      title: 'Step 7: Set up your wallet (optional)',
       view: 'discover',
-      highlight: '#workflow-card',
       body: () => [
         el('p', null,
-          'Discovery should be finished by now. Scroll through the discovered wallets and check the box next to one you want to save for later (or all of them). ',
-          'Saved wallets stay in your library across sessions.'),
+          "Discovery's still running in the background. While you wait, ",
+          "lock down your wallet so you're ready if you decide to trade live later."),
+        el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
+          el('div', { class: 'text-amber-200 font-medium' }, '⚠ Recommended (skippable):'),
+          el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
+            el('li', null,
+              'Open ',
+              el('code', { class: 'mono text-amber-200' }, '~/.pbx-bots/local.env'),
+              ' and copy the 24 words after ',
+              el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
+              ' onto paper. Fireproof storage. ',
+              el('strong', null, 'Do not screenshot, do not paste into a cloud sync.'),
+            ),
+            el('li', null,
+              "If you want to actually trade live later, send a small amount of USDC + SOL ",
+              "to your funder wallet pubkey. ",
+              el('span', { class: 'muted' }, "(Skip this if you're just paper-trading — costs nothing.)"),
+            ),
+          ),
+        ),
         el('p', { class: 'muted text-[12px]' },
-          'No checkboxes visible yet? Use the confirm button below once you\'ve eyeballed the results.'),
+          "Not ready yet? Click Next to skip — you can come back to this anytime. ",
+          "Live trading stays gated until you do, but everything else still works."),
       ],
-      gate: {
-        description: 'Waiting for: save a discovered wallet',
-        // Discovery-result checkboxes are not yet wired in markup; we
-        // listen for any checkbox toggle inside the discover view as a
-        // best-effort signal, plus the modal also shows a "Just
-        // continue →" fallback for users who don't see one.
-        listen: (advance) => {
-          const view = document.getElementById('view-discover');
-          const handler = (e) => {
-            const t = e.target;
-            if (!view || !t || !(t instanceof Element)) return;
-            if (!view.contains(t)) return;
-            if (t.tagName === 'INPUT' && t.type === 'checkbox') advance();
-          };
-          document.addEventListener('change', handler, true);
-          return () => document.removeEventListener('change', handler, true);
-        },
-        // Modal-rendered confirmation button — the "I've saved one" CTA
-        // that replaces the missing real checkbox UI in this build.
-        confirmLabel: "I've saved one — continue",
-      },
     });
 
-    // 9 — Decode a wallet directly
+    // 9 — Strategies page (where decoded strategies populate after Discover)
+    //
+    // Navigates to /view-strategies + highlights the strategies table
+    // so the user can SEE where their decoded strategies will land
+    // once Discover finishes. The cool stuff happens here.
     steps.push({
-      title: 'Step 8: Decode any wallet directly',
-      view: 'discover',
-      highlight: '#workflow-card',
+      title: 'Step 8: Where the cool stuff lands',
+      view: 'strategies',
+      highlight: '#view-strategies',
       body: () => [
         el('p', null,
-          "Discover finds the top wallets automatically, but if you already have a wallet address you want to investigate, ",
-          'paste it into the wallet input on the Discover page and follow the prompts.'),
+          'This is the Strategies page — every decoded wallet Discover finishes turns into a strategy on this list.'),
+        el('p', null,
+          'Each row is a reverse-engineered rule with its own entry filters, exit logic, and a status flag (paper / live). ',
+          'You can backtest any strategy, deploy it as a paper bot, or promote a paper-tested winner to live.'),
         el('p', { class: 'muted text-[12px]' },
-          "Don't see a wallet input? This fork doesn't expose one yet — use the confirm button below to keep going."),
+          "Page might be empty right now — Discover hasn't finished yet. Strategies populate here in real time as it does."),
       ],
-      gate: {
-        description: 'Waiting for: submit a wallet address',
-        // No dedicated wallet-input element exists in this fork's
-        // markup; fall back to either an Enter keypress on any input
-        // inside #view-discover, or the modal's confirm button.
-        listen: (advance) => {
-          const view = document.getElementById('view-discover');
-          const handler = (e) => {
-            if (e.key !== 'Enter') return;
-            const t = e.target;
-            if (!view || !t || !(t instanceof Element)) return;
-            if (!view.contains(t)) return;
-            if (t.tagName === 'INPUT') advance();
-          };
-          document.addEventListener('keydown', handler, true);
-          return () => document.removeEventListener('keydown', handler, true);
-        },
-        confirmLabel: 'Got it — continue',
-      },
     });
 
     // 10 — You're ready
@@ -3492,7 +3480,7 @@
       try { step.onEnter(); } catch { /* injection failures are non-fatal */ }
     }
 
-    document.getElementById('onboard-stepnum').textContent = 'Step ' + (onboardCurrent + 1) + ' of ' + onboardSteps.length;
+    document.getElementById('onboard-stepnum').textContent = (onboardCurrent + 1) + ' of ' + onboardSteps.length;
     document.getElementById('onboard-title').textContent = step.title;
 
     const body = document.getElementById('onboard-body');
