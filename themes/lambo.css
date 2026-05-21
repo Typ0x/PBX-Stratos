@@ -262,3 +262,64 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
 .shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(212, 175, 55, 0.25) !important; }
 .shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25) !important; }
 .shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(212, 175, 55, 0.25) !important; }
+
+/* ── Atmospheric background motif ─────────────────────────────────────
+ * Crypto Bro vibe: $ symbols + tiny upward-chart fragments + gold-bar
+ * pills, all rendered in gold-on-matte at ~7% opacity. Tiled SVG so
+ * the pattern repeats across any viewport size; gentle horizontal
+ * drift to give the surface motion without ever being distracting.
+ *
+ * Implementation choices:
+ *   - `body::before` rather than a real DOM element so the motif is
+ *     pure theme-CSS and ships without touching dashboard.html.
+ *   - `position: fixed` + `pointer-events: none` keeps it under all
+ *     interactive surfaces and never blocks clicks.
+ *   - `z-index: 0` puts it above the body's solid background-color
+ *     but below the dashboard content (which has its own stacking).
+ *   - Inline SVG data-URI — zero extra HTTP requests, no font loads.
+ *   - Animation drifts `background-position` by exactly one tile so
+ *     the pattern stays seamless at the loop point. Linear easing so
+ *     the motion is constant (ease-in-out reads as "breathing").
+ *   - `prefers-reduced-motion` disables the drift but keeps the
+ *     static pattern — accessibility without losing the vibe.
+ *
+ * Motif tile (240×240 SVG, gold #d4af37):
+ *   • A bold `$` top-left
+ *   • An upward-chart polyline with terminus dot, mid-right
+ *   • A gold-bar pill (rect with mid-line) mid-left
+ *   • A smaller `$` bottom-right
+ *   • A second smaller chart-up bottom-left
+ *   • A second smaller gold-bar bottom-center
+ *
+ * Net: looks like the surface of a degen's trading terminal at idle —
+ * symbols of upside scattered like coffee stains on a desk pad.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240' width='240' height='240'><text x='28' y='38' font-family='Inter,system-ui,sans-serif' font-size='16' font-weight='700' fill='%23d4af37'>$</text><polyline points='100,60 120,52 140,42 160,28 175,18' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='175' cy='18' r='2' fill='%23d4af37'/><rect x='38' y='118' width='34' height='10' rx='2' fill='%23d4af37'/><line x1='44' y1='123' x2='66' y2='123' stroke='%23a08828' stroke-width='0.8'/><text x='170' y='180' font-family='Inter,system-ui,sans-serif' font-size='12' font-weight='600' fill='%23d4af37'>$</text><polyline points='30,200 50,192 70,182 88,172' stroke='%23d4af37' stroke-width='1.2' fill='none' stroke-linecap='round'/><rect x='115' y='215' width='26' height='8' rx='1.5' fill='%23d4af37'/></svg>");
+  background-size: 240px 240px;
+  background-repeat: repeat;
+  animation: lambo-drift 14s linear infinite;
+  will-change: background-position;
+}
+
+@keyframes lambo-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 240px 0; }
+}
+
+/* Static motif when the user has reduced-motion preferred. */
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+}
+
+/* Ensure dashboard chrome sits above the motif. Sidebar, header, and
+ * main content already create their own stacking contexts via sticky
+ * positioning + z-index, but `#sidebar` doesn't always — pin it here
+ * just to be safe so the motif never bleeds through the nav panel. */
+#sidebar, header, main { position: relative; z-index: 1; }
