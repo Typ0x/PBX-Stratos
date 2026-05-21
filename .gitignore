@@ -1,0 +1,101 @@
+# PBX Stratos — .gitignore
+#
+# Defensive: even though PBX-Stratos as shipped contains no secrets,
+# this file ensures that if a user (or the framework itself in the
+# future) ever creates these files, they don't accidentally land in
+# a public commit.
+
+# === Secrets — NEVER commit these ===
+.env
+.env.*
+*.key
+*.pem
+*-private*
+*credentials*
+gemini-key
+helius-key
+# Wallet files
+*.enc
+wallets/
+*.keypair.json
+
+# === Runtime state (lives outside the repo by convention) ===
+# These paths are normally under ~/.pbx-bots/ and ~/.pbx-lab/ —
+# included here in case anyone ever puts them in the repo by mistake.
+.pbx-bots/
+.pbx-lab/
+state/
+alerts.jsonl
+nav-history.jsonl
+paper-trades.jsonl
+paper-trade-heartbeat
+aqi-snapshot.json
+daily-digest-*.md
+backups/
+
+# === Node / npm ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+.npm/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# === Editor / IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Logs + scratch ===
+*.log
+*_log.txt
+*.tmp
+*.bak
+*.bak-baseline
+*.pid
+_server.pid
+_server_log.txt
+_paper_trade_log.txt
+
+# === pm2 ===
+.pm2/
+
+# === Generated artifacts ===
+active-theme.css
+ecosystem.config.js.lock
+
+# === OS junk ===
+.DS_Store
+Thumbs.db
+desktop.ini

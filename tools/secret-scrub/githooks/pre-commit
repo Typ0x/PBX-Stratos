@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# pbx-trader-lab secret-scrub pre-commit hook.
+# Scrubs secrets from staged files before they enter a commit.
+# Fails OPEN on an internal error — a tool bug must not brick commits.
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+SCRUB="$ROOT/tools/secret-scrub/scrub.py"
+[ -f "$SCRUB" ] || exit 0
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "secret-scrub: python3 not found — skipping secret scan." >&2
+  exit 0
+fi
+
+python3 "$SCRUB" --staged
+rc=$?
+if [ "$rc" -eq 1 ]; then
+  exit 1            # a secret remains — block the commit
+fi
+exit 0              # 0 = clean/scrubbed; any other rc = internal error → fail open

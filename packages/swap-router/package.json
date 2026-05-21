@@ -1,0 +1,23 @@
+{
+  "name": "@pbx/swap-router",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test:smoke": "tsx src/scripts/smokeQuote.ts"
+  },
+  "dependencies": {
+    "@meteora-ag/cp-amm-sdk": "^1.4.2",
+    "@orca-so/whirlpools": "^2.2.0",
+    "@solana/kit": "^2.2.0",
+    "@solana/web3.js": "^1.98.2",
+    "bn.js": "^5.2.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

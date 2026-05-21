@@ -1,0 +1,410 @@
+  :root { color-scheme: dark; }
+  body { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-feature-settings: "tnum" 1, "ss01" 1; }
+  .card { background: linear-gradient(180deg, #131720 0%, #0e1219 100%); border: 1px solid #232a36; }
+  .glow-up   { box-shadow: 0 0 0 1px rgba(34,197,94,.18), 0 0 24px rgba(34,197,94,.06); }
+  .glow-down { box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 0 24px rgba(239,68,68,.06); }
+  .pulse-dot { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+  /* workflow progress: a shimmer that travels along the aggregate bar */
+  .wf-shimmer { background-image: linear-gradient(90deg, transparent, rgba(52,211,153,.40), transparent); background-size: 200% 100%; animation: wf-shim 1.6s linear infinite; }
+  @keyframes wf-shim { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+  .bg-grid { background-image: radial-gradient(rgba(99,102,241,.06) 1px, transparent 1px); background-size: 22px 22px; }
+  .scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar::-webkit-scrollbar-thumb { background: #232a36; border-radius: 4px; }
+  .scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .label { color: #94a3b8; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; }
+  .value { color: #f1f5f9; }
+  .muted { color: #94a3b8; }
+  .tabbtn[aria-selected="true"] { background:#1e2533; color:#f1f5f9; }
+  .tabbtn { color:#94a3b8; transition: color 80ms; }
+  .tabbtn:hover { color:#e2e8f0; }
+  .gauge { position: relative; height: 14px; background: #0f1420; border-radius: 7px; overflow: hidden; }
+  .gauge-zone { position: absolute; top: 0; bottom: 0; opacity: .25; }
+  .gauge-needle { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent, #f1f5f9); box-shadow: 0 0 6px var(--accent, #f1f5f9); }
+  .gauge-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #475569; }
+  .gauge-tick-label { position: absolute; top: 16px; transform: translateX(-50%); font: 10px ui-monospace; color: #64748b; white-space: nowrap; }
+  .modal-bg { background: rgba(0,0,0,.85); backdrop-filter: blur(8px); }
+  /* Live decode table — zones */
+  .wf-pending { opacity: 0.62; }
+  .wf-dropped { opacity: 0.62; }
+  .wf-rank-1 {
+    background: linear-gradient(90deg, rgba(16,185,129,0.16), rgba(16,185,129,0.02));
+    box-shadow: inset 2px 0 0 #10b981;
+  }
+  /* Live decode table — FLIP re-rank animation */
+  .wf-flip { transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes wf-land {
+    0%   { background-color: rgba(16,185,129,0.28); }
+    100% { background-color: transparent; }
+  }
+  .wf-just-scored { animation: wf-land 700ms ease-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wf-flip { transition: none; }
+    .wf-just-scored { animation: none; }
+  }
+  /* deploy mode selector: idle = muted border, selected = accent ring */
+  .deploy-mode-btn { border-color: #232a36; background: #0a0d13; }
+  .deploy-mode-btn:hover { border-color: #475569; }
+  .deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #38bdf8; box-shadow: 0 0 0 1px rgba(56,189,248,.4); }
+  .deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #f43f5e; box-shadow: 0 0 0 1px rgba(244,63,94,.4); }
+
+  /* ===== left-nav sidebar ===== */
+  /* Inactive nav buttons are zinc; hover lightens. The active item gets
+     an emerald accent: left border, emerald text, subtle emerald bg. */
+  .nav-btn { color: #94a3b8; border-left: 2px solid transparent; }
+  .nav-btn:hover { color: #e2e8f0; background: #131720; }
+  .nav-btn[aria-current="true"] {
+    color: #34d399;
+    background: rgba(16,185,129,0.08);
+    border-left-color: #10b981;
+  }
+  /* Collapsed sidebar: icon rail only — hide the text labels. The width
+     itself is set inline on #sidebar by the JS (200px ↔ 56px). */
+  #sidebar.nav-collapsed .nav-label { display: none; }
+  #sidebar.nav-collapsed .nav-btn { justify-content: center; padding-left: 0; padding-right: 0; }
+
+  /* ── Evolution live view ───────────────────────────────────────────── */
+  /* Locked config inputs while a run is in flight */
+  #evolve-card input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Progress bar shimmer (mirrors wf-shimmer) */
+  .evo-shimmer { background-image: linear-gradient(90deg, transparent, rgba(52,211,153,.40), transparent); background-size: 200% 100%; animation: evo-shim 1.6s linear infinite; }
+  @keyframes evo-shim { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
+  /* Rank-1 row in the population table (mirrors wf-rank-1) */
+  .evo-rank-1 {
+    background: linear-gradient(90deg, rgba(16,185,129,0.16), rgba(16,185,129,0.02));
+    box-shadow: inset 2px 0 0 #10b981;
+  }
+
+  /* Landing highlight after a generation re-rank */
+  @keyframes evo-land {
+    0%   { background-color: rgba(16,185,129,0.22); }
+    100% { background-color: transparent; }
+  }
+  .evo-just-scored { animation: evo-land 700ms ease-out; }
+
+  /* FLIP slide animation for population re-ordering */
+  .evo-flip { transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .evo-flip { transition: none; }
+    .evo-just-scored { animation: none; }
+    .evo-shimmer { animation: none; }
+  }
+
+  /* Origin-badge chips for the population table */
+  .evo-badge-decoded  { background: rgba(56,189,248,.15);  color: #38bdf8; border: 1px solid rgba(56,189,248,.3); }
+  .evo-badge-invented { background: rgba(167,139,250,.15); color: #a78bfa; border: 1px solid rgba(167,139,250,.3); }
+  .evo-badge-mutated  { background: rgba(251,191,36,.15);  color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+  .evo-badge-crossed  { background: rgba(52,211,153,.15);  color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+
+  /* Multiplicity pill — how many population slots a distinct strategy held */
+  .evo-pop-mult {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    background: rgba(113,113,122,.15);
+    color: #a1a1aa;
+    border: 1px solid rgba(113,113,122,.3);
+  }
+
+  /* Generation-feed scrolling log */
+  .evo-feed {
+    max-height: 140px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #94a3b8;
+    background: #0a0d13;
+    border: 1px solid #232a36;
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+
+  /* Ledger panel — markdown-like render */
+  .evo-ledger {
+    background: linear-gradient(180deg, #131720 0%, #0e1219 100%);
+    border: 1px solid #232a36;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.8;
+  }
+  .evo-ledger-h2   { font-size: 12px; font-weight: 600; color: #f1f5f9; margin-top: 10px; margin-bottom: 4px; }
+  .evo-ledger-li   { padding-left: 12px; color: #cbd5e1; line-height: 1.7; }
+  .evo-ledger-li::before { content: "—  "; color: #475569; }
+  .evo-ledger-p    { color: #cbd5e1; margin: 2px 0; }
+
+  /* Extension-requests expandable panel */
+  .evo-ext-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    padding: 2px 8px; border-radius: 99px;
+    background: rgba(167,139,250,.12); color: #a78bfa;
+    border: 1px solid rgba(167,139,250,.25);
+    cursor: pointer; user-select: none;
+  }
+  .evo-ext-badge:hover { background: rgba(167,139,250,.22); }
+  .evo-ext-list { font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; }
+
+  /* ── Run library — durable evolution runs ──────────────────────────── */
+  /* Shared grid so the header row and run rows line up column-for-column. */
+  .evo-run-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 64px 56px auto;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 12px;
+    background: #0a0d13;
+    border: 1px solid #232a36;
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .evo-run-row:last-child { margin-bottom: 0; }
+
+  /* Column header row — muted, no card background. */
+  .evo-run-head {
+    background: transparent;
+    border-color: transparent;
+    padding-top: 0;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .evo-run-cell-status,
+  .evo-run-cell-action { display: inline-flex; align-items: center; }
+  .evo-run-cell-action { justify-content: flex-end; }
+
+  /* State chips: running=emerald, done=sky, crashed/failed=rose. */
+  .evo-run-chip {
+    display: inline-flex; align-items: center;
+    font-size: 10px; font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 2px 7px; border-radius: 99px;
+  }
+  .evo-chip-running { background: rgba(52,211,153,.15);  color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+  .evo-chip-done    { background: rgba(56,189,248,.15);  color: #38bdf8; border: 1px solid rgba(56,189,248,.3); }
+  .evo-chip-failed  { background: rgba(244,63,94,.15);   color: #fb7185; border: 1px solid rgba(244,63,94,.3); }
+
+  /* Per-row action buttons. */
+  .evo-run-btn {
+    font-size: 11px; font-weight: 500;
+    padding: 3px 10px; border-radius: 5px;
+    cursor: pointer; white-space: nowrap;
+    transition: background 120ms, opacity 120ms;
+  }
+  .evo-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .evo-run-btn-view {
+    background: rgba(52,211,153,.15); color: #34d399;
+    border: 1px solid rgba(52,211,153,.3);
+  }
+  .evo-run-btn-view:hover:not(:disabled) { background: rgba(52,211,153,.25); }
+
+  /* Real action buttons — solid fill, distinct from the pill state chips. */
+  .evo-run-action {
+    font-size: 11px; font-weight: 500;
+    padding: 4px 12px; border-radius: 5px;
+    border: 1px solid transparent;
+    cursor: pointer; white-space: nowrap;
+    transition: background 120ms, opacity 120ms;
+  }
+  .evo-run-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .evo-run-action-resume {
+    background: #b45309; color: #fef3c7;
+  }
+  .evo-run-action-resume:hover:not(:disabled) { background: #d97706; }
+  .evo-run-action-continue {
+    background: #27272a; color: #e4e4e7;
+    border-color: #3f3f46;
+  }
+  .evo-run-action-continue:hover:not(:disabled) { background: #3f3f46; }
+
+  /* Smaller, secondary Continue button — sits beside the primary action. */
+  .evo-run-action-continue-sm {
+    font-size: 10px; padding: 3px 8px;
+    background: transparent; color: #a1a1aa;
+    border: 1px solid #3f3f46;
+  }
+  .evo-run-action-continue-sm:hover:not(:disabled) { background: #27272a; color: #e4e4e7; }
+  /* Primary "View Results" action for done runs. */
+  .evo-run-action-results {
+    background: rgba(56,189,248,.18); color: #38bdf8;
+    border: 1px solid rgba(56,189,248,.35);
+  }
+  .evo-run-action-results:hover:not(:disabled) { background: rgba(56,189,248,.3); }
+  .evo-run-cell-action { gap: 6px; }
+
+  /* ── Results: shared building blocks (used by all 3 revisions) ─────── */
+  .evo-res-section { margin-bottom: 16px; }
+  .evo-res-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    margin-bottom: 6px;
+  }
+  .evo-res-pred {
+    background: #0a0d13; border: 1px solid #232a36; border-radius: 6px;
+    padding: 8px 10px; font-size: 11px; line-height: 1.6;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    color: #cbd5e1; word-break: break-word;
+  }
+  .evo-res-pred .k { color: #d4d4d8; margin-right: 6px; }
+  /* Metric stat cards. */
+  .evo-metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .evo-metric-card {
+    background: #0a0d13; border: 1px solid #232a36; border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .evo-metric-card.big { padding: 16px 14px; }
+  .evo-metric-val {
+    font-size: 18px; font-weight: 600; color: #f1f5f9;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-metric-card.big .evo-metric-val { font-size: 26px; }
+  .evo-metric-val.pos { color: #34d399; }
+  .evo-metric-val.neg { color: #fb7185; }
+  .evo-metric-key {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #64748b; margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-metrics-empty {
+    font-size: 11px; color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  /* ── Evolved-strategies rows (Strategies page) ─────────────────── */
+  .evo-strat-row {
+    background: #0a0d13; border: 1px solid #232a36; border-radius: 9px;
+    padding: 12px 12px 13px;
+  }
+  .evo-strat-row .evo-res-pred { background: #060a10; }
+  .evo-strat-chips { display: flex; gap: 14px; flex-wrap: wrap; }
+  .evo-strat-chip {
+    display: flex; align-items: baseline; gap: 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-strat-chip-val { font-size: 12px; font-weight: 600; color: #f1f5f9; }
+  .evo-strat-chip-val.pos { color: #34d399; }
+  .evo-strat-chip-val.neg { color: #fb7185; }
+  .evo-strat-chip-key {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #64748b;
+  }
+  /* Origin metadata — plainly non-interactive inline labels, not buttons.
+     Dot-separated, no border/background that would imply clickability. */
+  .evo-strat-tags {
+    display: inline-flex; align-items: baseline; flex-wrap: wrap;
+    column-gap: 6px; row-gap: 2px;
+  }
+  .evo-strat-tag {
+    font-size: 10px; color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-strat-tag + .evo-strat-tag::before {
+    content: "·"; color: #3f3f46; margin-right: 6px;
+  }
+  /* Placeholder for runs predating metric recording. */
+  .evo-strat-nometrics {
+    font-size: 11px; color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-strat-deploy {
+    font-size: 12px; font-weight: 600; color: #052e16;
+    background: #34d399; border: 1px solid #34d399; border-radius: 7px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap;
+    transition: background .12s, opacity .12s;
+  }
+  .evo-strat-deploy:hover:not(:disabled) { background: #6ee7b7; }
+  .evo-strat-deploy:disabled { cursor: default; opacity: 0.85; }
+  .evo-strat-deploy.deployed {
+    background: transparent; color: #6ee7b7;
+    border-color: rgba(52,211,153,.45);
+  }
+  .evo-strat-confirm {
+    margin-top: 9px; font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-strat-confirm.ok { color: #6ee7b7; }
+  .evo-strat-confirm.err { color: #fb7185; }
+  .evo-res-chart-wrap { position: relative; height: 180px; }
+  /* Winning-strategy "hero" — the headline output, set apart from the
+     final-population list with an emerald tint + brighter border. */
+  .evo-hero {
+    background: rgba(16,185,129,.07);
+    border: 1px solid rgba(52,211,153,.45);
+    border-radius: 9px; padding: 12px 12px 13px;
+  }
+  .evo-hero-label { color: #6ee7b7; }
+  /* Run status cue in the drawer header. */
+  .evo-res-status {
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-res-status-ok { color: #34d399; }
+  .evo-res-status-warn { color: #fbbf24; }
+  /* Final-population table rows. */
+  .evo-res-poprow {
+    display: grid; grid-template-columns: auto minmax(0,1fr) auto;
+    gap: 10px; align-items: start;
+    padding: 9px 10px; font-size: 11px;
+    border-bottom: 1px solid rgba(35,42,54,.6);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-res-poprow:last-child { border-bottom: none; }
+  /* Predicate text wraps — the end of a trading rule is load-bearing,
+     so the full rule is shown rather than truncated with an ellipsis. */
+  .evo-pop-pred {
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    line-height: 1.55;
+  }
+  .evo-pop-pred + .evo-pop-pred { margin-top: 2px; }
+  .evo-pop-k { color: #d4d4d8; }
+  /* Collapsible ledger. */
+  .evo-res-ledger-toggle {
+    cursor: pointer; user-select: none;
+    font-size: 11px; color: #94a3b8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  .evo-res-ledger-toggle:hover { color: #e4e4e7; }
+  .evo-res-ledger-body {
+    margin-top: 6px; background: #0a0d13; border: 1px solid #232a36;
+    border-radius: 6px; padding: 10px 12px;
+    font-size: 11px; line-height: 1.6; color: #cbd5e1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 280px; overflow-y: auto;
+  }
+
+  /* ── slide-in results drawer ───────────────────────────────────────── */
+  .evo-drawer-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(2,4,8,.6); backdrop-filter: blur(1px);
+  }
+  .evo-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
+    width: 520px; max-width: 94vw;
+    background: linear-gradient(180deg, #131720 0%, #0e1219 100%);
+    border-left: 1px solid #232a36;
+    box-shadow: -16px 0 40px rgba(0,0,0,.5);
+    padding: 18px; overflow-y: auto;
+    transform: translateX(0);
+    transition: transform 260ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  .evo-drawer.evo-drawer-enter { transform: translateX(100%); }
+  @media (prefers-reduced-motion: reduce) {
+    .evo-drawer { transition: none; }
+  }
+  .evo-drawer-close {
+    cursor: pointer; font-size: 18px; line-height: 1;
+    color: #94a3b8; background: transparent; border: none;
+    padding: 2px 6px; border-radius: 5px;
+  }
+  .evo-drawer-close:hover { color: #f1f5f9; background: #27272a; }

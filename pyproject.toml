@@ -1,0 +1,55 @@
+[project]
+name = "pbx-trader-lab"
+version = "0.1.0"
+description = "Open-source backtesting lab — reverse-engineer top Solana traders from on-chain history."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Polar Bear Express" }]
+keywords = ["solana", "trading", "bot", "backtest", "pbx"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Office/Business :: Financial",
+]
+
+dependencies = [
+  # Runtime is intentionally stdlib-only for the core CLI + the HTTP-based
+  # decoder runners (they hit pbx-mainnet-api.onrender.com).
+]
+
+[project.optional-dependencies]
+# Only needed for the optional ML step (wallet-ml.py). scikit-learn/numpy
+# current releases need Python >= 3.11 — this extra is NOT used by the
+# dashboard decode workflow, which is stdlib-only.
+decoder = [
+  "scikit-learn>=1.3",
+  "numpy>=1.24",
+]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+]
+
+# No console_scripts entry yet: the CLI is the top-level ./pbx script.
+# Once we wrap it in src/pbx_trader_lab/cli.py we'll re-enable:
+#   pbx = "pbx_trader_lab.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/polar-bear-express/pbx-trader-lab"
+Repository = "https://github.com/polar-bear-express/pbx-trader-lab"
+Issues = "https://github.com/polar-bear-express/pbx-trader-lab/issues"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

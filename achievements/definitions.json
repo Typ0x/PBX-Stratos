@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "achievements": [
+    {
+      "id": "first_light",
+      "title": "First Light",
+      "description": "Completed the onboarding wizard. Welcome to the lab.",
+      "trigger": "config saved with onboarded_at"
+    },
+    {
+      "id": "wallet_decoded",
+      "title": "Reverse Engineer",
+      "description": "Ran the wallet decoder on a competitor pubkey.",
+      "trigger": "wallet-evolve.py produces evolution.json"
+    },
+    {
+      "id": "first_backtest",
+      "title": "First Backtest",
+      "description": "Ran your first historical backtest of a decoded strategy.",
+      "trigger": "any runner produces a backtest_completed event"
+    },
+    {
+      "id": "sharpe_5",
+      "title": "Sharper Than Most",
+      "description": "Ran a backtest with Sharpe ratio above 5.",
+      "trigger": "backtest result with sharpe > 5"
+    },
+    {
+      "id": "sharpe_20",
+      "title": "Sharpe 20",
+      "description": "Ran a backtest with Sharpe ratio above 20.",
+      "trigger": "backtest result with sharpe > 20"
+    },
+    {
+      "id": "wallet_created",
+      "title": "Wallet Bound",
+      "description": "Generated your first Solana keypair.",
+      "trigger": "pbx wallet new completes"
+    },
+    {
+      "id": "ten_thousand_tests",
+      "title": "Lab Rat",
+      "description": "Ran 10,000+ backtests total.",
+      "trigger": "cumulative backtest count >= 10000"
+    }
+  ]
+}

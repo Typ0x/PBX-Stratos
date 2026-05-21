@@ -1,0 +1,16 @@
+{
+  "name": "pbx-trader-lab",
+  "private": true,
+  "workspaces": [
+    "bots",
+    "packages/*"
+  ],
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "typecheck": "npm --workspace bots run typecheck",
+    "server": "npm --workspace bots run server"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

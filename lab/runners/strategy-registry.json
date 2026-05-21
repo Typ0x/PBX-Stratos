@@ -1,0 +1,32 @@
+{
+  "_comment": "Canonical strategy list. paper-trade.py and the live runner both read from here. Strategies you build go in the `strategies` array. The framework ships with a single template entry that demonstrates the shape — replace it with your own. NEVER commit tuned parameters of a profitable live strategy unless you intend to share your alpha publicly.",
+
+  "_template_shape": {
+    "id": "your-strategy-id",
+    "status": "paper",
+    "description": "One sentence on what this strategy does and why you think it works.",
+    "entry": {
+      "filters": [
+        { "kind": "example-filter", "params": { "threshold": 0 } }
+      ]
+    },
+    "dca": {
+      "enabled": false,
+      "max_legs": 0,
+      "trigger_drawdown_pct": 0
+    },
+    "exit": {
+      "kind": "example-exit",
+      "params": { "target_pct": 0 }
+    },
+    "stats": {
+      "backtest_window": "<date> to <date>",
+      "win_rate_pct": null,
+      "avg_pnl_pct": null,
+      "max_drawdown_pct": null,
+      "n_trades": null
+    }
+  },
+
+  "strategies": []
+}

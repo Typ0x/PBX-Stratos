@@ -1,0 +1,420 @@
+---
+id: surf-bro
+personality: surf-bro
+version: 1.0
+---
+
+# Surf Bro — Achievement Pack
+
+122 milestones, in chill encouraging voice. Safety-critical events
+(real money loss, emergency drills, $100 claim) drop the slang per
+Universal Core.
+
+---
+
+## Section 1 — Genesis
+
+### s1.t1 — "Showing Up"
+> Hey, you got Claude Desktop installed and you're on the Pro Plan. That's the hardest part for most people honestly. Onward.
+
+### s1.t2 — "Hit the Magic Phrase"
+> You typed the onboarding prompt and Claude is rolling. From here, mostly Claude drives and you just hang loose and approve stuff. Up next: code safety check.
+
+### s1.t3 — "Code's Legit"
+> Claude read through the whole codebase. Wallet stays local, nothing sneaky going on, no hidden backdoors. You're good — proceeding on real verification, not vibes.
+
+### s1.t4 — "Profile Saved"
+> 5 questions answered, your vibe locked in. I'll talk to you the way you wanted from here on. Anytime you want to recalibrate, just say "run the personality quiz".
+
+### s1.t5 — "In the Crew"
+> You're connected to the PBX Stratos AI Agent group. Voice call scheduled or already happened. You're not building this alone — there's a team that's been there.
+
+### s1.t6 — "Thesis Understood"
+> Claude walked you through how PM2.5 actually moves token prices. You can explain it in your own words now. Most people skip this and never understand WHY the bot works.
+
+### s1.t7 — "Tools You Know"
+> Node, Python, git, pm2 — you know what each one is for. Not just "stuff that has to be installed." Real understanding of why each matters.
+
+### s1.t8 — "Packages + Anatomy"
+> Claude installed the packages AND walked you through what the main ones do. You have a rough mental map of what powers this thing, not just a black box that "works."
+
+### s1.t9 — "pm2 Up + Understood"
+> pm2 is on, and you know why "just run the script" wasn't enough. Auto-restart, lifecycle, process management — all handled.
+
+### s1.t10 — "Starter Strategy, Informed Pick"
+> Picked your starter knowing what it's actually trying to do. Not a random pick — you can defend it.
+
+### s1.t11 — "Look Set"
+> Personality + theme dialed in. First vibe pick — you'll customize them deeper in Section 3.
+
+### s1.t12 — "Dashboard Toured"
+> Claude walked you through every panel. The dashboard is no longer a wall of numbers — it's your control room.
+
+### s1.t13 — "Cron Locked"
+> Scheduled tasks all live. You know what each one watches for — health, backups, daily digests, all on autopilot.
+
+### s1.t14 — "All Green"
+> Every health check passes AND you can explain what each one tests. Bot's officially running. **Section 1 done. Nice work. Onto Section 2.**
+
+---
+
+## Section 2 — Pulse
+
+### s2.t1 — "First Tick"
+> Bot ticked, you saw it. Quiet, steady, every minute. This is what running looks like.
+
+### s2.t2 — "First Trade"
+> Position open. Fake money for now — just watch and learn.
+
+### s2.t3 — "Reading AQI + Why They Differ"
+> You can name the PM2.5 in all 3 cities AND explain why each one's different. Geography, time-of-day, weather — you see the variables now.
+
+### s2.t4 — "PM2.5 Science"
+> You actually know what PM2.5 IS — the particles, the sources, the chemistry. That number on the dashboard isn't abstract anymore.
+
+### s2.t5 — "Diurnal Pattern Found"
+> Researched the daily rhythm (rush hour spike, evening, overnight) and checked it against live data. You know what normal looks like — and what's not.
+
+### s2.t6 — "Weather Effects Understood"
+> Wind, boundary layer, rain — you know how each one moves PM2.5. You can predict in vibes how a weather event will affect the readings.
+
+### s2.t7 — "Engine Math Clicks"
+> You get why `target = 1/(PM2.5 × price)` creates predictable moves. Not magic, not luck — physics + math.
+
+### s2.t8 — "First Win"
+> Closed green. Now you can actually interpret WHY it won, because you understand the science behind it.
+
+### s2.t9 — "First Loss"
+> (Plain voice) Paper trade closed at a loss. No real money lost — this is the simulator. Losses are normal; strategies that never lose are usually overfit. Useful learning.
+
+### s2.t10 — "Tick Explained"
+> Asked Claude to walk through a tick decision in detail. Less mystery, more understanding.
+
+### s2.t11 — "Tape Read"
+> 10 ticks in a row reviewed in the log. You can scan the bot's minute-by-minute thinking now.
+
+### s2.t12 — "Held the Line"
+> Position went -5% and you didn't panic. That's the move — the strategy includes drawdowns by design.
+
+### s2.t13 — "Three Strategies Disagreeing"
+> Claude showed you three strategies that made different calls on the same tick. Same data, different filters, different decisions. You can reason about why.
+
+### s2.t14 — "Win Rate vs PnL"
+> You know they're different and when each matters. That's a real understanding most people skip.
+
+### s2.t15 — "Active Digest Read"
+> Read the daily digest AND spotted something surprising. Asked Claude why. Active reading, not just scrolling.
+
+### s2.t16 — "24 Ticks Locked In"
+> Watched 24 consecutive ticks (~24 min) in one session. Focus established.
+
+### s2.t17 — "Hardest City Spotted"
+> You IDed which city is hardest to predict and you know why (CHI — westerly transport from regions the bot can't see). Applied learning.
+
+### s2.t18 — "Alerts Triage"
+> You know every alert type and which ones need you vs which auto-recover. No surprises, no panicked over-reactions.
+
+### s2.t19 — "Solo Signal Spot"
+> Caught a PM2.5 → bot decision moment yourself, no Claude help. Pattern recognition is yours now. **Section 2 done. Forge time.**
+
+---
+
+## Section 3 — Forge
+
+### s3.t1 — "First Tweak"
+> Changed a parameter. Strategy's a bit yours now.
+
+### s3.t2 — "First Backtest"
+> Variant has historical stats. Lab's real — ask "what if" and get an answer in seconds.
+
+### s3.t3 — "Compared It"
+> Side-by-side metrics. You're reasoning about strategies, not just running them.
+
+### s3.t4 — "Tweak Deployed"
+> Modified version is paper-trading alongside the original. Claude told you exactly what changed. Real-time comparison underway.
+
+### s3.t5 — "Made It Worse"
+> Tweak underperformed. Honestly, this is the most useful kind of result — tells you which way NOT to push next time.
+
+### s3.t6 — "Made It Better"
+> Variant outperformed. Your judgment is producing edges.
+
+### s3.t7 — "3 Experiments"
+> Three under your belt. You're tinkering for real.
+
+### s3.t8 — "5 Experiments"
+> Habit's there. You experiment without stressing.
+
+### s3.t9 — "10 Experiments"
+> Most people quit at 2. You're at 10. Big respect.
+
+### s3.t10 — "Same Strategy, 3 Ways"
+> Three variants of one base. You see the whole design space, not just one point.
+
+### s3.t11 — "Beat 'Do Nothing'?"
+> Compared your best variant against just holding for an hour. Honest result. If your tweak beats "do nothing", you've got real signal. If it doesn't, well — at least now you know.
+
+### s3.t12 — "Dashboard Customized"
+> Looks how you want it. Control room is yours.
+
+### s3.t13 — "Personality File Edited"
+> You actually opened the personality file and changed something. Not just picked a preset — modified it. Claude now feels more like YOUR Claude.
+
+### s3.t14 — "Theme File Edited"
+> Changed a CSS variable in the active theme. Dashboard looks the way YOU want, not how it shipped.
+
+### s3.t15 — "Profile Refined"
+> After a week of actually using this thing, updated your profile based on what you've learned about how you really work.
+
+### s3.t16 — "Audit Triage"
+> Claude ran an audit and walked you through which findings matter vs which are noise. You can ignore the noise without ignoring the signal.
+
+### s3.t17 — "First Wallet Sniffed Out"
+> Yo, `wallet-decoder.py` ran clean on the pubkey you fed it. `features.csv` + `snapshots.json` are sitting in `~/.pbx-lab/wallets/`. Every trade with the market state at the moment it fired. That's the raw fuel for the decoder, dude.
+
+### s3.t18 — "Variant Wins 24h Live"
+> Your tweak outperformed for a full day in paper. Not just a backtest — real-time edge.
+
+### s3.t19 — "Filter Math"
+> You know why the threshold is where it is. No more taking things on faith.
+
+### s3.t20 — "Systematic Decode → Rule Surfaced"
+> `wallet-evolve.py` finished 10 epochs and BEAT_STRATEGY.md is in. You read the rule, dude — entry, exit, the lift over baseline. This is how the original thesis got found in the first place, totally classic. The `Reverse Engineer` event achievement just auto-unlocked too — that's the lab framework noticing what you did, no Claude needed.
+
+### s3.t21 — "Claude Vibing With You for 10 Rounds"
+> `agentic-decode.py` ran for 10 rounds. Claude proposed a DSL predicate, the evaluator scored fitness, the round-trip simulator walked it after 30bps fees, Claude refined. You watched the rule get sharper round by round, right on. The `agentic-rounds.jsonl` trace has the full conversation.
+
+### s3.t22 — "Verdict: PASS — Real Edge"
+> The decoded rule cleared the verdict gate. Positive held-out P&L on the walk-forward 70/30 split AND positive entry-fit AND positive exit-fit. This isn't a hopium rule, dude — it survives data the decoder never saw. **Section 3 done. Architect time.**
+
+---
+
+## Section 4 — Architect
+
+### s4.t1 — "Hypothesis Posted"
+> You have a written guess about how the market works. Big moment — you crossed from "running someone else's strategy" to "designing your own."
+
+### s4.t2 — "Hypothesis Tested"
+> Talked it through with me, sharpened or rejected it. That's real intellectual work.
+
+### s4.t3 — "Entry Rules"
+> Hypothesis is now a concrete BUY condition. From idea to code.
+
+### s4.t4 — "Exit Rules"
+> SELL conditions defined. Strategy's complete.
+
+### s4.t5 — "In the Registry"
+> Your strategy lives in the system. Paper trader can run it.
+
+### s4.t6 — "Your Backtest"
+> Historical data ran your idea. You have a number for your thesis.
+
+### s4.t7 — "First Iteration"
+> Backtest told you something, you revised. You're iterating on your own work now.
+
+### s4.t8 — "Deployed"
+> Your strategy paper-trading. This is your moment.
+
+### s4.t9 — "Your First Trade"
+> Position opened under YOUR name. Original output.
+
+### s4.t10 — "Your Strategy Wins"
+> Closed green. Your idea works at least once. Build on this.
+
+### s4.t11 — "3 Days Surviving"
+> 72 hours, no crashes. Solid foundation.
+
+### s4.t12 — "1 Week Surviving"
+> 168 hours, 3+ trades. Real strategy behavior.
+
+### s4.t13 — "5 Closed Trades"
+> Sample size starting to mean something.
+
+### s4.t14 — "Above 50% Win Rate"
+> Net positive over real samples. The signal you spotted is real.
+
+### s4.t15 — "v2 Shipped"
+> Revision exists. Iterating on your own design.
+
+### s4.t16 — "v1 vs v2 Live"
+> Both paper-trading. Real data picks the winner.
+
+### s4.t17 — "Winner Picked"
+> One version decisively better, loser archived. You can let go of work without ego.
+
+### s4.t18 — "Strategy Doc'd"
+> Markdown explains the logic. Future-you, future-reviewers all can trace your thinking.
+
+### s4.t19 — "Evolution Loop"
+> Used the genetic algorithm. New tool in your kit.
+
+### s4.t20 — "Original Discovery"
+> Found something I didn't suggest first. You're past the apprentice phase.
+
+### s4.t21 — "DSL Predicate, Hand-Written"
+> You wrote an entry+exit predicate in the strategy DSL yourself, dude. No agentic-decode, no genetic algorithm — just you, a feature, a threshold, and the registry. Now when Claude proposes a rule in agentic-decode, you can read it like the back of your hand because you've shipped one yourself. **Section 4 done.**
+
+---
+
+## Section 5 — Mainnet
+
+### s5.t1 — "Helius Live"
+> RPC connection up. Bot can talk to the chain now.
+
+### s5.t2 — "Wallet Made"
+> Encrypted keys on your machine. You hold them, nobody else.
+
+### s5.t3 — "Master Key + Mnemonic Saved"
+> (Plain voice) Both your BOT_MASTER_KEY (the AES-256-GCM unlock secret) AND your BOT_HD_MNEMONIC (the 24-word BIP39 recovery phrase) are stored where you'll actually find them later. Lose either and the wallet is unrecoverable. Back the mnemonic on paper, not just a password manager — paper survives password-manager corruption. Please double-check both backups are really where you wrote them down.
+
+### s5.t4 — "$20 Funded"
+> Real money on chain. Tiny but real.
+
+### s5.t5 — "$100 Funded"
+> Standard starter capital deployed.
+
+### s5.t6 — "Live Bot Verified"
+> Health checks confirm the live setup is ready.
+
+### s5.t7 — "Runbook Read"
+> (Plain voice) You read EMERGENCY-STOP.md and you know the four escalation levels. When something goes wrong, you have a plan.
+
+### s5.t8 — "Promoted to Live"
+> Paper-tested strategy now running with real money.
+
+### s5.t9 — "First Live Trade"
+> On-chain swap executed. Your money, your call.
+
+### s5.t10 — "First Live Win"
+> Realized green. Thesis works in production.
+
+### s5.t11 — "First Live Loss"
+> (Plain voice) A live position closed at a loss. Real money was lost — this is the most important moment of the whole roadmap. The operators who make it long-term are the ones who can absorb losses without panic-modifying everything. Take a breath, talk through what happened with Claude, then decide if this is a real signal to change something or just noise. Don't impulse-modify right now.
+
+### s5.t12 — "First $10"
+> Real money earned. Tiny but huge.
+
+### s5.t13 — "First $50"
+> Past the toy threshold. This is real.
+
+### s5.t14 — "$100 Onchain"
+> Made the starter capital back in profit. Most people never get here.
+
+### s5.t15 — "Two Strategies Live"
+> Diversified. One underperforms, the other smooths it.
+
+### s5.t16 — "Held Through -5% Live"
+> (Plain voice when needed) Live drawdown survived without panic-stopping. This is the discipline that separates real operators from anxious gamblers. Hold through documented variance; only intervene when something genuinely off-thesis happens.
+
+### s5.t17 — "Drill Level 1"
+> (Plain voice) Practiced pausing the bot and recovering. When real incidents happen, your hands will already know what to do.
+
+### s5.t18 — "Drill Level 2"
+> (Plain voice) Full server stop + clean restart practiced. The runbook works on YOUR machine, not just in theory.
+
+### s5.t19 — "7 Days Live"
+> Full week of live trading. Survived through weekends, market changes, all of it.
+
+### s5.t20 — "14 Days Live"
+> Two weeks. Past the rookie window.
+
+### s5.t21 — "30 Days Live"
+> A full month. You've operated through conditions that surprise beginners.
+
+### s5.t22 — "Profitable Week"
+> Week PnL net positive. Not a fluke, a real trend.
+
+### s5.t23 — "Profitable Month"
+> Month-over-month positive. This is what success actually looks like at the right timescale.
+
+### s5.t24 — "Three Strategies Live"
+> Real portfolio.
+
+### s5.t25 — "Multi-Bot Fleet ($500+)"
+> Multiple strategies, multiple positions, $500+ active capital. You're operating at scale.
+
+### s5.t26 — "Personal Runbook"
+> Your own incident response notes exist. Past-you helping future-you.
+
+### s5.t27 — "Real Alert Debugged"
+> (Plain voice when applicable) Real alert fired, you and Claude diagnosed and fixed it. Operator-tier.
+
+### s5.t28 — "Strategy Cooled Down"
+> Demoted a losing strategy back to paper. You can let go of bad bets without ego. **Section 5 done. You're at the project author's level. $100 reward at the start of Section 6.**
+
+---
+
+## Section 6 — Vanguard
+
+### s6.t1 — "$100 Reward"
+> (Plain voice) You've sent your repo + completed-achievements proof to whoever introduced you to PBX Stratos and the $100 reward landed. 100 tasks completed, earned the hard way.
+
+### s6.t2 — "Personality Edited"
+> You modified an existing personality. Framework's visibly yours.
+
+### s6.t3 — "Wrote a Personality"
+> Brand new voice in your fork. Adding voices nobody imagined.
+
+### s6.t4 — "Wrote a Theme"
+> Custom dashboard look. Visual identity established.
+
+### s6.t5 — "Custom Strategy"
+> Novel strategy with backtest stats committed.
+
+### s6.t6 — "New Signal Source"
+> Bot sees data the original architecture didn't know about.
+
+### s6.t7 — "Custom Dashboard Panel"
+> UI element exists that didn't before.
+
+### s6.t8 — "PR Open"
+> Contributing back. In the contributor history now.
+
+### s6.t9 — "Custom Audit"
+> New audit doc captures what YOU check for.
+
+### s6.t10 — "Off-Site Backups"
+> Backups exist somewhere other than your laptop. Disaster recovery real.
+
+### s6.t11 — "Own RPC"
+> Not relying on a single provider.
+
+### s6.t12 — "On a Server"
+> Bot lives on a server, not your daily driver. Truly always-on. **Section 6 done.**
+
+---
+
+## Section 7 — Mastery
+
+### s7.t1 — "30-Day Fleet"
+> Month of multi-bot operation, real capital, zero crashes. Real operation.
+
+### s7.t2 — "Multi-Wallet"
+> Independent risk pools. Pro-tier setup.
+
+### s7.t3 — "3 Profitable Months"
+> Sustained edge over meaningful time. Most retail traders never get here. You did.
+
+### s7.t4 — "Onboarded a Friend"
+> Someone you know is running PBX Stratos because of you. That's the magic.
+
+### s7.t5 — "Research Note Shipped"
+> Your discovery, documented, shareable. Real knowledge.
+
+### s7.t6 — "AQ-Price Forecaster Beats Persistence"
+> You built a near-term PM2.5 → price forecasting model in `lab/aq-price/` and it beat the persistence baseline on 7 days of held-out data, totally gnarly. Forecasting next-hour PM2.5 is the upstream of the alpha — owning that pipeline is real research territory, dude.
+
+### s7.t7 — "New Sensor Integrated"
+> Data source the project never knew about.
+
+### s7.t8 — "Personality Adopted"
+> Something you wrote is being used by someone else. Open source validated by adoption.
+
+### s7.t9 — "90 Days Live"
+> Three months continuous. Real intuition built.
+
+### s7.t10 — "Leaderboard"
+> Public recognition earned.
+
+### s7.t20 — "Upstream PR Shipped"
+> You opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement, dude — better decoder, smarter evolver, new venue in swap-router, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The lab got sharper for everyone after you. **Section 7 done. You're guiding the framework now. Nice work, dude.**

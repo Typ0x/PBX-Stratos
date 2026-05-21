@@ -1,0 +1,708 @@
+#!/usr/bin/env python3
+"""
+pbx — one command to onboard, set up, and run the PBX trader lab locally.
+
+Usage:
+    ./pbx                  # interactive menu (onboard if needed)
+    ./pbx status           # show lab status
+    ./pbx wallet new       # generate a Solana keypair
+    ./pbx wallet import    # use existing keypair (seed phrase or JSON)
+    ./pbx wallet show      # show the bound wallet
+    ./pbx achievements     # show unlocked + pending
+    ./pbx refresh          # re-fetch backfill data
+    ./pbx config           # reconfigure keys
+
+This CLI is the offline side of the lab: discover top traders, decode
+their strategies with the Python runners in lab/runners/, and backtest
+the decoded rules on cached price data. It signs no transactions and
+moves no funds. The separate live bot fleet (bots/) is opt-in — see
+the README.
+
+First run walks you through optional keys (Helius / PurpleAir), fetches
+the on-chain backfill from the public PBX API, and saves config to
+~/.pbx-lab/. No keys are echoed. The decoder needs Helius or DATABASE_URL;
+backtesting works against cached on-chain data.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from getpass import getpass
+from pathlib import Path
+from typing import Any
+
+# Force UTF-8 on stdout/stderr. The CLI prints box-drawing characters
+# (─ │ ✓ etc.) in its banners; on a Windows console defaulting to
+# cp1252 those raise UnicodeEncodeError and crash the script. Python
+# ≥3.7 exposes TextIOWrapper.reconfigure; guarded for safety.
+for _stream in (sys.stdout, sys.stderr):
+    _rc = getattr(_stream, "reconfigure", None)
+    if _rc is not None:
+        try:
+            _rc(encoding="utf-8")
+        except (ValueError, OSError):
+            pass
+
+# ─── paths + constants ────────────────────────────────────────────────
+HOME = Path.home()
+PBX_HOME = HOME / ".pbx-lab"
+CONFIG_PATH = PBX_HOME / "config.json"
+DATA_DIR = PBX_HOME / "data"
+BACKFILL_PATH = DATA_DIR / "backfill.json"
+
+REPO_ROOT = Path(__file__).resolve().parent
+LAB_DIR = REPO_ROOT / "lab"
+RUNNERS = LAB_DIR / "runners"
+
+PUBLIC_API = "https://pbx-mainnet-api.onrender.com"
+DEFAULT_BACKFILL_DAYS = 30
+
+# ─── tiny tty helpers ─────────────────────────────────────────────────
+BOLD = "\033[1m"
+DIM = "\033[2m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+
+def tty() -> bool:
+    return sys.stdout.isatty()
+
+
+def stdin_interactive() -> bool:
+    """True only when stdin is a real terminal a human can type into.
+
+    Critical for prompt handling: `input()` raises EOFError on closed
+    stdin everywhere, but `getpass.getpass()` on Windows reads the
+    console directly via msvcrt and ignores stdin redirection — so a
+    non-interactive run would block forever on a secret prompt instead
+    of getting EOFError. Any prompt must check this first."""
+    try:
+        return sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def color(s: str, c: str) -> str:
+    return f"{c}{s}{RESET}" if tty() else s
+
+
+def banner(s: str) -> None:
+    line = "─" * max(40, len(s) + 4)
+    print()
+    print(color(line, CYAN))
+    print(color(f"  {s}", BOLD))
+    print(color(line, CYAN))
+
+
+def info(s: str) -> None:
+    print(f"  {s}")
+
+
+def ok(s: str) -> None:
+    print(f"  {color('✓', GREEN)} {s}")
+
+
+def warn(s: str) -> None:
+    print(f"  {color('!', YELLOW)} {s}")
+
+
+def err(s: str) -> None:
+    print(f"  {color('✗', RED)} {s}")
+
+
+def ask(prompt: str, default: str = "") -> str:
+    # Non-interactive stdin (piped, closed, redirected): take the
+    # default immediately rather than relying on EOFError.
+    if not stdin_interactive():
+        return default
+    suffix = f" [{default}]" if default else ""
+    try:
+        ans = input(f"  {prompt}{suffix}: ").strip()
+    except EOFError:
+        return default
+    return ans or default
+
+
+def ask_secret(prompt: str) -> str:
+    """Prompt for a secret without echoing. Blank = skip.
+
+    On a non-interactive stdin, skip immediately without calling
+    getpass — on Windows getpass reads the console directly and would
+    block forever waiting for a keystroke that can't arrive."""
+    if not stdin_interactive():
+        return ""
+    try:
+        return getpass(f"  {prompt} (paste, nothing echoed; blank to skip): ").strip()
+    except EOFError:
+        return ""
+
+
+def confirm(prompt: str, default_yes: bool = True) -> bool:
+    suffix = "Y/n" if default_yes else "y/N"
+    ans = ask(f"{prompt} ({suffix})").lower()
+    if not ans:
+        return default_yes
+    return ans in ("y", "yes")
+
+
+# ─── config persistence ───────────────────────────────────────────────
+def load_config() -> dict[str, Any]:
+    if not CONFIG_PATH.exists():
+        return {}
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_config(cfg: dict[str, Any]) -> None:
+    PBX_HOME.mkdir(parents=True, exist_ok=True)
+    # Tighten dir perms — file 0600 isn't enough if the parent is 0755
+    # since a local user can still enumerate which keys exist by listing.
+    try:
+        os.chmod(PBX_HOME, 0o700)
+    except OSError:
+        pass
+    # Atomic write: open at 0600 from the start (no 0644 window), then
+    # rename into place. Avoids a race where another process reads the
+    # secrets at default perms before chmod completes.
+    payload = (json.dumps(cfg, indent=2) + "\n").encode()
+    tmp_path = CONFIG_PATH.with_suffix(".json.tmp")
+    fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, payload)
+    finally:
+        os.close(fd)
+    os.replace(tmp_path, CONFIG_PATH)
+
+
+def is_onboarded(cfg: dict[str, Any]) -> bool:
+    return bool(cfg.get("onboarded_at"))
+
+
+# ─── key verification ─────────────────────────────────────────────────
+def _redact_url_errors(msg: str, url: str) -> str:
+    """Make sure the secret URL doesn't appear in an error string we surface."""
+    return msg.replace(url, "<helius_url>") if url and url in msg else msg
+
+
+def verify_helius(url: str) -> tuple[bool, str]:
+    """Hit getVersion — confirms the URL works without exposing it."""
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "getVersion"}).encode(),
+            headers={"content-type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read())
+        if "result" in data and "solana-core" in data.get("result", {}):
+            return True, data["result"].get("solana-core", "ok")
+        return False, "RPC responded but format unexpected"
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        return False, _redact_url_errors(str(e)[:120], url)
+
+
+def verify_purpleair(key: str) -> tuple[bool, str]:
+    """Hit a public sensor read — bounded enough to be cheap, validates key."""
+    try:
+        req = urllib.request.Request(
+            "https://api.purpleair.com/v1/sensors?fields=name&limit=1",
+            headers={"X-API-Key": key},
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read())
+        if "api_version" in data or "data" in data or "fields" in data:
+            return True, "key accepted"
+        return False, "response shape unexpected"
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code}"
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        return False, str(e)[:80]
+
+
+# ─── data fetch ───────────────────────────────────────────────────────
+def fetch_backfill(days: int = DEFAULT_BACKFILL_DAYS) -> dict[str, Any]:
+    url = f"{PUBLIC_API}/api/lab/backfill?days={days}"
+    info(f"fetching {url} …")
+    t0 = time.time()
+    with urllib.request.urlopen(url, timeout=120) as r:
+        data = json.loads(r.read())
+    elapsed = time.time() - t0
+    ok(f"backfill: {data['counts']['cycles']} cycles, "
+       f"{data['counts']['trades']} trades  ({elapsed:.1f}s)")
+    return data
+
+
+def save_backfill(data: dict[str, Any]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    BACKFILL_PATH.write_text(json.dumps(data, indent=2))
+    ok(f"saved → {BACKFILL_PATH}")
+
+
+# ─── onboarding wizard ────────────────────────────────────────────────
+def onboard() -> dict[str, Any]:
+    banner("Welcome to the PBX strategy lab")
+    info("This will take 60 seconds. Everything below is OPTIONAL — the")
+    info("lab is fully runnable with no keys (uses public PBX API).")
+    info("")
+    info("Keys you might add:")
+    info(f"  {color('Helius RPC', BOLD)} — direct mainnet reads, faster than public")
+    info(f"  {color('PurpleAir', BOLD)}  — PM2.5 air quality (we can't redistribute)")
+    info(f"  {color('bot token', BOLD)}  — to deploy live bots via pbx-bots")
+    print()
+    if not confirm("Continue?", default_yes=True):
+        sys.exit(0)
+
+    cfg: dict[str, Any] = {"onboarded_at": datetime.now(timezone.utc).isoformat()}
+
+    # Helius — verify if provided
+    banner("Helius RPC (optional)")
+    info("Powers /api/vault/.../live-state for the engine simulator.")
+    info("Skip → simulator uses the public PBX API (same data, slower).")
+    h = ask_secret("Helius mainnet URL")
+    if h:
+        if not h.startswith("http"):
+            warn("doesn't look like a URL — skipping")
+        else:
+            okay, detail = verify_helius(h)
+            if okay:
+                ok(f"verified (solana-core {detail})")
+                cfg["helius_url"] = h
+            else:
+                warn(f"verification failed: {detail}")
+                if confirm("save it anyway?", default_yes=False):
+                    cfg["helius_url"] = h
+
+    # PurpleAir — verify if provided
+    banner("PurpleAir API key (optional)")
+    info("Lets you fetch PM2.5 readings directly from PurpleAir for your")
+    info("own backtests. PBX does NOT redistribute PurpleAir data — you")
+    info("bring your own key. Free tier at https://develop.purpleair.com")
+    p = ask_secret("PurpleAir API key")
+    if p:
+        okay, detail = verify_purpleair(p)
+        if okay:
+            ok(f"verified ({detail})")
+            cfg["purpleair_key"] = p
+        else:
+            warn(f"verification failed: {detail}")
+            if confirm("save it anyway?", default_yes=False):
+                cfg["purpleair_key"] = p
+
+    # Bot token — opt-in, no verify (no public endpoint to ping safely)
+    banner("Bot API token (optional)")
+    info("Required only if you'll deploy live bots via pbx-bots remote.")
+    info("Skip if you just want to backtest.")
+    t = ask_secret("PBX bot API token")
+    if t:
+        cfg["bot_token"] = t
+        ok("saved (not verified — will check on first deploy)")
+
+    # Save + fetch initial backfill
+    save_config(cfg)
+    banner("Fetching initial backfill")
+    try:
+        data = fetch_backfill(DEFAULT_BACKFILL_DAYS)
+        save_backfill(data)
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        warn(f"backfill failed: {e}")
+        warn("you can re-run later via:  pbx refresh")
+
+    banner("Onboarded")
+    ok(f"config → {CONFIG_PATH}")
+    ok(f"data   → {DATA_DIR}")
+    info("")
+    info(f"Run {color('pbx', BOLD)} again for the menu, or:")
+    info(f"  {color('pbx status', DIM)}        — lab status")
+    info(f"  {color('pbx achievements', DIM)}  — see what's unlocked")
+    info(f"  Use the {color('wallet-decoder', BOLD)} skill in Claude Code to decode a pubkey.")
+    print()
+    return cfg
+
+
+# ─── commands ─────────────────────────────────────────────────────────
+def cmd_status(_cfg: dict[str, Any]) -> int:
+    banner("Lab status")
+    wallets_dir = PBX_HOME / "wallets"
+    decoded = [
+        d.name for d in wallets_dir.iterdir()
+        if wallets_dir.exists() and d.is_dir() and not d.name.startswith(".")
+    ] if wallets_dir.exists() else []
+    info(f"Decoded wallets: {len(decoded)}")
+    for w in decoded[:5]:
+        info(f"  - {w}")
+    if len(decoded) > 5:
+        info(f"  ... and {len(decoded) - 5} more")
+
+    backfill = BACKFILL_PATH
+    info("")
+    if backfill.exists():
+        try:
+            ts = backfill.stat().st_mtime
+            age_h = (time.time() - ts) / 3600
+            info(f"Backfill: cached ({age_h:.1f}h old)")
+        except OSError:
+            info("Backfill: cached")
+    else:
+        info("Backfill: not fetched (run `pbx refresh`)")
+
+    return 0
+
+
+def cmd_refresh(_cfg: dict[str, Any]) -> int:
+    banner("Refreshing backfill")
+    days_str = ask("how many days", str(DEFAULT_BACKFILL_DAYS))
+    try:
+        days = max(1, min(90, int(days_str)))
+    except ValueError:
+        days = DEFAULT_BACKFILL_DAYS
+    try:
+        data = fetch_backfill(days)
+        save_backfill(data)
+        return 0
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        err(f"failed: {e}")
+        return 1
+
+
+# ─── wallet flow ──────────────────────────────────────────────────────
+WALLET_PATH = PBX_HOME / "bot-keypair.json"
+ACHIEVEMENTS_PATH = PBX_HOME / "achievements.json"
+EVENTS_PATH = PBX_HOME / "events.jsonl"
+
+
+def _copy_to_clipboard(text: str) -> bool:
+    """Cross-platform clipboard copy. Returns True on success."""
+    candidates = [
+        ("pbcopy", []),                # macOS
+        ("xclip", ["-selection", "clipboard"]),  # Linux/X11
+        ("xsel", ["--clipboard", "--input"]),   # Linux/X11 alt
+        ("wl-copy", []),               # Linux/Wayland
+        ("clip.exe", []),              # WSL
+    ]
+    for cmd, args in candidates:
+        try:
+            proc = subprocess.Popen([cmd] + args, stdin=subprocess.PIPE)
+            proc.communicate(text.encode())
+            if proc.returncode == 0:
+                return True
+        except FileNotFoundError:
+            continue
+    return False
+
+
+def cmd_wallet(cfg: dict[str, Any]) -> int:
+    """Generate or import a Solana keypair for the bot. Saved 0600 to ~/.pbx-lab/."""
+    args = sys.argv[2:] if len(sys.argv) > 2 else []
+    sub = args[0] if args else None
+    if sub == "new":
+        return _wallet_new(cfg)
+    elif sub == "import":
+        return _wallet_import(cfg)
+    elif sub == "show":
+        return _wallet_show(cfg)
+    else:
+        banner("Wallet")
+        info("Subcommands:")
+        info(f"  {color('pbx wallet new', BOLD)}     — generate a fresh keypair")
+        info(f"  {color('pbx wallet import', BOLD)}  — paste an existing keypair / seed")
+        info(f"  {color('pbx wallet show', BOLD)}    — print pubkey of current bot wallet")
+        return 0
+
+
+def _wallet_new(cfg: dict[str, Any]) -> int:
+    banner("Generate a new Solana wallet")
+    if WALLET_PATH.exists():
+        warn(f"existing wallet at {WALLET_PATH}")
+        if not confirm("overwrite it?", default_yes=False):
+            return 0
+    # Prefer solana-keygen if installed (canonical format + seed phrase).
+    keygen = subprocess.run(["which", "solana-keygen"], capture_output=True, text=True)
+    if keygen.returncode != 0:
+        err("solana-keygen not found. Install Solana CLI:")
+        info("  sh -c \"$(curl -sSfL https://release.solana.com/stable/install)\"")
+        info("Then re-run: pbx wallet new")
+        return 1
+    PBX_HOME.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(PBX_HOME, 0o700)
+    except OSError:
+        pass
+    info("generating keypair (no BIP39 passphrase)...")
+    result = subprocess.run(
+        ["solana-keygen", "new", "--outfile", str(WALLET_PATH),
+         "--no-bip39-passphrase", "--force", "--silent"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        err(f"keygen failed: {result.stderr}")
+        return 1
+    try:
+        os.chmod(WALLET_PATH, 0o600)
+    except OSError:
+        pass
+    # Read pubkey
+    pubkey_result = subprocess.run(
+        ["solana-keygen", "pubkey", str(WALLET_PATH)],
+        capture_output=True, text=True,
+    )
+    pubkey = pubkey_result.stdout.strip()
+    print()
+    ok(f"keypair saved → {WALLET_PATH} (0600)")
+    info(f"public address: {color(pubkey, BOLD)}")
+    print()
+    # Read the JSON for clipboard
+    try:
+        with open(WALLET_PATH) as f:
+            keypair_json = f.read().strip()
+    except OSError as e:
+        warn(f"couldn't read keypair for clipboard: {e}")
+        keypair_json = ""
+    print()
+    info(color("⚠ SAVE YOUR PRIVATE KEY NOW — losing it means losing access to the wallet ⚠", YELLOW))
+    info("")
+    info(f"It's stored locally at {color(str(WALLET_PATH), BOLD)} (0600)")
+    info("For an offline backup, copy it to a password manager:")
+    info("")
+    if keypair_json and _copy_to_clipboard(keypair_json):
+        ok("private key copied to clipboard (NOT shown in terminal).")
+        ok("paste into 1Password / iCloud Keychain / etc. NOW, then clear clipboard.")
+    else:
+        warn("clipboard copy failed. To reveal the key in the terminal,")
+        warn(f"  run: cat {WALLET_PATH}")
+        warn("(then immediately wipe scrollback)")
+    print()
+    info("This lab is backtest-only — no funding needed.")
+    info("Keep the keypair safe; future releases may use it for live trading.")
+    _emit_event({"type": "wallet_created", "pubkey": pubkey})
+    return 0
+
+
+def _wallet_import(cfg: dict[str, Any]) -> int:
+    banner("Import existing wallet")
+    if WALLET_PATH.exists():
+        warn(f"existing wallet at {WALLET_PATH}")
+        if not confirm("overwrite it?", default_yes=False):
+            return 0
+    info("two formats supported:")
+    info("  1) seed phrase (12 words)")
+    info("  2) JSON array of 64 numbers (solana-keygen format)")
+    print()
+    choice = ask("format (1 or 2)", "1")
+    PBX_HOME.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(PBX_HOME, 0o700)
+    except OSError:
+        pass
+    if choice == "1":
+        # Seed-phrase recovery via solana-keygen is fiddly across versions
+        # (expects `prompt://` URI form + interactive passphrase confirmation,
+        # and piping breaks on most CLI versions). Tell the user to do it
+        # via the Solana CLI directly then re-run import with the JSON.
+        err("seed-phrase import isn't reliably scripted across solana-keygen versions.")
+        info("Recover the keypair manually using the Solana CLI:")
+        info(f"  solana-keygen recover -o {WALLET_PATH} 'prompt:?key=0/0'")
+        info("  (paste your seed phrase when prompted; press enter for blank passphrase)")
+        info("Then re-run: pbx wallet import (choose option 2) — paste the JSON output.")
+        return 1
+    elif choice == "2":
+        info("paste the JSON array (single line, [n,n,...]):")
+        raw = input().strip()
+        try:
+            parsed = json.loads(raw)
+            if not isinstance(parsed, list) or len(parsed) != 64:
+                err("expected JSON array of 64 numbers")
+                return 1
+            fd = os.open(str(WALLET_PATH), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, json.dumps(parsed).encode())
+            finally:
+                os.close(fd)
+        except json.JSONDecodeError as e:
+            err(f"invalid JSON: {e}")
+            return 1
+    else:
+        err("expected 1 or 2")
+        return 1
+    try:
+        os.chmod(WALLET_PATH, 0o600)
+    except OSError:
+        pass
+    pubkey_result = subprocess.run(
+        ["solana-keygen", "pubkey", str(WALLET_PATH)],
+        capture_output=True, text=True,
+    )
+    pubkey = pubkey_result.stdout.strip() if pubkey_result.returncode == 0 else "?"
+    ok(f"keypair imported → {WALLET_PATH} (0600)")
+    info(f"public address: {pubkey}")
+    _emit_event({"type": "wallet_imported", "pubkey": pubkey})
+    return 0
+
+
+def _wallet_show(cfg: dict[str, Any]) -> int:
+    banner("Wallet status")
+    if not WALLET_PATH.exists():
+        warn(f"no wallet at {WALLET_PATH}")
+        info("create one: pbx wallet new")
+        return 0
+    pubkey_result = subprocess.run(
+        ["solana-keygen", "pubkey", str(WALLET_PATH)],
+        capture_output=True, text=True,
+    )
+    if pubkey_result.returncode != 0:
+        err("solana-keygen not installed; cannot resolve pubkey")
+        return 1
+    pubkey = pubkey_result.stdout.strip()
+    info(f"pubkey: {color(pubkey, BOLD)}")
+    info(f"path:   {WALLET_PATH}")
+    # Try to fetch balance
+    rpc = cfg.get("helius_url") or "https://api.mainnet-beta.solana.com"
+    try:
+        req = urllib.request.Request(rpc,
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "getBalance",
+                             "params": [pubkey]}).encode(),
+            headers={"content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+        sol = data.get("result", {}).get("value", 0) / 1e9
+        info(f"SOL balance: {sol:.4f}")
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        warn(f"could not fetch balance: {e}")
+    return 0
+
+
+# ─── achievement tracker ─────────────────────────────────────────────
+def _emit_event(event: dict) -> None:
+    """Append a JSON event to ~/.pbx-lab/events.jsonl. Achievement tracker
+    consumes these to unlock badges."""
+    PBX_HOME.mkdir(parents=True, exist_ok=True)
+    event = {"ts": datetime.now(timezone.utc).isoformat(), **event}
+    try:
+        with open(EVENTS_PATH, "a") as f:
+            f.write(json.dumps(event) + "\n")
+    except OSError:
+        pass
+
+
+def _load_achievements() -> dict:
+    if not ACHIEVEMENTS_PATH.exists():
+        return {"unlocked": [], "last_check": None}
+    try:
+        with open(ACHIEVEMENTS_PATH) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {"unlocked": [], "last_check": None}
+
+
+def _save_achievements(state: dict) -> None:
+    PBX_HOME.mkdir(parents=True, exist_ok=True)
+    ACHIEVEMENTS_PATH.write_text(json.dumps(state, indent=2) + "\n")
+
+
+def cmd_achievements(_cfg: dict[str, Any]) -> int:
+    banner("Achievements")
+    defs_path = REPO_ROOT / "achievements" / "definitions.json"
+    if not defs_path.exists():
+        warn(f"missing {defs_path}")
+        return 1
+    try:
+        defs = json.load(open(defs_path))
+    except (OSError, json.JSONDecodeError) as e:
+        err(f"failed to load definitions: {e}")
+        return 1
+    state = _load_achievements()
+    unlocked = set(state.get("unlocked", []))
+    for ach in defs.get("achievements", []):
+        aid = ach["id"]
+        symbol = color("★", GREEN) if aid in unlocked else color("·", DIM)
+        line = f"  {symbol} {ach['title']}"
+        info(line)
+        info(f"     {color(ach['description'], DIM)}")
+    info("")
+    info(f"unlocked: {len(unlocked)} / {len(defs.get('achievements', []))}")
+    return 0
+
+
+def cmd_config(cfg: dict[str, Any]) -> int:
+    banner("Configuration")
+    info(f"config file: {CONFIG_PATH}")
+    info("")
+    info(f"  helius_url:    {color('configured', GREEN) if cfg.get('helius_url') else color('not set', DIM)}")
+    info(f"  purpleair_key: {color('configured', GREEN) if cfg.get('purpleair_key') else color('not set', DIM)}")
+    info(f"  bot_token:     {color('configured', GREEN) if cfg.get('bot_token') else color('not set', DIM)}")
+    info("")
+    if confirm("re-run onboarding wizard?", default_yes=False):
+        onboard()
+    return 0
+
+
+def cmd_menu(cfg: dict[str, Any]) -> int:
+    while True:
+        banner("PBX trader lab — menu")
+        info("  1) lab status")
+        info("  2) wallet (new / import / show)")
+        info("  3) achievements")
+        info("  4) refresh backfill data")
+        info("  5) reconfigure keys")
+        info("  0) exit")
+        print()
+        choice = ask("pick", "0")
+        if choice == "0":
+            return 0
+        try:
+            { "1": cmd_status, "2": cmd_wallet, "3": cmd_achievements,
+              "4": cmd_refresh, "5": cmd_config }[choice](cfg)
+        except KeyError:
+            warn(f"unknown choice: {choice}")
+        except KeyboardInterrupt:
+            print()
+            return 0
+        cfg = load_config()  # may have changed
+
+
+# ─── entrypoint ───────────────────────────────────────────────────────
+COMMANDS = {
+    "status": cmd_status,
+    "refresh": cmd_refresh,
+    "wallet": cmd_wallet,
+    "achievements": cmd_achievements,
+    "config": cmd_config,
+}
+
+
+def main() -> int:
+    cfg = load_config()
+    if not is_onboarded(cfg):
+        cfg = onboard()
+        if len(sys.argv) <= 1:
+            return cmd_menu(cfg)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if not args:
+        return cmd_menu(cfg)
+    cmd_name = args[0]
+    fn = COMMANDS.get(cmd_name)
+    if not fn:
+        err(f"unknown command: {cmd_name}")
+        info(f"  available: {', '.join(COMMANDS)} (or no arg for menu)")
+        return 1
+    return fn(cfg)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print()
+        sys.exit(130)

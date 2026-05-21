@@ -1,0 +1,2625 @@
+#!/usr/bin/env tsx
+/**
+ * @pbx/bots remote control plane.
+ *
+ * Single Fastify process. All bot operations (create wallet, fund, set
+ * strategy, launch, stop, status, logs) exposed as HTTPS endpoints behind
+ * a bearer token. Bots run as concurrent async loops in this same process
+ * — no child process orchestration, no multi-VM coordination.
+ *
+ * State lives on disk under BOTS_DATA_DIR (default /var/data/pbx-bots
+ * which Render maps to a persistent disk). Wallet keypairs are encrypted
+ * at rest with BOT_MASTER_KEY.
+ *
+ * Required env:
+ *   BOT_API_TOKEN           bearer token for client auth
+ *   BOT_MASTER_KEY          AES-256 key (32+ chars) for keypair encryption
+ *   HELIUS_MAINNET_URL      mainnet RPC
+ * Optional:
+ *   BOTS_DATA_DIR           default /var/data/pbx-bots
+ *   PORT                    default 8787
+ */
+import { spawn } from 'node:child_process';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import Fastify from 'fastify';
+import {
+  Connection,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from '@solana/web3.js';
+import {
+  createAssociatedTokenAccountInstruction,
+  createTransferCheckedInstruction,
+  createTransferInstruction,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  TokenAccountNotFoundError,
+} from '@solana/spl-token';
+import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { BotOrchestrator } from './orchestrator.js';
+import { backtestStrategy } from './workflow/backtest.js';
+import { claudeDecodeWallet } from './workflow/claude_decode.js';
+import { decodeWallet } from './workflow/decode.js';
+import { discoverTopTraders, fetchLeaderboardRankings } from './workflow/discover.js';
+import { runWorkflow, MAX_PARALLEL_WALLETS, type WorkflowEvent } from './workflow/orchestrate.js';
+import { listDecodes } from './workflow/decodes-store.js';
+import { backupSnoozeMs, shouldPromptBackup } from './backup-cadence.js';
+import { CLAUDE_NEEDS_SHELL, isClaudeAvailable, resolveClaude, resolvePython } from './workflow/exec-compat.js';
+import { generateNewMnemonic, isWellFormedMnemonic } from './hd.js';
+import { ensureMasterKeyCanary } from './secrets.js';
+import { Store } from './store.js';
+import { NavSnapshotter } from './nav-snapshotter.js';
+import { getAllPrices } from './prices.js';
+import { getAllPricesPaper, getPaperPriceHealth } from './paper-prices.js';
+import { parseBotLog, pairRoundTrips, type RoundTrip } from './trade-history.js';
+import { AirQualityStore } from './airquality-store.js';
+import { fetchBackfill } from './airquality-backfill.js';
+import { fetchBundles } from '../core/scores.js';
+import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../strategies/index.js';
+import { validatePredicate, stripWalletTermsFromEntry } from '../strategies/dsl/interpreter.js';
+import type { WalletMeta } from './store.js';
+import { USDC_MINT, REGIONS, type RegionKey } from '../regions.js';
+
+const USDC = new PublicKey(USDC_MINT);
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    console.error(`[server] missing env: ${name}`);
+    process.exit(1);
+  }
+  return v;
+}
+
+/** Loopback check (raw socket address — never req.ip, which honors
+ *  X-Forwarded-For when trustProxy is enabled). Covers IPv4 127.0.0.0/8,
+ *  IPv6 ::1, IPv4-mapped-IPv6 ::ffff:127.x.x.x, and the literal
+ *  'localhost' string used in HOST env values. Shared between bind-host
+ *  validation and per-request socket checks so the two never disagree. */
+function isLoopback(addr: string | undefined): boolean {
+  if (!addr) return false;
+  if (addr === '::1' || addr === 'localhost') return true;
+  if (addr.startsWith('127.')) return true;
+  if (addr.startsWith('::ffff:127.')) return true;
+  return false;
+}
+
+/** DNS-rebinding defense: a browser whose DNS for evil.com has been
+ *  rebound to 127.0.0.1 will still send `Host: evil.com:PORT` (the
+ *  original URL bar) — the kernel-level socket address looks like
+ *  loopback but the Host header gives away the actual origin. Reject
+ *  any request whose Host header is not also loopback when we're about
+ *  to grant a loopback-bypass. The Host header is the raw client value
+ *  because Fastify's default trustProxy is false. */
+function isLoopbackHost(hostHeader: string | undefined): boolean {
+  if (!hostHeader) return false;
+  // Strip port: 'localhost:8787' → 'localhost', '[::1]:8787' → '[::1]'
+  // IPv6 bracketed form first.
+  let host = hostHeader.trim().toLowerCase();
+  if (host.startsWith('[')) {
+    const end = host.indexOf(']');
+    if (end === -1) return false;
+    host = host.slice(1, end);
+  } else {
+    const colon = host.lastIndexOf(':');
+    if (colon !== -1) host = host.slice(0, colon);
+  }
+  if (host === 'localhost' || host === '::1') return true;
+  if (host.startsWith('127.')) return true;
+  return false;
+}
+
+const TOKEN_HEX_RE = /^[0-9a-f]{64}$/;
+// Mnemonic line in local.env: 24 words, lowercase, single spaces.
+// Capture everything after = up to end of line; validation against the
+// BIP39 wordlist is done separately by isWellFormedMnemonic.
+const MNEMONIC_LINE_RE = /^BOT_HD_MNEMONIC=(.+?)\s*$/m;
+
+/**
+ * Resolve BOT_API_TOKEN + BOT_MASTER_KEY (+ optional BOT_HD_MNEMONIC).
+ *
+ *   - Both required env vars set → use verbatim (production / Render
+ *     dashboard path). BOT_HD_MNEMONIC is optional in this mode for
+ *     backward compatibility with deploys that pre-date HD derivation.
+ *   - Neither set AND PBX_ALLOW_AUTOGEN=1 → generate all three, persist
+ *     to <dataDir>/local.env (mode 0600, atomic create), reuse on
+ *     subsequent boots. The autogen gate must be explicit so production
+ *     cannot enter this branch by accident.
+ *   - Exactly one of the two required env vars set → refuse to start.
+ *     That combo almost certainly orphans funds via canary mismatch.
+ *
+ * The mnemonic, when present, lets the Store derive funder + bot
+ * keypairs deterministically from a single 24-word phrase. Existing
+ * random keypairs on disk continue to work — derivation is opt-in per
+ * wallet, recorded in wallet metadata.
+ *
+ * Tokens are 32 random bytes (64 hex chars). Length validated against
+ * `TOKEN_HEX_RE` for autogen + ≥32 chars for env-supplied tokens (env
+ * tokens may be any opaque string operators chose; on-disk tokens must
+ * match the format we emit so a hand-edited file is rejected rather
+ * than silently producing 401s).
+ */
+function loadOrGenerateLocalSecrets(dataDir: string): {
+  botApiToken: string;
+  botMasterKey: string;
+  mnemonic: string | null;
+  localAutogenMode: boolean;
+} {
+  const envToken = process.env.BOT_API_TOKEN;
+  const envMaster = process.env.BOT_MASTER_KEY;
+  const envMnemonic = process.env.BOT_HD_MNEMONIC?.trim() || null;
+  if (envToken && envMaster) {
+    if (envToken.length < 32) {
+      console.error('[server] BOT_API_TOKEN must be ≥ 32 chars');
+      process.exit(1);
+    }
+    if (envMaster.length < 32) {
+      console.error('[server] BOT_MASTER_KEY must be ≥ 32 chars');
+      process.exit(1);
+    }
+    if (envMnemonic && !isWellFormedMnemonic(envMnemonic)) {
+      console.error('[server] BOT_HD_MNEMONIC failed BIP39 validation');
+      process.exit(1);
+    }
+    return {
+      botApiToken: envToken,
+      botMasterKey: envMaster,
+      mnemonic: envMnemonic,
+      localAutogenMode: false,
+    };
+  }
+  if (envToken || envMaster) {
+    console.error(
+      '[server] BOT_API_TOKEN and BOT_MASTER_KEY must be set together (or neither, ' +
+        'in which case both can be autogenerated under PBX_ALLOW_AUTOGEN=1). Setting ' +
+        'only one risks orphaning funds via canary mismatch on next boot.',
+    );
+    process.exit(1);
+  }
+
+  if (process.env.PBX_ALLOW_AUTOGEN !== '1') {
+    console.error(
+      '[server] BOT_API_TOKEN and BOT_MASTER_KEY are both unset and ' +
+        'PBX_ALLOW_AUTOGEN is not "1". This is the expected production state ' +
+        '— set both env vars in the deploy dashboard. To opt into local autogen, ' +
+        'run via `npm --workspace bots run server` (which sets the flag).',
+    );
+    process.exit(1);
+  }
+
+  // Defend against degenerate $HOME (e.g. container with no home dir) —
+  // writing into '/' would land at root and almost certainly fail with
+  // EACCES anyway, but we want a friendlier error.
+  if (dataDir === '/' || dataDir === '') {
+    console.error(`[server] refusing to autogen into degenerate dataDir '${dataDir}'`);
+    process.exit(1);
+  }
+
+  mkdirSync(dataDir, { recursive: true });
+  // Refuse to operate on a symlinked data dir. A hostile environment
+  // (e.g. shared host with someone able to write to $HOME's parent)
+  // could pre-create ~/.pbx-bots as a symlink to a directory they
+  // control — chmod/openSync would then follow the link and either
+  // relax perms on the attacker's path or land secrets there.
+  if (lstatSync(dataDir).isSymbolicLink()) {
+    console.error(
+      `[server] refusing to autogen into a symlinked data dir at ${dataDir}. ` +
+        'Set BOTS_DATA_DIR to a real directory you own.',
+    );
+    process.exit(1);
+  }
+  // Re-apply 0700 even if the dir pre-existed — mkdirSync only honors
+  // mode on dirs it creates, and the existing dir may have looser perms.
+  chmodSync(dataDir, 0o700);
+
+  const localEnvPath = join(dataDir, 'local.env');
+  if (existsSync(localEnvPath)) {
+    // Same symlink defense as for the parent dir — if local.env is a
+    // link, refuse rather than read/chmod a target the user doesn't own.
+    if (lstatSync(localEnvPath).isSymbolicLink()) {
+      console.error(`[server] refusing to read symlinked ${localEnvPath}`);
+      process.exit(1);
+    }
+    let content = readFileSync(localEnvPath, 'utf8');
+    const tokenLine = /^BOT_API_TOKEN=(\S+)\s*$/m.exec(content)?.[1];
+    const masterLine = /^BOT_MASTER_KEY=(\S+)\s*$/m.exec(content)?.[1];
+    if (tokenLine && masterLine && TOKEN_HEX_RE.test(tokenLine) && TOKEN_HEX_RE.test(masterLine)) {
+      // Belt: re-tighten file mode in case it was relaxed since last write.
+      try {
+        chmodSync(localEnvPath, 0o600);
+      } catch {
+        /* best-effort */
+      }
+      // Mnemonic is optional in the file for backward compat with
+      // local.env files predating HD derivation. If absent we upgrade
+      // in place — random keypairs already on disk keep their pubkeys,
+      // future wallets will derive from this new mnemonic.
+      let mnemonic = MNEMONIC_LINE_RE.exec(content)?.[1]?.trim() ?? null;
+      if (mnemonic && !isWellFormedMnemonic(mnemonic)) {
+        console.error(
+          `[server] ${localEnvPath} BOT_HD_MNEMONIC failed BIP39 validation. ` +
+            'Refusing to overwrite — would desync wallets derived from a valid one. ' +
+            'Fix or remove the line manually.',
+        );
+        process.exit(1);
+      }
+      if (!mnemonic) {
+        mnemonic = generateNewMnemonic();
+        const trailer = content.endsWith('\n') ? '' : '\n';
+        const append =
+          trailer +
+          '# HD mnemonic added on a later boot — older random keypairs on\n' +
+          '# disk (if any) are NOT derivable from it and remain at their\n' +
+          '# original pubkeys. New wallets will derive from this mnemonic.\n' +
+          `BOT_HD_MNEMONIC=${mnemonic}\n`;
+        writeFileSync(localEnvPath, content + append, { mode: 0o600 });
+        try { chmodSync(localEnvPath, 0o600); } catch { /* best-effort */ }
+        console.log(`[server] upgraded ${localEnvPath} with BOT_HD_MNEMONIC (24 words)`);
+        console.log('[server] back up the mnemonic on paper to recover all derived wallets');
+      }
+      return {
+        botApiToken: tokenLine,
+        botMasterKey: masterLine,
+        mnemonic,
+        localAutogenMode: true,
+      };
+    }
+    console.error(
+      `[server] ${localEnvPath} exists but does not match the expected format ` +
+        '(BOT_API_TOKEN=<64 hex> + BOT_MASTER_KEY=<64 hex>, no quotes/spaces). ' +
+        `Refusing to regenerate — that would orphan any wallets under ${dataDir}. ` +
+        'Fix the file manually, or delete the entire data dir if no wallets are funded.',
+    );
+    process.exit(1);
+  }
+
+  const newToken = randomBytes(32).toString('hex');
+  const newMaster = randomBytes(32).toString('hex');
+  const newMnemonic = generateNewMnemonic();
+  const body =
+    '# Auto-generated on first server boot. Do not commit.\n' +
+    `# BACK UP THE MNEMONIC ON PAPER if you fund any wallet under ${dataDir}.\n` +
+    '# All wallets (funder + bots) derive from BOT_HD_MNEMONIC, so the 24\n' +
+    '# words alone reconstruct your entire fleet on a fresh machine.\n' +
+    '# BOT_MASTER_KEY encrypts the keypair cache on disk; rotate carefully.\n' +
+    '# BOT_API_TOKEN is the loopback dashboard bearer; rotating it is safe.\n' +
+    `BOT_API_TOKEN=${newToken}\n` +
+    `BOT_MASTER_KEY=${newMaster}\n` +
+    `BOT_HD_MNEMONIC=${newMnemonic}\n`;
+  // Atomic create-exclusive open with strict mode. If another process
+  // raced ahead and created the file between existsSync and here, this
+  // throws EEXIST — we surface that rather than overwrite their key.
+  let fd: number;
+  try {
+    fd = openSync(localEnvPath, 'wx', 0o600);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'EEXIST') {
+      console.error(
+        `[server] ${localEnvPath} was created by another process during boot. ` +
+          'Restart this server to re-read it.',
+      );
+      process.exit(1);
+    }
+    throw err;
+  }
+  try {
+    writeSync(fd, body);
+  } finally {
+    closeSync(fd);
+  }
+  console.log(`[server] generated new local secrets at ${localEnvPath} (mode 0600)`);
+  console.log('[server] back up the 24-word BOT_HD_MNEMONIC on paper before funding any wallet');
+  return {
+    botApiToken: newToken,
+    botMasterKey: newMaster,
+    mnemonic: newMnemonic,
+    localAutogenMode: true,
+  };
+}
+
+// Resolve DATA_DIR before constructing Store (which reads BOTS_DATA_DIR
+// lazily). Render sets BOTS_DATA_DIR in render.yaml; local defaults to
+// ~/.pbx-bots.
+if (!process.env.BOTS_DATA_DIR) {
+  process.env.BOTS_DATA_DIR = join(homedir(), '.pbx-bots');
+}
+const DATA_DIR = process.env.BOTS_DATA_DIR;
+
+const SECRETS = loadOrGenerateLocalSecrets(DATA_DIR);
+const BOT_API_TOKEN = SECRETS.botApiToken;
+const LOCAL_AUTOGEN_MODE = SECRETS.localAutogenMode;
+const HD_MNEMONIC = SECRETS.mnemonic;
+// Propagate the master key to env so secrets.ts (which reads
+// process.env.BOT_MASTER_KEY lazily inside encrypt/decrypt) sees the
+// resolved value. BOT_API_TOKEN is held in this module's closure and
+// doesn't need to be re-exported.
+process.env.BOT_MASTER_KEY = SECRETS.botMasterKey;
+
+// HELIUS_MAINNET_URL is OPTIONAL at boot. Without it the server runs in
+// "explore-only" mode:
+//   - workflow endpoints (discover, decode, claude-decode, backtest)
+//     work because they hit the public PBX API, not Solana RPC.
+//   - on-chain operations (funder ops, bot create/fund/launch/stop,
+//     dashboard/state's price reads) return 503 with a clear "Helius
+//     URL required" message.
+// Users can spin the server up to explore strategies before signing up
+// for a Helius key. Live trading still requires one — see helius.dev.
+const RPC_URL = process.env.HELIUS_MAINNET_URL?.trim() ?? '';
+const LIVE_TRADING_ENABLED = /^https?:/.test(RPC_URL);
+if (!LIVE_TRADING_ENABLED) {
+  console.warn(
+    '[server] HELIUS_MAINNET_URL not set — running in explore-only mode.\n' +
+      '         Workflow endpoints (discover/decode/backtest) work.\n' +
+      '         Funder + bot operations will return 503 until a Solana mainnet RPC is configured.\n' +
+      '         Get a free key at https://helius.dev',
+  );
+}
+
+const PORT = Number(process.env.PORT ?? '8787');
+// Default to loopback so an autogen token can't be reached from the LAN.
+// Production sets HOST=0.0.0.0 explicitly via render.yaml.
+const HOST = process.env.HOST ?? '127.0.0.1';
+
+// Refuse a dangerous combo at boot rather than serving an unauthed port:
+// autogen secrets + non-loopback bind means anyone on the network can
+// reach the API. Operators who want LAN access must pin secrets in env.
+// Shares the isLoopback predicate with the per-request check so the two
+// can never disagree (e.g. HOST=127.0.0.2 is loopback in both places).
+if (LOCAL_AUTOGEN_MODE && !isLoopback(HOST)) {
+  console.error(
+    `[server] refusing to start: HOST=${HOST} (non-loopback) with auto-generated secrets. ` +
+      'Either bind to 127.0.0.1 (the default) or set BOT_API_TOKEN + BOT_MASTER_KEY explicitly ' +
+      'before exposing this port.',
+  );
+  process.exit(1);
+}
+
+const store = new Store(undefined, HD_MNEMONIC ?? undefined);
+// Canary check before doing any work. If the master key doesn't match the
+// key that encrypted existing data, refuse to start — re-encrypting under
+// a new key would orphan the funder + every wallet on disk.
+ensureMasterKeyCanary(join(DATA_DIR, 'canary.enc'));
+// BotOrchestrator is ALWAYS constructed: a PAPER bot runs RPC-free
+// (quotes via Jupiter's public HTTP API, hydrates from its simulated
+// ledger) and never touches `RPC_URL`, so the orchestrator is usable in
+// explore-only mode for paper bots. The orchestrator only uses RPC_URL
+// when it constructs a SwapRouter/Connection for a LIVE bot — and a live
+// bot can't be launched without HELIUS_MAINNET_URL anyway (see the
+// mode-aware launch gate below). `conn` stays live-only: it's used by
+// funder/balance routes that genuinely need RPC.
+const orchestrator = new BotOrchestrator(store, RPC_URL);
+const conn = LIVE_TRADING_ENABLED ? new Connection(RPC_URL, 'confirmed') : (null as unknown as Connection);
+
+/** Reply with 503 if HELIUS_MAINNET_URL isn't configured. Use at the
+ *  top of every route that touches Solana RPC. Returns true if the
+ *  caller should short-circuit (already replied). */
+function gateLiveTrading(reply: import('fastify').FastifyReply): boolean {
+  if (LIVE_TRADING_ENABLED) return false;
+  reply.code(503).send({
+    error: 'live_trading_disabled',
+    message:
+      'This operation requires HELIUS_MAINNET_URL (a Solana mainnet RPC). Get a free key at https://helius.dev, then set HELIUS_MAINNET_URL=https://mainnet.helius-rpc.com/?api-key=... and restart the server.',
+  });
+  return true;
+}
+
+/**
+ * Mode-aware launch gate. A PAPER bot launches with NO
+ * HELIUS_MAINNET_URL — it runs in the gate-free explore-only zone
+ * (quotes via Jupiter's public API). A LIVE bot still requires the RPC
+ * and keeps the existing 503. Returns true if the caller should
+ * short-circuit (already replied).
+ *
+ * `mode` is read from WalletMeta: only an explicit `mode: 'live'`
+ * triggers the gate; absent/`'paper'` is treated as paper — the same
+ * fail-safe default the orchestrator uses (a bot is never silently live).
+ */
+function gateBotLaunch(
+  name: string,
+  reply: import('fastify').FastifyReply,
+): boolean {
+  if (LIVE_TRADING_ENABLED) return false;
+  const meta = store.getWallet(name);
+  if (meta && meta.mode === 'live') {
+    reply.code(503).send({
+      error: 'live_trading_disabled',
+      message:
+        `Bot '${name}' is mode:'live' and requires HELIUS_MAINNET_URL (a Solana mainnet RPC). ` +
+        'Get a free key at https://helius.dev, then set HELIUS_MAINNET_URL and restart. ' +
+        "A mode:'paper' bot launches without it.",
+    });
+    return true;
+  }
+  // Paper bot (or unknown wallet — launch() will 400 on a missing
+  // wallet) — allowed in explore-only mode.
+  return false;
+}
+
+// Redact sensitive headers so a future debug-level enable can never
+// print the bearer token to Render-captured stdout.
+const app = Fastify({
+  logger: {
+    level: process.env.LOG_LEVEL ?? 'info',
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
+  },
+});
+
+// ─── Auth ──────────────────────────────────────────────────────────────
+
+const TOKEN_BUF = Buffer.from(BOT_API_TOKEN);
+
+app.addHook('onRequest', async (req, reply) => {
+  // /health and the dashboard's own assets (HTML/CSS/JS) are public;
+  // the data endpoints behind the dashboard still require the bearer
+  // token.
+  if (req.url === '/health') return;
+  if (req.url === '/dashboard' || req.url === '/dashboard.html'
+      || req.url === '/dashboard.css' || req.url === '/dashboard.js'
+      || req.url === '/leaderboard-sort.js') return;
+  // Loopback bypass — ONLY in local autogen mode AND only when BOTH the
+  // socket address AND the Host header are loopback. The Host check is
+  // the DNS-rebinding defense: an evil.com page rebound to 127.0.0.1
+  // sends `Host: evil.com:PORT` even though the kernel-level peer is
+  // loopback. Both gates have to agree.
+  if (
+    LOCAL_AUTOGEN_MODE &&
+    isLoopback(req.socket.remoteAddress) &&
+    isLoopbackHost(req.headers.host)
+  ) {
+    return;
+  }
+  const auth = req.headers.authorization ?? '';
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  // Constant-time compare. Length mismatch fails fast without short-circuit
+  // info leak. The `return reply` is critical — without it Fastify proceeds
+  // to the route handler even after sending 401.
+  if (!match) return reply.code(401).send({ error: 'unauthorized' });
+  const supplied = Buffer.from(match[1]);
+  const ok =
+    supplied.length === TOKEN_BUF.length && timingSafeEqual(supplied, TOKEN_BUF);
+  if (!ok) return reply.code(401).send({ error: 'unauthorized' });
+});
+
+// ─── Backup state ──────────────────────────────────────────────────────
+//
+// One JSON file at $BOTS_DATA_DIR/state/backup.json tracks whether the
+// user has confirmed they backed up the BIP39 mnemonic. The dashboard
+// uses this to decide whether to nag with a modal/banner.
+//
+// Verification is by re-typing 3 random words from the mnemonic — we
+// check the position+word pair without revealing the full mnemonic to
+// the verifier. State is *just* a timestamp; we don't store which words
+// were tested or any derivative of the mnemonic itself.
+
+interface BackupState {
+  verifiedAt: string | null;
+  // Reminder cadence: when the modal nag is next due, how many times it
+  // has been snoozed, and the live-bot count at the last prompt (so a
+  // newly funded bot can re-trigger it). See backup-cadence.ts.
+  snoozedUntil: string | null;
+  dismissCount: number;
+  liveBotsAtLastPrompt: number;
+}
+
+const BACKUP_STATE_PATH = join(DATA_DIR, 'state', 'backup.json');
+
+function readBackupState(): BackupState {
+  try {
+    const raw = readFileSync(BACKUP_STATE_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as Partial<BackupState>;
+    return {
+      verifiedAt: parsed.verifiedAt ?? null,
+      snoozedUntil: parsed.snoozedUntil ?? null,
+      dismissCount: parsed.dismissCount ?? 0,
+      liveBotsAtLastPrompt: parsed.liveBotsAtLastPrompt ?? 0,
+    };
+  } catch {
+    return { verifiedAt: null, snoozedUntil: null, dismissCount: 0, liveBotsAtLastPrompt: 0 };
+  }
+}
+
+function writeBackupState(state: BackupState): void {
+  mkdirSync(join(DATA_DIR, 'state'), { recursive: true });
+  // File is one small JSON object; overwriting in place is fine — a
+  // crash mid-write at worst loses the new verified timestamp.
+  writeFileSync(BACKUP_STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
+  try { chmodSync(BACKUP_STATE_PATH, 0o600); } catch { /* best-effort */ }
+}
+
+// Loopback-only mnemonic reveal so the dashboard can show the 24 words
+// in the backup modal. Same three-gate protection as /api/local-token:
+//   1. LOCAL_AUTOGEN_MODE so production never exposes this.
+//   2. socket.remoteAddress is loopback.
+//   3. Host header is loopback (DNS-rebind defense).
+// Plus a fourth gate: the mnemonic must exist. Legacy installs without
+// a mnemonic (env-pinned production) get 404.
+app.get('/api/local-mnemonic', async (req, reply) => {
+  if (!LOCAL_AUTOGEN_MODE) return reply.code(404).send({ error: 'not found' });
+  if (!HD_MNEMONIC) return reply.code(404).send({ error: 'no mnemonic configured' });
+  if (!isLoopback(req.socket.remoteAddress)) return reply.code(403).send({ error: 'loopback only' });
+  if (!isLoopbackHost(req.headers.host)) return reply.code(403).send({ error: 'host mismatch' });
+  return { mnemonic: HD_MNEMONIC };
+});
+
+// Read backup-verified state.
+app.get('/api/funder/backup', async () => {
+  const state = readBackupState();
+  return {
+    verifiedAt: state.verifiedAt,
+    mnemonicAvailable: Boolean(HD_MNEMONIC),
+  };
+});
+
+// Verify the user wrote down the mnemonic by checking three positions.
+// The dashboard picks the positions client-side, sends back {positions:
+// [i,j,k], words: [w_i, w_j, w_k]}. We validate against HD_MNEMONIC.
+app.post<{ Body: { positions: number[]; words: string[] } }>(
+  '/api/funder/backup/verify',
+  async (req, reply) => {
+    if (!HD_MNEMONIC) return reply.code(400).send({ error: 'no mnemonic configured' });
+    const { positions, words } = req.body ?? { positions: [], words: [] };
+    if (!Array.isArray(positions) || !Array.isArray(words) || positions.length !== words.length) {
+      return reply.code(400).send({ error: 'positions and words must be arrays of equal length' });
+    }
+    if (positions.length < 1 || positions.length > 24) {
+      return reply.code(400).send({ error: 'must verify 1–24 positions' });
+    }
+    const mnemonicWords = HD_MNEMONIC.split(/\s+/);
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
+      const word = words[i];
+      if (!Number.isInteger(pos) || pos < 0 || pos >= mnemonicWords.length) {
+        return reply.code(400).send({ error: `invalid position ${pos}` });
+      }
+      if (typeof word !== 'string' || word.trim().toLowerCase() !== mnemonicWords[pos]) {
+        return reply.code(400).send({ error: `word at position ${pos + 1} does not match` });
+      }
+    }
+    const verifiedAt = new Date().toISOString();
+    writeBackupState({ ...readBackupState(), verifiedAt });
+    return { ok: true, verifiedAt };
+  },
+);
+
+// "Remind me later" — snooze the backup-reminder modal. The first
+// dismissal buys 24h; every one after that buys a week. `liveBots` is
+// the current funded-bot count, recorded so a newly funded bot can
+// re-trigger the prompt before the snooze elapses.
+app.post<{ Body: { liveBots?: number } }>(
+  '/api/funder/backup/snooze',
+  async (req) => {
+    const prev = readBackupState();
+    const dismissCount = prev.dismissCount + 1;
+    const snoozedUntil = new Date(Date.now() + backupSnoozeMs(dismissCount)).toISOString();
+    const liveBots = req.body?.liveBots;
+    const liveBotsAtLastPrompt = typeof liveBots === 'number' && liveBots >= 0
+      ? Math.floor(liveBots)
+      : prev.liveBotsAtLastPrompt;
+    writeBackupState({ ...prev, snoozedUntil, dismissCount, liveBotsAtLastPrompt });
+    return { ok: true, snoozedUntil, dismissCount };
+  },
+);
+
+app.get('/api/local-token', async (req, reply) => {
+  if (!LOCAL_AUTOGEN_MODE) {
+    return reply.code(404).send({ error: 'not found' });
+  }
+  if (!isLoopback(req.socket.remoteAddress)) {
+    return reply.code(403).send({ error: 'loopback only' });
+  }
+  if (!isLoopbackHost(req.headers.host)) {
+    return reply.code(403).send({ error: 'host mismatch' });
+  }
+  return { token: BOT_API_TOKEN };
+});
+
+// Validate :name params on every wallet route to prevent path traversal.
+const NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+app.addHook('preValidation', async (req, reply) => {
+  const name = (req.params as { name?: string } | null)?.name;
+  if (typeof name === 'string' && !NAME_RE.test(name)) {
+    return reply.code(400).send({ error: `invalid name (must match ${NAME_RE})` });
+  }
+});
+
+// ─── Health ────────────────────────────────────────────────────────────
+
+app.get('/health', async () => ({ ok: true, ts: Date.now() }));
+
+// ─── Workflow: discover top traders ────────────────────────────────────
+//
+// ─── Workflow preflight ──────────────────────────────────────────────
+//
+// Lightweight readiness check for the discover→decode→backtest pipeline.
+// The pipeline spawns python3 (wallet-decoder.py + wallet-evolve.py +
+// agentic-decode.py) and the `claude` CLI (single-shot + agentic loop).
+// If any of these are missing, the workflow will fail mid-flight with a
+// confusing error. This endpoint lets the dashboard probe BEFORE the
+// user clicks "Start workflow" and surface remediation.
+//
+// All checks run as short subprocesses (~50ms each) with a 3s timeout.
+// Result is unauthenticated + safe to expose: it reveals only whether
+// known tooling exists, no secrets or file paths.
+app.get('/api/workflow/preflight', async () => {
+  type ProbeResult = { ok: boolean; version?: string; error?: string };
+  const probe = (cmd: string, args: string[], useShell = false): Promise<ProbeResult> =>
+    new Promise((resolveProbe) => {
+      const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: useShell });
+      let out = '';
+      let err = '';
+      const timer = setTimeout(() => { try { proc.kill('SIGTERM'); } catch { /* noop */ } }, 3000);
+      proc.stdout.on('data', (c) => { out += c.toString('utf8'); });
+      proc.stderr.on('data', (c) => { err += c.toString('utf8'); });
+      proc.on('error', (e: NodeJS.ErrnoException) => {
+        clearTimeout(timer);
+        resolveProbe({
+          ok: false,
+          error: e.code === 'ENOENT' ? 'not on PATH' : e.message,
+        });
+      });
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) {
+          const trimmed = (out || err).trim().split('\n')[0]?.trim();
+          resolveProbe({ ok: true, version: trimmed });
+        } else {
+          resolveProbe({ ok: false, error: (err || out).trim().slice(0, 200) || `exit ${code}` });
+        }
+      });
+    });
+
+  // Run probes in parallel. python3/python resolved per-platform;
+  // claude probed with a shell on Windows (it's a .cmd shim there).
+  const py = resolvePython();
+  const [python, claudeCli, sklearn] = await Promise.all([
+    probe(py, ['--version']),
+    probe(resolveClaude(), ['--version'], CLAUDE_NEEDS_SHELL),
+    probe(py, ['-c', 'import sklearn, numpy; print(sklearn.__version__)']),
+  ]);
+
+  // Parse python major.minor so the dashboard can show "need ≥ 3.9" cleanly.
+  let pythonOk = python.ok;
+  let pythonMinor: number | null = null;
+  if (python.ok && python.version) {
+    const m = python.version.match(/(\d+)\.(\d+)/);
+    if (m) {
+      pythonMinor = parseInt(m[2]!, 10);
+      const major = parseInt(m[1]!, 10);
+      if (major < 3 || (major === 3 && pythonMinor < 9)) {
+        pythonOk = false;
+      }
+    }
+  }
+
+  // Python AND the `claude` CLI are hard requirements: the decode
+  // workflow spawns both, and a missing claude used to leave users
+  // staring at a "Claude is decoding…" row that quietly degraded to a
+  // data-driven fallback. sklearn is reported for diagnostics only —
+  // the dashboard decoders don't import it.
+  const allReady = pythonOk && claudeCli.ok;
+  return {
+    ready: allReady,
+    checks: {
+      python: { ok: pythonOk, version: python.version, minor: pythonMinor,
+                required: '>= 3.9',
+                error: !python.ok ? python.error : (pythonOk ? undefined : 'python3 found but version too old') },
+      claudeCli: {
+        ok: claudeCli.ok, version: claudeCli.version, error: claudeCli.error,
+        note: claudeCli.ok
+          ? 'Claude CLI found — wallet decoding will use the LLM refinement loop.'
+          : 'Claude CLI not found. The decode workflow requires it — install '
+            + 'and reload to enable the "Find top traders & decode" button.',
+      },
+      sklearn: { ok: sklearn.ok, version: sklearn.version, error: sklearn.error },
+    },
+    remediation: {
+      python: !pythonOk ? {
+        macOS: 'brew install python@3.12',
+        linux: 'sudo apt-get install python3.12 python3.12-venv',
+        note: 'Or use pyenv: curl https://pyenv.run | bash && pyenv install 3.12 && pyenv local 3.12',
+      } : null,
+      claudeCli: !claudeCli.ok ? {
+        macOS: 'npm install -g @anthropic-ai/claude-code',
+        linux: 'npm install -g @anthropic-ai/claude-code',
+        note: 'Required for the decode workflow. See https://docs.claude.com/en/docs/claude-code.',
+      } : null,
+    },
+  };
+});
+
+// Powers the dashboard's market Leaderboard view. Returns the top
+// traders on PBX ranked by USDC volume in the last N days, enriched
+// with per-wallet P&L and win-rate from the upstream top-traders
+// endpoint (falls back to volume-only rankings if that endpoint is not
+// deployed yet). The decode workflow calls `discoverTopTraders`
+// directly — this route is leaderboard-only.
+app.get<{ Querystring: { days?: string; limit?: string } }>(
+  '/api/workflow/discover',
+  async (req, reply) => {
+    const days = Math.max(1, Math.min(90, Number(req.query.days ?? '30') || 30));
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? '10') || 10));
+    try {
+      const ranked = await fetchLeaderboardRankings({ days });
+      const traders = ranked.slice(0, limit);
+      return { days, limit, count: traders.length, traders };
+    } catch (err) {
+      return reply.code(502).send({ error: (err as Error).message });
+    }
+  },
+);
+
+// ─── Workflow: decode a wallet via the Python pipeline ────────────────
+//
+// Step 2 of the workflow. Spawns wallet-decoder.py + wallet-evolve.py
+// for one pubkey and returns the top decoded hypothesis. SSE-style
+// progress streaming will be wired in step 4; this POST is for the
+// simpler "just give me the result when done" path used by curl tests
+// and the (forthcoming) per-row "Decode" action in the dashboard.
+app.post<{ Body: { pubkey: string; days?: number; epochs?: number } }>(
+  '/api/workflow/decode',
+  async (req, reply) => {
+    const { pubkey, days, epochs } = req.body ?? { pubkey: '' };
+    if (!pubkey) return reply.code(400).send({ error: 'pubkey required' });
+    try {
+      const result = await decodeWallet({ pubkey, days, epochs });
+      return result;
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
+  },
+);
+
+// ─── Workflow step 2.5: Claude decode ─────────────────────────────────
+//
+// LLM-based qualitative read of the wallet's trading pattern. Reads
+// features.csv from the Python decode step (so step 2 must run first)
+// + the Python decoder's top hypothesis, hands them to `claude -p`,
+// returns a structured candidate strategy template + params + caveats.
+//
+// Graceful skip if claude CLI isn't installed — returns ran:false with
+// a reason. The dashboard surfaces that without blocking the rest of
+// the pipeline.
+// ─── Workflow orchestrator (SSE) ──────────────────────────────────────
+//
+// Streams progress events as the discover → decode → claude → backtest
+// pipeline runs. Browser opens an EventSource and renders each event
+// as it arrives. Closing the connection aborts in-flight subprocesses.
+//
+// Why SSE instead of websockets: server-to-client only, plays nice
+// with HTTP caching layers, native EventSource in browsers, no extra
+// dependency. The orchestrator's events are JSON-serialized into the
+// `data:` field of each SSE record.
+app.get<{
+  Querystring: {
+    discoverDays?: string;
+    limit?: string;
+    decodeDays?: string;
+    decodeEpochs?: string;
+    backtestDays?: string;
+    claudeModel?: string;
+    concurrency?: string;
+    overshoot?: string;
+    /** Comma-separated pubkeys — decode exactly these, skip discovery. */
+    wallets?: string;
+  };
+}>('/api/workflow/run', async (req, reply) => {
+  // Hard gate: every wallet decode spawns `claude -p`. A stale dashboard
+  // or a direct curl that bypasses the preflight banner used to start a
+  // run that silently degraded to a data-driven fallback — users sat
+  // staring at "Claude is decoding…" rows. Refuse upfront with a clear
+  // 412 so the client can surface the install hint.
+  if (!isClaudeAvailable()) {
+    return reply.code(412).send({
+      error: 'claude_cli_missing',
+      message: 'The Claude CLI is required to run the decode workflow. '
+        + 'Install with: npm install -g @anthropic-ai/claude-code, then reload.',
+    });
+  }
+  // Take over the raw socket to stream SSE. Fastify's reply.hijack()
+  // tells the framework not to try to send a response after we return.
+  const raw = reply.raw;
+  raw.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-cache, no-transform',
+    connection: 'keep-alive',
+    // Cloudflare / reverse proxies may buffer SSE without this hint.
+    'x-accel-buffering': 'no',
+  });
+  reply.hijack();
+
+  const ac = new AbortController();
+  // Browser navigated away / closed tab → abort in-flight work.
+  req.raw.on('close', () => { try { ac.abort(); } catch { /* noop */ } });
+
+  const send = (event: WorkflowEvent): void => {
+    // SSE payload: `event:` (optional) + `data:` lines + blank line.
+    // Use the event's `kind` as the SSE event type so clients can
+    // addEventListener('decode.line', ...) for typed routing if they want.
+    raw.write(`event: ${event.kind}\n`);
+    raw.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  // Lightweight heartbeat so intermediaries don't reap idle connections
+  // during a long Python decode step. Comment lines (`:` prefix) are
+  // ignored by EventSource clients but keep the socket warm.
+  const heartbeat = setInterval(() => {
+    try { raw.write(': hb\n\n'); } catch { /* socket likely closed */ }
+  }, 15_000);
+
+  const num = (s: string | undefined, fallback: number) => {
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+
+  try {
+    await runWorkflow(
+      {
+        discoverDays: num(req.query.discoverDays, 30),
+        limit: num(req.query.limit, 5),
+        decodeDays: num(req.query.decodeDays, 14),
+        decodeEpochs: num(req.query.decodeEpochs, 2),
+        backtestDays: num(req.query.backtestDays, 14),
+        claudeModel: req.query.claudeModel,
+        // Omit when not given so the orchestrator's own default kicks
+        // in (all discovered wallets in parallel, capped at
+        // MAX_PARALLEL_WALLETS).
+        concurrency: req.query.concurrency != null
+          ? num(req.query.concurrency, MAX_PARALLEL_WALLETS)
+          : undefined,
+        overshoot: num(req.query.overshoot, 2),
+        wallets: req.query.wallets
+          ? req.query.wallets.split(',').map((w) => w.trim()).filter(Boolean)
+          : undefined,
+        signal: ac.signal,
+      },
+      send,
+    );
+  } catch (err) {
+    try {
+      raw.write(`event: error\n`);
+      raw.write(
+        `data: ${JSON.stringify({ kind: 'error', ts: Date.now(), stage: 'orchestrator', message: (err as Error).message })}\n\n`,
+      );
+    } catch { /* socket closed */ }
+  } finally {
+    clearInterval(heartbeat);
+    try { raw.end(); } catch { /* noop */ }
+  }
+});
+
+// Persisted decoded strategies. The "Decoded strategies" panel loads
+// these on view-open so it survives reloads — decodes are written by
+// the workflow under ~/.pbx-lab/decodes (see decodes-store).
+app.get('/api/workflow/decodes', async () => {
+  return { decodes: listDecodes() };
+});
+
+// ─── Workflow step 3: backtest a decoded strategy ─────────────────────
+//
+// Given a strategy template + params (from steps 2 / 2.5) and a window
+// in days, fetch hourly/4h price bars from the public PBX price-history
+// API, run the strategy with a chronological 70/30 train/test split,
+// and return PnL + Sharpe + win rate + max-drawdown for each split.
+app.post<{ Body: { template: string; params?: Record<string, unknown>; days?: number; trainFrac?: number } }>(
+  '/api/workflow/backtest',
+  async (req, reply) => {
+    const { template, params, days, trainFrac } = req.body ?? { template: '' };
+    if (!template) return reply.code(400).send({ error: 'template required' });
+    try {
+      const result = await backtestStrategy({
+        template,
+        params: params ?? {},
+        days: days ?? 30,
+        trainFrac,
+      });
+      return result;
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
+  },
+);
+
+app.post<{ Body: { pubkey: string; days?: number; pythonTopHypothesis?: { name: string; testF1: number; testLift: number; testPrecision: number } | null; model?: string } }>(
+  '/api/workflow/claude-decode',
+  async (req, reply) => {
+    const { pubkey, days, pythonTopHypothesis, model } = req.body ?? { pubkey: '' };
+    if (!pubkey) return reply.code(400).send({ error: 'pubkey required' });
+    // The features.csv is at ~/.pbx-lab/wallets/<pubkey>/ unless the
+    // operator overrode PBX_LAB_DATA_DIR. Use the same default the
+    // Python decoder does to keep step 2 and step 2.5 in sync.
+    const outDir = join(homedir(), '.pbx-lab', 'wallets', pubkey);
+    try {
+      const result = await claudeDecodeWallet({
+        pubkey,
+        days: days ?? 60,
+        outDir,
+        pythonTopHypothesis: pythonTopHypothesis ?? null,
+        model,
+      });
+      return result;
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
+  },
+);
+
+// ─── Funder ────────────────────────────────────────────────────────────
+
+app.get('/funder', async () => {
+  if (!store.hasFunder()) return { exists: false };
+  const pubkey = store.getFunderPubkey();
+  // Balance read needs RPC. In explore-only mode (no Helius), return
+  // pubkey only — the dashboard surfaces a "live-trading disabled"
+  // notice instead of a misleading $0 balance.
+  if (!LIVE_TRADING_ENABLED) {
+    return {
+      exists: true,
+      pubkey,
+      solLamports: null,
+      usdcRaw: null,
+      liveTradingDisabled: true,
+    };
+  }
+  const sol = await conn.getBalance(new PublicKey(pubkey));
+  const usdc = await getUsdcBalance(new PublicKey(pubkey));
+  return {
+    exists: true,
+    pubkey,
+    solLamports: sol.toString(),
+    usdcRaw: usdc.toString(),
+  };
+});
+
+app.post('/funder/init', async () => {
+  if (store.hasFunder()) return { existing: true, pubkey: store.getFunderPubkey() };
+  const { pubkey } = store.createFunder();
+  return { existing: false, pubkey };
+});
+
+// ─── Bot wallets ───────────────────────────────────────────────────────
+
+app.get('/bots', async () => {
+  const wallets = store.listWallets();
+  // Paper bots run in the orchestrator even in explore-only mode, so the
+  // running set is always read from it.
+  const running = new Set(
+    orchestrator.list().filter((b) => b.running).map((b) => b.name),
+  );
+  return wallets.map((w) => ({
+    ...w,
+    running: running.has(w.name),
+  }));
+});
+
+app.post<{ Body: { name: string } }>('/bots', async (req, reply) => {
+  const name = req.body?.name;
+  if (!name) return reply.code(400).send({ error: 'name required' });
+  try {
+    return store.createWallet(name);
+  } catch (err) {
+    return reply.code(400).send({ error: (err as Error).message });
+  }
+});
+
+app.get<{ Params: { name: string } }>('/bots/:name', async (req, reply) => {
+  const meta = store.getWallet(req.params.name);
+  if (!meta) return reply.code(404).send({ error: 'not found' });
+  if (!LIVE_TRADING_ENABLED) {
+    return { ...meta, solLamports: null, usdcRaw: null, runtime: null, liveTradingDisabled: true };
+  }
+  const pk = new PublicKey(meta.pubkey);
+  const [sol, usdc] = await Promise.all([conn.getBalance(pk), getUsdcBalance(pk)]);
+  const orch = orchestrator.status(req.params.name);
+  return {
+    ...meta,
+    solLamports: sol.toString(),
+    usdcRaw: usdc.toString(),
+    runtime: orch,
+  };
+});
+
+// Shape of a decoded-rule deploy body field. The route validates each
+// predicate through `validatePredicate` before anything is persisted.
+interface DecodedRuleInput {
+  ruleName?: string;
+  entryPredicate?: string;
+  exitPredicate?: string;
+  sizing?: string;
+}
+
+/**
+ * Validate + normalize a `decoded_rule` deploy request. Returns either a
+ * ready-to-persist `WalletMeta['decodedRule']` payload or an error
+ * string suitable for an HTTP 400. Fails CLOSED:
+ *   - the `decodedRule` body field MUST be present,
+ *   - `entryPredicate` MUST be a non-empty, valid predicate,
+ *   - `exitPredicate` MAY be the empty string ("exit only on
+ *     maxHoldSec"); if non-empty it MUST validate.
+ * Both predicates go through `validatePredicate` — an unvalidated
+ * predicate never reaches launch or persistence.
+ */
+function buildDecodedRule(
+  input: DecodedRuleInput | undefined,
+): { ok: true; rule: NonNullable<WalletMeta['decodedRule']> } | { ok: false; error: string } {
+  if (!input || typeof input !== 'object') {
+    return { ok: false, error: "strategy 'decoded_rule' requires a `decodedRule` body field" };
+  }
+  const entry = typeof input.entryPredicate === 'string' ? input.entryPredicate : '';
+  if (entry.trim().length === 0) {
+    return { ok: false, error: 'decodedRule.entryPredicate is required and must be non-empty' };
+  }
+  const entryCheck = validatePredicate(entry);
+  if (!entryCheck.ok) {
+    return { ok: false, error: `decodedRule.entryPredicate invalid: ${entryCheck.error}` };
+  }
+  // Entry predicates must gate on MARKET conditions only. Decoded rules
+  // often carry wallet-state (w_*) clauses — `w_n_trades > 5`,
+  // `w_usdc > 100` — that describe the decoded wallet's own activity. A
+  // fresh bot (0 trades, seed capital) can never satisfy them, so they
+  // deadlock entry forever. Drop them here, at the deploy boundary, so
+  // the persisted rule is the one the bot actually runs.
+  const cleaned = stripWalletTermsFromEntry(entry);
+  if (cleaned.predicate.trim().length === 0) {
+    return {
+      ok: false,
+      error:
+        'decodedRule.entryPredicate has only wallet-state (w_*) conditions and no ' +
+        'market signal — an entry predicate must gate on market conditions',
+    };
+  }
+  if (cleaned.stripped.length > 0) {
+    console.warn(
+      `[decoded_rule] dropped wallet-state term(s) from entry predicate: ${cleaned.stripped.join(' / ')}`,
+    );
+  }
+  const exitRaw = typeof input.exitPredicate === 'string' ? input.exitPredicate : '';
+  if (exitRaw.trim().length > 0) {
+    const exitCheck = validatePredicate(exitRaw);
+    if (!exitCheck.ok) {
+      return { ok: false, error: `decodedRule.exitPredicate invalid: ${exitCheck.error}` };
+    }
+  }
+  return {
+    ok: true,
+    rule: {
+      ...(typeof input.ruleName === 'string' && input.ruleName.length > 0
+        ? { ruleName: input.ruleName }
+        : {}),
+      entryPredicate: cleaned.predicate,
+      exitPredicate: exitRaw,
+      ...(typeof input.sizing === 'string' && input.sizing.length > 0
+        ? { sizing: input.sizing }
+        : {}),
+    },
+  };
+}
+
+/** Normalize an optional `mode` body field. Anything other than an
+ *  explicit 'live' resolves to 'paper' — a bot is never silently live. */
+function resolveMode(raw: unknown): 'paper' | 'live' {
+  return raw === 'live' ? 'live' : 'paper';
+}
+
+app.post<{
+  Params: { name: string };
+  Body: {
+    strategy: string;
+    liveTradeUsdcRaw: string;
+    tickMs: number;
+    decodedRule?: DecodedRuleInput;
+    mode?: 'paper' | 'live';
+  };
+}>(
+  '/bots/:name/strategy',
+  async (req, reply) => {
+    const { strategy, liveTradeUsdcRaw, tickMs } = req.body;
+    if (!strategy || !liveTradeUsdcRaw || !tickMs) {
+      return reply.code(400).send({ error: 'strategy, liveTradeUsdcRaw, tickMs required' });
+    }
+    if (!STRATEGY_REGISTRY[strategy]) {
+      return reply.code(400).send({ error: `unknown strategy '${strategy}'` });
+    }
+    if (!LIVE_STRATEGIES.has(strategy)) {
+      return reply.code(400).send({
+        error: `'${strategy}' not allowed in live mode. Allowed: ${[...LIVE_STRATEGIES].join(', ')}`,
+      });
+    }
+    // decoded_rule: REQUIRE + validate the predicate pair before persist.
+    let decodedRule: WalletMeta['decodedRule'] | undefined;
+    if (strategy === 'decoded_rule') {
+      const built = buildDecodedRule(req.body.decodedRule);
+      if (!built.ok) return reply.code(400).send({ error: built.error });
+      decodedRule = built.rule;
+    }
+    const mode = resolveMode(req.body.mode);
+    try {
+      return store.setStrategy(
+        req.params.name,
+        strategy,
+        BigInt(liveTradeUsdcRaw),
+        tickMs,
+        { decodedRule, mode },
+      );
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+  },
+);
+
+// Server-side funder caps. Mirror the local CLI's tripwires so a stolen
+// API token can't drain the funder via 50 sequential calls. The per-tx
+// caps below are belt; these are braces.
+const FUNDER_MAX_USDC_RAW = 1_000_000_000n; // $1000
+const FUNDER_MAX_SOL_LAMPORTS = 2n * BigInt(LAMPORTS_PER_SOL);
+const BOT_RECEIVE_CAP_USDC_RAW = 1_000_000_000n; // $1000 — matches preflight
+
+// Shared funder→bot transfer logic. Returns { ok: true, sigs } on
+// success or { ok: false, status, error } so the caller can shape the
+// HTTP response. Used by /fund and /spawn.
+async function transferFromFunder(
+  botName: string,
+  sol: bigint,
+  usdc: bigint,
+): Promise<{ ok: true; sigs: string[] } | { ok: false; status: number; error: string }> {
+  const meta = store.getWallet(botName);
+  if (!meta) return { ok: false, status: 404, error: 'no wallet' };
+  if (!store.hasFunder()) return { ok: false, status: 400, error: 'no funder; POST /funder/init first' };
+  if (sol === 0n && usdc === 0n) return { ok: false, status: 400, error: 'pass solLamports or usdcRaw' };
+  if (sol > BigInt(LAMPORTS_PER_SOL) / 2n) return { ok: false, status: 400, error: 'sol > 0.5 cap per tx' };
+  if (usdc > 500_000_000n) return { ok: false, status: 400, error: 'usdc > $500 cap per tx' };
+
+  const funder = store.loadFunderKeypair();
+  const [funderSol, funderUsdc] = await Promise.all([
+    conn.getBalance(funder.publicKey).then((n) => BigInt(n)),
+    getUsdcBalance(funder.publicKey),
+  ]);
+  if (funderSol > FUNDER_MAX_SOL_LAMPORTS) {
+    return { ok: false, status: 400, error: 'funder SOL above 2 SOL cap; sweep before funding' };
+  }
+  if (funderUsdc > FUNDER_MAX_USDC_RAW) {
+    return { ok: false, status: 400, error: 'funder USDC above $1000 cap; sweep before funding' };
+  }
+  if (funderSol < sol + BigInt(LAMPORTS_PER_SOL) / 100n) {
+    return { ok: false, status: 400, error: 'funder SOL too low for amount + fee buffer' };
+  }
+  if (funderUsdc < usdc) {
+    return { ok: false, status: 400, error: 'funder USDC less than requested amount' };
+  }
+
+  const target = new PublicKey(meta.pubkey);
+  const targetUsdcBefore = await getUsdcBalance(target);
+  if (targetUsdcBefore + usdc > BOT_RECEIVE_CAP_USDC_RAW) {
+    return {
+      ok: false, status: 400,
+      error: `target would end with ${targetUsdcBefore + usdc} > ${BOT_RECEIVE_CAP_USDC_RAW} bot cap`,
+    };
+  }
+
+  const sigs: string[] = [];
+  if (sol > 0n) {
+    const tx = new Transaction().add(
+      SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: target, lamports: Number(sol) }),
+    );
+    sigs.push(await sendAndConfirmTransaction(conn, tx, [funder], { commitment: 'confirmed' }));
+  }
+  if (usdc > 0n) {
+    const fromAta = getAssociatedTokenAddressSync(USDC, funder.publicKey);
+    const toAta = getAssociatedTokenAddressSync(USDC, target);
+    const tx = new Transaction();
+    try { await getAccount(conn, toAta); }
+    catch (err) {
+      if (err instanceof TokenAccountNotFoundError) {
+        tx.add(createAssociatedTokenAccountInstruction(funder.publicKey, toAta, target, USDC));
+      } else throw err;
+    }
+    tx.add(createTransferInstruction(fromAta, toAta, funder.publicKey, usdc));
+    sigs.push(await sendAndConfirmTransaction(conn, tx, [funder], { commitment: 'confirmed' }));
+  }
+  store.markFunded(botName);
+
+  // Auto-baseline: on the FIRST successful USDC funding, snapshot the
+  // pre-funding wallet USDC + the amount we just sent as the baseline.
+  // Eliminates the need for the operator to run `baseline --snapshot`
+  // manually after every spawn/fund. force=false so subsequent top-ups
+  // don't clobber an existing baseline mid-life.
+  //
+  // We use (targetUsdcBefore + usdc) rather than re-reading on-chain
+  // because Helius RPC has propagation lag of 5-30s after a transfer
+  // — re-reading would frequently return the pre-fund balance and set
+  // baseline to 0 (the bug we just hit on arb-confirm). The pre-read
+  // value is authoritative and the transferred amount is what we just
+  // moved, so the sum is exact.
+  if (usdc > 0n) {
+    store.setStartingCapital(botName, targetUsdcBefore + usdc, false);
+  }
+
+  return { ok: true, sigs };
+}
+
+app.post<{ Params: { name: string }; Body: { solLamports?: string; usdcRaw?: string } }>(
+  '/bots/:name/fund',
+  async (req, reply) => {
+    if (gateLiveTrading(reply)) return;
+    const sol = BigInt(req.body.solLamports ?? '0');
+    const usdc = BigInt(req.body.usdcRaw ?? '0');
+    const r = await transferFromFunder(req.params.name, sol, usdc);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return { signatures: r.sigs };
+  },
+);
+
+// ─── Bot lifecycle ─────────────────────────────────────────────────────
+
+app.post<{ Params: { name: string } }>('/bots/:name/launch', async (req, reply) => {
+  // Mode-aware gate: a paper bot launches with no RPC; a live bot
+  // still requires HELIUS_MAINNET_URL.
+  if (gateBotLaunch(req.params.name, reply)) return;
+  try {
+    // First-launch baseline snapshot. For a LIVE bot, read on-chain USDC
+    // and store it so PnL math has a real cost basis. A PAPER bot has no
+    // chain balance to read — its baseline (= simulated starting capital)
+    // is set by the spawn route, so skip the on-chain read entirely.
+    const meta = store.getWallet(req.params.name);
+    if (meta && meta.mode !== 'paper' && meta.startingCapitalUsdcRaw == null) {
+      const usdc = await getUsdcBalance(new PublicKey(meta.pubkey));
+      if (usdc > 0n) store.setStartingCapital(req.params.name, usdc);
+    }
+    orchestrator.launch(req.params.name);
+    return { running: true };
+  } catch (err) {
+    return reply.code(400).send({ error: (err as Error).message });
+  }
+});
+
+// Permanently delete a bot — stop it, then erase its meta, encrypted
+// keypair, persisted state and log. Irreversible (the keypair is gone),
+// so it requires an explicit { confirm: true }. Works in explore-only
+// mode — paper bots must be deletable without an RPC. For a LIVE bot the
+// caller is responsible for withdrawing funds first; the keypair erase
+// means any residual on-chain balance becomes unrecoverable.
+app.post<{ Params: { name: string }; Body: { confirm?: boolean } }>(
+  '/bots/:name/delete',
+  async (req, reply) => {
+    const { name } = req.params;
+    const meta = store.getWallet(name);
+    if (!meta) return reply.code(404).send({ error: 'not_found' });
+    if (req.body?.confirm !== true) {
+      return reply.code(400).send({
+        error: 'confirm_required',
+        message:
+          `Deleting '${name}' is irreversible — its keypair, state and log ` +
+          `are erased. Re-send with { "confirm": true }.`,
+      });
+    }
+    orchestrator.remove(name); // stop + drop the in-memory runtime
+    store.removeWallet(name);  // erase meta / keypair / state / log
+    return { deleted: name };
+  },
+);
+
+// Manual override for cases where the wallet receives a direct top-up
+// (Phantom transfer) after launch and the operator wants to reset the
+// PnL baseline. Body: { usdc?: number, snapshot?: boolean }
+//   usdc:      explicit dollar amount, e.g. 100
+//   snapshot:  if true, read current on-chain USDC and use that
+app.post<{ Params: { name: string }; Body: { usdc?: number; snapshot?: boolean } }>(
+  '/bots/:name/baseline',
+  async (req, reply) => {
+    const meta = store.getWallet(req.params.name);
+    if (!meta) return reply.code(404).send({ error: 'no wallet' });
+    let raw: bigint;
+    if (req.body.snapshot) {
+      if (gateLiveTrading(reply)) return;
+      raw = await getUsdcBalance(new PublicKey(meta.pubkey));
+    } else if (typeof req.body.usdc === 'number' && req.body.usdc >= 0) {
+      raw = BigInt(Math.round(req.body.usdc * 1e6));
+    } else {
+      return reply.code(400).send({ error: 'pass {usdc: number} or {snapshot: true}' });
+    }
+    store.setStartingCapital(req.params.name, raw, true);
+    return { startingCapitalUsdc: Number(raw) / 1e6 };
+  },
+);
+
+app.post<{ Params: { name: string } }>('/bots/:name/stop', async (req, reply) => {
+  // Ungated: stopping a bot is RPC-free (it just aborts the run loop),
+  // so a paper bot can be stopped in explore-only mode. A no-op if the
+  // bot isn't running.
+  void reply;
+  orchestrator.stop(req.params.name);
+  return { running: false };
+});
+
+// Diagnostic: surface the live price oracle state. Used to confirm
+// the strategy is seeing real numbers, not silent nulls.
+app.get('/debug/prices', async (_req, reply) => {
+  if (gateLiveTrading(reply)) return;
+  const t0 = Date.now();
+  const prices = await getAllPrices();
+  return { elapsedMs: Date.now() - t0, prices };
+});
+
+// Diagnostic: pool TVL per region. Tells us if the depth gate would
+// fire right now and surfaces drained-pool conditions before they
+// affect a bot. Same source the orchestrator's depth gate reads.
+app.get('/debug/pool-tvl', async (_req, reply) => {
+  if (gateLiveTrading(reply)) return;
+  const out: Record<string, { tvlUsdc: number | null; gateMin: number; passes: boolean }> = {};
+  const tvlMod = await import('./prices.js');
+  for (const r of REGIONS) {
+    const tvl = await tvlMod.getPoolTvlUsdc(r.key);
+    out[r.key] = {
+      tvlUsdc: tvl,
+      gateMin: 10_000,
+      passes: tvl != null && tvl >= 10_000,
+    };
+  }
+  return out;
+});
+
+// Diagnostic: live swap-event decoder output. Calling this answers
+// "is getRecentSwapPrices returning anything, or silently empty?"
+// — the question we couldn't answer earlier when buffers stuck at 0%.
+app.get<{ Querystring: { region?: string } }>('/debug/swap-events', async (req, reply) => {
+  if (gateLiveTrading(reply)) return;
+  const region = (req.query.region ?? '').toUpperCase();
+  if (!['CHI', 'NYC', 'TOR'].includes(region)) {
+    return reply.code(400).send({ error: 'pass ?region=CHI|NYC|TOR' });
+  }
+  const mod = await import('./prices.js');
+  const t0 = Date.now();
+  const events = await mod.getRecentSwapPrices(region as RegionKey);
+  return {
+    region,
+    elapsedMs: Date.now() - t0,
+    eventCount: events.length,
+    events: events.slice(0, 20),  // cap response size
+    note: 'Stateful — first call after deploy returns the last 20 sigs; subsequent calls only return new since cursor.',
+  };
+});
+
+// Diagnostic: per-bot lifetime counters. Answers questions like
+// "did the strategy ever fire an intent? was it aborted by which gate?"
+// without grepping log files.
+app.get('/debug/bot-stats', async (_req, _reply) => {
+  // Read-only introspection of in-memory orchestrator state — no RPC.
+  // Works in explore-only mode so paper bots are observable.
+  const out: Record<string, unknown> = {};
+  for (const w of store.listWallets()) {
+    const stats = orchestrator.getStats(w.name);
+    if (!stats) {
+      out[w.name] = { running: false };
+      continue;
+    }
+    out[w.name] = {
+      strategy: w.strategy,
+      running: true,
+      ...stats,
+      lastIntentAtIso: stats.lastIntentAt ? new Date(stats.lastIntentAt).toISOString() : null,
+      lastSwapAtIso: stats.lastSwapAt ? new Date(stats.lastSwapAt).toISOString() : null,
+      // Phase 3b: orchestrator-level daily safety guards. `halted=true`
+      // means a guard is currently suppressing this bot's trading.
+      dailyGuard: orchestrator.getGuardStatus(w.name),
+    };
+  }
+  return out;
+});
+
+// LOUD system-health surface. ONE curl tells you whether the bot fleet is
+// silently degraded — designed for the exact failure mode where bots tick
+// happily but never produce intents because an upstream (price feed,
+// strategy thresholds, daily guards) is broken. `ok: false` + the `issues`
+// list says what to look at; the nested blocks give the receipts.
+//
+// Three signals, escalating from upstream to downstream:
+//   1. priceFeed — per-region health of the paper price source. A
+//      "degraded" region means N consecutive null fetches from Jupiter
+//      price/v3, which empties the median buffer for that region and
+//      pins dev_* features at 0 in features.ts (the load-bearing source
+//      of the 2026-05-20 silent-hold outage).
+//   2. stalledBots — bots that have run long enough for the rolling
+//      windows to have warmed AND have produced zero intents AND have
+//      zero abort counters ticking. That triad means the strategy is
+//      holding for an unseen reason — either an upstream price-feed
+//      issue (covered by signal 1) OR strategy thresholds tuned to a
+//      regime the market isn't in.
+//   3. haltedBots — bots currently halted by a daily guard. Less subtle
+//      than the others but worth surfacing in one place.
+//
+// Read-only, no RPC, safe to hit in explore-only mode. Same shape as
+// /health (top-level `ok`) so a curl wrapper can branch on it.
+app.get('/debug/health', async (_req, _reply) => {
+  const issues: string[] = [];
+
+  // ── price feed ────────────────────────────────────────────────────────
+  const ph = getPaperPriceHealth();
+  const priceFeed = {
+    degraded: ph.degradedRegions,
+    regions: Object.fromEntries(
+      Object.entries(ph.regions).map(([k, h]) => [
+        k,
+        {
+          ...h,
+          freshSec: h.lastFreshAt ? Math.round((Date.now() - h.lastFreshAt) / 1000) : null,
+        },
+      ]),
+    ),
+  };
+  for (const r of ph.degradedRegions) {
+    issues.push(`price-feed:${r}:degraded`);
+  }
+
+  // ── stalled bots — running, warm, zero intents, zero aborts ───────────
+  const STALL_TICK_THRESHOLD = 30;     // bot has tried this many decides
+  const stalledBots: Array<{ name: string; decideCalls: number; reason: string }> = [];
+  const haltedBots: Array<{ name: string; reason: string }> = [];
+  for (const w of store.listWallets()) {
+    const stats = orchestrator.getStats(w.name);
+    if (!stats) continue;
+    const guard = orchestrator.getGuardStatus(w.name);
+    if (guard?.halted) {
+      haltedBots.push({ name: w.name, reason: guard.reason ?? 'unknown' });
+      issues.push(`bot:${w.name}:halted:${guard.reason ?? 'unknown'}`);
+    }
+    const totalAborts =
+      stats.abortPoolDepth + stats.abortQuoteDrift + stats.abortNoRoute;
+    if (
+      stats.decideCalls >= STALL_TICK_THRESHOLD &&
+      stats.intentsReturned === 0 &&
+      totalAborts === 0 &&
+      stats.swapsSubmitted === 0
+    ) {
+      const reason =
+        ph.degradedRegions.length > 0
+          ? `${stats.decideCalls} decides, 0 intents, 0 aborts — likely caused by degraded price feed (${ph.degradedRegions.join(', ')})`
+          : `${stats.decideCalls} decides, 0 intents, 0 aborts — strategy holding silently. Check /debug/strategy-state for ${w.name} to see feature values + predicate result`;
+      stalledBots.push({ name: w.name, decideCalls: stats.decideCalls, reason });
+      issues.push(`bot:${w.name}:stalled`);
+    }
+  }
+
+  return {
+    ok: issues.length === 0,
+    issues,
+    ts: Date.now(),
+    priceFeed,
+    stalledBots,
+    haltedBots,
+  };
+});
+
+// Diagnostic: per-bot strategy snapshot. Returns whatever the strategy
+// instance recorded in `lastDebug` during its most recent decide() —
+// region prices, medians, computed spreads, why it didn't fire. Lets
+// us see what hold ticks ARE without grepping log files.
+app.get('/debug/strategy-state', async (_req, _reply) => {
+  // Read-only introspection of the strategy's in-memory lastDebug — no RPC.
+  // Works in explore-only mode so paper bots are observable.
+  const out: Record<string, unknown> = {};
+  for (const w of store.listWallets()) {
+    const strat = orchestrator.getStrategy(w.name);
+    if (!strat) continue;
+    const dbg = (strat as unknown as { lastDebug?: unknown }).lastDebug;
+    out[w.name] = {
+      strategy: w.strategy,
+      lastDebug: dbg ?? null,
+    };
+  }
+  return out;
+});
+
+// One-shot bot launcher: createWallet + setStrategy + fund + baseline +
+// launch in a single call. Defaults pull from the strategy's metadata
+// (minUsdcRaw, defaultLiveTradeUsdcRaw, defaultTickMs) so the caller
+// can fire-and-forget. Idempotent on createWallet — re-spawning an
+// existing bot just reapplies the strategy + tops up funds + relaunches.
+//
+// Body:
+//   strategy:           required
+//   usdcRaw?:           default = strategy.minUsdcRaw or 10_000_000n
+//   solLamports?:       default = 0.05 SOL
+//   tickMs?:            default = strategy.defaultTickMs or 60_000
+//   liveTradeUsdcRaw?:  default = strategy.defaultLiveTradeUsdcRaw or usdcRaw * 4n
+app.post<{
+  Params: { name: string };
+  Body: {
+    strategy?: string;
+    usdcRaw?: string;
+    solLamports?: string;
+    tickMs?: number;
+    liveTradeUsdcRaw?: string;
+    confirm?: boolean;
+    decodedRule?: DecodedRuleInput;
+    mode?: 'paper' | 'live';
+  };
+}>('/bots/:name/spawn', async (req, reply) => {
+  if (gateLiveTrading(reply)) return;
+  const { strategy } = req.body;
+  if (!strategy) return reply.code(400).send({ error: 'strategy required' });
+  const def = getStrategyDef(strategy);
+  if (!def) return reply.code(400).send({ error: `unknown strategy '${strategy}'` });
+  if (!def.liveAllowed) {
+    return reply.code(400).send({ error: `'${strategy}' not allowed in live mode` });
+  }
+
+  // decoded_rule: REQUIRE + validate the predicate pair up front, before
+  // the confirm gate, so a malformed rule is rejected without the
+  // operator ever seeing a "ready to spawn" plan.
+  let decodedRule: WalletMeta['decodedRule'] | undefined;
+  if (strategy === 'decoded_rule') {
+    const built = buildDecodedRule(req.body.decodedRule);
+    if (!built.ok) return reply.code(400).send({ error: built.error });
+    decodedRule = built.rule;
+  }
+
+  // Run mode. Absent → paper. `mode: 'live'` must be EXPLICIT; combined
+  // with the confirm gate below, going live needs BOTH confirm:true and
+  // mode:'live' — neither alone arms real trading.
+  const mode = resolveMode(req.body.mode);
+
+  // 1. Defaults from strategy metadata.
+  const usdc = req.body.usdcRaw != null
+    ? BigInt(req.body.usdcRaw)
+    : (def.minUsdcRaw ?? 10_000_000n);
+  const sol = req.body.solLamports != null
+    ? BigInt(req.body.solLamports)
+    : BigInt(LAMPORTS_PER_SOL) / 20n;     // 0.05 SOL
+  const tickMs = req.body.tickMs ?? def.defaultTickMs ?? 60_000;
+  const liveTradeUsdcRaw = req.body.liveTradeUsdcRaw != null
+    ? BigInt(req.body.liveTradeUsdcRaw)
+    : (def.defaultLiveTradeUsdcRaw ?? usdc * 4n);
+
+  // Paper bots never move real funds. A paper deploy seeds a SIMULATED
+  // USDC balance (just a number) instead of a funder transfer, so the
+  // funding amounts are forced to zero for the funder path. `usdc` is
+  // still carried as the bot's intended simulated starting capital.
+  const isPaper = mode !== 'live';
+  const fundSol = isPaper ? 0n : sol;
+  const fundUsdc = isPaper ? 0n : usdc;
+
+  // Confirm gate. Spawn launches the bot (irreversible) and — for a LIVE
+  // bot — moves real money via the funder. Without confirm:true, return
+  // the resolved plan so the operator can dry-run before committing.
+  // Both paper and live deploys go through the gate so the operator
+  // always sees the plan; only a LIVE deploy's plan shows a funder move.
+  const moves_money = fundSol > 0n || fundUsdc > 0n;
+  if (!req.body.confirm) {
+    const existing = store.getWallet(req.params.name);
+    return {
+      dryRun: true,
+      plan: {
+        name: req.params.name,
+        strategy,
+        tickMs,
+        liveTradeUsdcRaw: liveTradeUsdcRaw.toString(),
+        // Echo the run mode so whoever confirms sees plainly whether
+        // this bot will trade real funds. `live` here still also
+        // requires confirm:true to take effect.
+        mode,
+        // Echo the decoded predicate pair so confirming a decoded_rule
+        // bot is never confirming a black box (review requirement).
+        decodedRule: decodedRule ?? null,
+        // A LIVE deploy moves real funder USDC/SOL; a PAPER deploy moves
+        // nothing — it seeds a simulated USDC balance instead.
+        wouldFund: isPaper
+          ? { solLamports: '0', usdcRaw: '0' }
+          : { solLamports: sol.toString(), usdcRaw: usdc.toString() },
+        paperStartUsdcRaw: isPaper ? usdc.toString() : null,
+        existingBot: existing ? { pubkey: existing.pubkey, strategy: existing.strategy } : null,
+      },
+      hint:
+        mode === 'live'
+          ? 'Pass {"confirm": true} (CLI: --confirm) with {"mode": "live"} to spawn a LIVE bot trading real funds.'
+          : 'Pass {"confirm": true} (CLI: --confirm) to actually spawn (paper mode — no real funds move; ' +
+            `simulated starting balance $${(Number(usdc) / 1e6).toFixed(2)}).`,
+    };
+  }
+  void moves_money;
+
+  // 2. createWallet (idempotent — swallow "already exists").
+  let pubkey: string;
+  try {
+    pubkey = store.createWallet(req.params.name).pubkey;
+  } catch (err) {
+    const existing = store.getWallet(req.params.name);
+    if (!existing) return reply.code(400).send({ error: (err as Error).message });
+    pubkey = existing.pubkey;
+  }
+
+  // 3. setStrategy — persists the decoded rule + run mode alongside the
+  // strategy binding. resolveMode already collapsed an absent/invalid
+  // mode to 'paper'; only an explicit 'live' here arms real trading.
+  try {
+    store.setStrategy(req.params.name, strategy, liveTradeUsdcRaw, tickMs, {
+      decodedRule,
+      mode,
+    });
+  } catch (err) {
+    return reply.code(400).send({ error: (err as Error).message });
+  }
+
+  // 4. fund.
+  //
+  // PAPER bot: no real funds move. Instead we seed the bot's SIMULATED
+  // starting capital by recording `usdc` as startingCapitalUsdcRaw. The
+  // orchestrator's launch() reads that field and seeds the simulated
+  // ledger from it — a paper bot's "funding" is just this number.
+  //
+  // LIVE bot: transfer SOL + USDC from the funder. If funding fails,
+  // ABORT the spawn so the CLI surfaces the failure loudly. The wallet +
+  // strategy persist after the abort, so the operator can top up the
+  // funder and re-issue via POST /bots/:name/fund + /launch.
+  if (isPaper) {
+    // force=true so a re-spawn updates the simulated capital; a paper
+    // bot has no real cost basis to protect.
+    store.setStartingCapital(req.params.name, usdc, true);
+  } else if (fundSol > 0n || fundUsdc > 0n) {
+    const r = await transferFromFunder(req.params.name, fundSol, fundUsdc);
+    if (!r.ok) {
+      return reply.code(400).send({
+        error: `funding failed: ${r.error}`,
+        pubkey,
+        strategy,
+        tickMs,
+        liveTradeUsdcRaw: liveTradeUsdcRaw.toString(),
+        requestedFunds: { solLamports: fundSol.toString(), usdcRaw: fundUsdc.toString() },
+        hint: 'Top up the funder, then call POST /bots/:name/fund + /launch (wallet + strategy already persisted).',
+      });
+    }
+  }
+
+  // 5. baseline is auto-set by transferFromFunder on first LIVE fund and
+  // by the setStartingCapital call above for PAPER bots — no separate
+  // on-chain read needed (Helius propagation lag made that unreliable).
+  // A paper bot's chain wallet is empty, so its on-chain USDC reads 0;
+  // that's expected and harmless (its real balance is the simulated one).
+  const onchainUsdc = isPaper ? 0n : await getUsdcBalance(new PublicKey(pubkey));
+
+  // 6. launch.
+  try {
+    orchestrator.launch(req.params.name);
+  } catch (err) {
+    return reply.code(400).send({ error: (err as Error).message });
+  }
+
+  return {
+    pubkey,
+    strategy,
+    tickMs,
+    mode,
+    decodedRule: decodedRule ?? null,
+    liveTradeUsdcRaw: liveTradeUsdcRaw.toString(),
+    funded: { solLamports: fundSol.toString(), usdcRaw: fundUsdc.toString() },
+    paperStartUsdcRaw: isPaper ? usdc.toString() : null,
+    onchainUsdcRaw: onchainUsdc.toString(),
+    running: true,
+  };
+});
+
+// ─── One-click paper deploy of an evolved strategy ─────────────────────
+//
+// Turns an evolved strategy's (entry, exit) predicate pair into a
+// running PAPER bot in a single atomic call — the streamlined path for
+// the Strategies library. No funder move, no confirm gate: paper bots
+// run on a simulated balance only, so nothing irreversible (no real
+// money) happens here. Reuses the SAME store/orchestrator primitives
+// the POST /bots, POST /bots/:name/strategy and POST /bots/:name/launch
+// handlers call — buildDecodedRule for predicate validation,
+// store.createWallet, store.setStrategy, store.setStartingCapital and
+// orchestrator.launch — so behavior matches those handlers exactly.
+//
+// Body: { entryPredicate, exitPredicate?, name? }
+// On any step failing, returns 500 { ok:false, error:'<step>: <msg>' }.
+app.post<{
+  Body: { entryPredicate?: string; exitPredicate?: string; name?: string };
+}>('/api/bots/deploy-paper', async (req, reply) => {
+  const b = req.body ?? {};
+  if (typeof b.entryPredicate !== 'string' || b.entryPredicate.trim().length === 0) {
+    return reply.code(400).send({ ok: false, error: 'entryPredicate is required and must be a non-empty string' });
+  }
+
+  // Validate the predicate pair through the same path POST /bots/:name/strategy
+  // uses for decoded_rule. exitPredicate may be empty (exit on maxHoldSec).
+  const built = buildDecodedRule({
+    ruleName: 'evolved',
+    entryPredicate: b.entryPredicate,
+    exitPredicate: typeof b.exitPredicate === 'string' ? b.exitPredicate : '',
+  });
+  if (!built.ok) {
+    return reply.code(400).send({ ok: false, error: `validate: ${built.error}` });
+  }
+
+  // 1. Create the bot wallet. Default name is evo-<6 lowercase hex>;
+  // retry with a fresh name if it collides with an existing wallet.
+  let name = b.name && b.name.trim().length > 0 ? b.name.trim() : `evo-${randomBytes(3).toString('hex')}`;
+  let pubkey: string;
+  try {
+    for (let attempt = 0; ; attempt++) {
+      if (store.getWallet(name)) {
+        if (b.name && b.name.trim().length > 0) {
+          // Caller asked for a specific name that's taken — surface it.
+          return reply.code(500).send({ ok: false, error: `create: wallet '${name}' already exists` });
+        }
+        name = `evo-${randomBytes(3).toString('hex')}`;
+        if (attempt > 8) throw new Error('could not allocate a free bot name');
+        continue;
+      }
+      pubkey = store.createWallet(name).pubkey;
+      break;
+    }
+  } catch (err) {
+    return reply.code(500).send({ ok: false, error: `create: ${(err as Error).message}` });
+  }
+
+  // 2. Set strategy — decoded_rule, paper mode, $50 simulated capital.
+  try {
+    store.setStrategy(name, 'decoded_rule', 50_000_000n, 30_000, {
+      decodedRule: built.rule,
+      mode: 'paper',
+    });
+    // Seed the simulated starting capital so launch() can build the
+    // paper ledger — same as the spawn route's paper path.
+    store.setStartingCapital(name, 50_000_000n, true);
+  } catch (err) {
+    return reply.code(500).send({ ok: false, error: `setStrategy: ${(err as Error).message}` });
+  }
+
+  // 3. Launch.
+  try {
+    orchestrator.launch(name);
+  } catch (err) {
+    return reply.code(500).send({ ok: false, error: `launch: ${(err as Error).message}` });
+  }
+
+  // 4. Write provenance so the backtest-vs-paper observer sees this bot.
+  //
+  // The factory's three paper-deploy entry points all call
+  // `writePaperProvenance` after a successful launch; without an
+  // equivalent call here, dashboard-deployed bots would be invisible to
+  // /api/factory/observer (PR #60). `source: 'dashboard'` flags the
+  // origin; `backtestScore` / `backtestMeanReturnPct` are null because
+  // the dashboard one-click deploy carries no backtest context — the
+  // observer renders these rows as "no baseline" (severity 'aligned',
+  // deltaPct null) rather than skipping them.
+  //
+  // Best-effort: writePaperProvenance swallows IO errors internally
+  // (see paper-deploy.ts) and the bot is already running by this
+  // point, so a failed write must not propagate. String-template the
+  // path so the factory module (outside rootDir=src) doesn't get
+  // pulled into this compilation unit — same lazy-load pattern as
+  // /api/factory/observer below.
+  try {
+    const paperDeployPath = '../../scripts/backtest/factory/paper-deploy.js';
+    const mod = (await import(paperDeployPath)) as {
+      writePaperProvenance: (prov: {
+        botId: string;
+        deployedAt: string;
+        source: 'decoded-rule' | 'factory-leaderboard' | 'registry-direct' | 'dashboard';
+        sourceName: string;
+        strategy: string;
+        backtestScore: number | null;
+        backtestMeanReturnPct: number | null;
+        decodedRule?: NonNullable<WalletMeta['decodedRule']>;
+      }) => void;
+    };
+    mod.writePaperProvenance({
+      botId: name,
+      deployedAt: new Date().toISOString(),
+      source: 'dashboard',
+      sourceName: built.rule.ruleName ?? 'evolved',
+      strategy: 'decoded_rule',
+      backtestScore: null,
+      backtestMeanReturnPct: null,
+      decodedRule: built.rule,
+    });
+  } catch (err) {
+    // Provenance is purely observational — never fail the deploy on it.
+    app.log.warn(
+      `[deploy-paper] provenance write failed for '${name}': ${(err as Error).message}`,
+    );
+  }
+
+  return { ok: true, name, pubkey };
+});
+
+// Sweep all SOL + USDC + region tokens from the bot wallet to a target.
+// Used to recover capital from a stopped bot. Refuses to run while the
+// bot is still ticking (race condition with mid-tick swaps). Region
+// tokens are Token-2022 with 60bps transfer fee — that fee is paid out
+// of the swept amount, no way around it without burning the position
+// via a sale on Meteora first.
+//
+// Body: { to: <pubkey-base58>, includeSol?: boolean }
+//   to:         destination wallet (must be a base58 Solana pubkey)
+//   includeSol: also drain SOL minus a small reserve. Default true.
+app.post<{
+  Params: { name: string };
+  Body: { to?: string; includeSol?: boolean };
+}>('/bots/:name/drain', async (req, reply) => {
+  if (gateLiveTrading(reply)) return;
+  const meta = store.getWallet(req.params.name);
+  if (!meta) return reply.code(404).send({ error: 'no wallet' });
+  if (orchestrator.isRunning(req.params.name)) {
+    return reply.code(400).send({ error: 'bot is running; stop it first' });
+  }
+  // Default to the funder wallet — it's the canonical pool for this
+  // bot fleet. Operator can override with an explicit pubkey to send
+  // directly elsewhere (e.g. Phantom).
+  let to: PublicKey;
+  try {
+    to = new PublicKey(req.body.to ?? store.getFunderPubkey());
+  } catch {
+    return reply.code(400).send({ error: 'invalid destination pubkey' });
+  }
+
+  const signer = store.loadWalletKeypair(req.params.name);
+  const from = signer.publicKey;
+  const sigs: string[] = [];
+  const moved: Record<string, string> = {};
+
+  // 1. Region tokens (Token-2022, all 3 regions).
+  for (const region of REGIONS) {
+    const mint = new PublicKey(region.mint);
+    const fromAta = getAssociatedTokenAddressSync(mint, from, false, TOKEN_2022_PROGRAM_ID);
+    const balance = await (async () => {
+      try { return BigInt((await getAccount(conn, fromAta, 'confirmed', TOKEN_2022_PROGRAM_ID)).amount.toString()); }
+      catch { return 0n; }
+    })();
+    if (balance === 0n) continue;
+    const toAta = getAssociatedTokenAddressSync(mint, to, true, TOKEN_2022_PROGRAM_ID);
+    const tx = new Transaction();
+    try { await getAccount(conn, toAta, 'confirmed', TOKEN_2022_PROGRAM_ID); }
+    catch (err) {
+      if (err instanceof TokenAccountNotFoundError) {
+        tx.add(createAssociatedTokenAccountInstruction(from, toAta, to, mint, TOKEN_2022_PROGRAM_ID));
+      } else throw err;
+    }
+    tx.add(createTransferCheckedInstruction(fromAta, mint, toAta, from, balance, region.decimals, [], TOKEN_2022_PROGRAM_ID));
+    sigs.push(await sendAndConfirmTransaction(conn, tx, [signer], { commitment: 'confirmed' }));
+    moved[region.key] = balance.toString();
+  }
+
+  // 2. USDC (regular SPL).
+  const usdcFromAta = getAssociatedTokenAddressSync(USDC, from);
+  const usdcBalance = await (async () => {
+    try { return BigInt((await getAccount(conn, usdcFromAta)).amount.toString()); }
+    catch { return 0n; }
+  })();
+  if (usdcBalance > 0n) {
+    const usdcToAta = getAssociatedTokenAddressSync(USDC, to);
+    const tx = new Transaction();
+    try { await getAccount(conn, usdcToAta); }
+    catch (err) {
+      if (err instanceof TokenAccountNotFoundError) {
+        tx.add(createAssociatedTokenAccountInstruction(from, usdcToAta, to, USDC));
+      } else throw err;
+    }
+    tx.add(createTransferInstruction(usdcFromAta, usdcToAta, from, usdcBalance));
+    sigs.push(await sendAndConfirmTransaction(conn, tx, [signer], { commitment: 'confirmed' }));
+    moved.USDC = usdcBalance.toString();
+  }
+
+  // 3. SOL minus a small reserve so the wallet can pay one more tx fee
+  // if needed (also leaves the account rent-exempt).
+  if (req.body.includeSol !== false) {
+    const SOL_RESERVE_LAMPORTS = 1_000_000n; // 0.001 SOL — well above rent + 1 tx
+    const solBalance = BigInt(await conn.getBalance(from));
+    if (solBalance > SOL_RESERVE_LAMPORTS) {
+      const sweep = solBalance - SOL_RESERVE_LAMPORTS;
+      const tx = new Transaction().add(
+        SystemProgram.transfer({ fromPubkey: from, toPubkey: to, lamports: Number(sweep) }),
+      );
+      sigs.push(await sendAndConfirmTransaction(conn, tx, [signer], { commitment: 'confirmed' }));
+      moved.SOL = sweep.toString();
+    }
+  }
+
+  return { to: to.toBase58(), moved, signatures: sigs };
+});
+
+app.get<{ Params: { name: string }; Querystring: { tail?: string } }>(
+  '/bots/:name/logs',
+  async (req, reply) => {
+    const meta = store.getWallet(req.params.name);
+    if (!meta) return reply.code(404).send({ error: 'no wallet' });
+    const tail = Number(req.query.tail ?? '200');
+    try {
+      const all = readFileSync(store.logPath(req.params.name), 'utf8').split('\n');
+      const start = Math.max(0, all.length - tail - 1);
+      return { lines: all.slice(start) };
+    } catch {
+      return { lines: [] };
+    }
+  },
+);
+
+// ─── Dashboard ─────────────────────────────────────────────────────────
+
+// PnL baseline. Snapshotted per-bot at first launch (see /launch endpoint)
+// and stored on WalletMeta. This default is only used for legacy bots that
+// were already running before the per-bot snapshot existed; once /launch
+// fires for them again, or /baseline is called, they get the right value.
+const DEFAULT_STARTING_CAPITAL_USDC = 10;
+function startingCapitalFor(meta: { startingCapitalUsdcRaw?: string }): number {
+  if (meta.startingCapitalUsdcRaw == null) return DEFAULT_STARTING_CAPITAL_USDC;
+  return Number(BigInt(meta.startingCapitalUsdcRaw)) / 1e6;
+}
+
+const BACKTEST_BY_STRATEGY: Record<string, { pct: number; trades: number }> = {
+  pm25_band:    { pct: 88.35, trades: 8 },
+  pm25_all_in:  { pct: 41.55, trades: 17 },
+  pm25_zscore:  { pct: 37.08, trades: 7 },
+};
+
+const STRATEGY_DESCRIPTIONS: Record<string, string> = {
+  pm25_band:   'pm25_band · 80/20 pctile · 11h window',
+  pm25_all_in: 'pm25_all_in · 30pp edge · 24h window',
+  pm25_zscore: 'pm25_zscore · 2σ entry · -1σ exit · 24h',
+};
+
+// Cache the dashboard assets in memory at boot. The dashboard ships as
+// three sibling files — markup (dashboard.html), styles (dashboard.css),
+// behaviour (dashboard.js) — served from this directory.
+function readDashboardAsset(name: string): string {
+  try {
+    return readFileSync(join(import.meta.dirname ?? '.', name), 'utf8');
+  } catch {
+    // tsx shim: when running compiled, the .js sits next to the assets
+    return readFileSync(join(process.cwd(), 'bots/src/server/', name), 'utf8');
+  }
+}
+// Dashboard assets are read FRESH per request — not cached at boot — so
+// an edit to dashboard.html/.css/.js shows on a plain browser refresh
+// with no server restart. The files are small and these routes are hit
+// once per page load (not per data-poll), so the re-read is free.
+app.get('/dashboard', async (_req, reply) => {
+  reply.type('text/html').send(readDashboardAsset('dashboard.html'));
+});
+app.get('/dashboard.css', async (_req, reply) => {
+  reply.type('text/css').send(readDashboardAsset('dashboard.css'));
+});
+app.get('/dashboard.js', async (_req, reply) => {
+  reply.type('application/javascript').send(readDashboardAsset('dashboard.js'));
+});
+app.get('/leaderboard-sort.js', async (_req, reply) => {
+  reply.type('application/javascript').send(readDashboardAsset('leaderboard-sort.js'));
+});
+
+// ─── Backtest-vs-paper observer ────────────────────────────────────────
+//
+// Read-only join over provenance + NAV history + trade logs, returning
+// one row per paper bot deployed via the factory's `paper-deploy` bridge.
+// Surfaces drift between a strategy's backtest expectation and the paper
+// bot's realized P&L (per-day-equivalent). Lazy-imported so the factory
+// dependency doesn't load when this route isn't hit.
+app.get('/api/factory/observer', async () => {
+  // String-template the path so TypeScript doesn't pull the factory's
+  // out-of-rootDir module into THIS compilation unit. The factory is
+  // run via tsx (not built into dist/), and the server's tsconfig has
+  // rootDir=src — a direct import would fail typecheck. The runtime
+  // path resolution is identical either way.
+  const observerPath = '../../scripts/backtest/factory/observer.js';
+  const mod = (await import(observerPath)) as {
+    computeBacktestVsPaper: () => Array<Record<string, unknown>>;
+  };
+  return { rows: mod.computeBacktestVsPaper() };
+});
+
+// ─── Strategy correlation analyzer ────────────────────────────────────
+//
+// Read-only: builds per-bot daily P&L series from NAV history and
+// returns pairwise Pearson correlation across all paper bots. The
+// dashboard surfaces this so the operator can spot bots that are
+// 95%-correlated with another (i.e. duplicate exposure, not real
+// diversification). Lazy-imported for the same rootDir reason as the
+// observer endpoint above.
+app.get('/api/factory/correlation', async () => {
+  const correlationPath = '../../scripts/backtest/factory/correlation.js';
+  const mod = (await import(correlationPath)) as {
+    correlationReport: () => {
+      series: Array<Record<string, unknown>>;
+      correlations: Array<Record<string, unknown>>;
+    };
+  };
+  return mod.correlationReport();
+});
+
+const SERVER_BOOT_MS = Date.now();
+
+// Central air-quality data layer for the dashboard's signal panel. The
+// store holds rolling 48h pm25 samples per region, persisted to disk,
+// fed by a 5-min live poller and a cold-start backfill (see boot block).
+const airQuality = new AirQualityStore();
+airQuality.load();
+const AIR_QUALITY_POLL_MS = 5 * 60 * 1000;
+
+/** One live poll: /api/signals -> store -> persist. Best-effort. */
+async function pollAirQuality(): Promise<void> {
+  try {
+    const bundles = await fetchBundles();
+    const values: Partial<Record<RegionKey, number>> = {};
+    for (const b of bundles) {
+      if (b.currentPm25 != null) values[b.key] = b.currentPm25;
+    }
+    airQuality.ingestLive(values);
+    airQuality.save();
+  } catch (err) {
+    console.warn(`[airquality] live poll failed: ${(err as Error).message}`);
+  }
+}
+
+/** Cold-start backfill from the dataset repo — only when the store is empty. */
+async function backfillAirQualityIfEmpty(): Promise<void> {
+  if (!airQuality.isEmpty()) return;
+  try {
+    const seeded = await fetchBackfill(2);
+    airQuality.seedBackfill(seeded);
+    airQuality.save();
+    const n = (['CHI', 'NYC', 'TOR'] as RegionKey[]).reduce((a, r) => a + airQuality.size(r), 0);
+    console.log(`[airquality] cold-start backfill seeded ${n} samples from dataset repo`);
+  } catch (err) {
+    console.warn(`[airquality] backfill failed: ${(err as Error).message} — warming up live`);
+  }
+}
+
+async function getDashboardSignals(): Promise<{
+  byRegion: Partial<Record<RegionKey, { pm25: number; pctile: number | null; z: number | null }>>;
+  updatedAt: number | null;
+}> {
+  const byRegion: Partial<Record<RegionKey, { pm25: number; pctile: number | null; z: number | null }>> = {};
+  for (const r of REGIONS) {
+    const cur = airQuality.current(r.key);
+    if (cur == null) continue;
+    byRegion[r.key] = {
+      pm25: cur,
+      pctile: airQuality.percentile(r.key),
+      z: airQuality.zscore(r.key),
+    };
+  }
+  return { byRegion, updatedAt: airQuality.lastUpdatedMs() };
+}
+
+interface SignalSnapshot {
+  region: RegionKey;
+  pm25: number;
+  pctile: number | null;
+  z: number | null;
+}
+
+/**
+ * Parse the latest tick log line of a bot to extract live pctile / z-score
+ * values. Format examples:
+ *   13:46:45  pm25 pctile: CHI=91 NYC=45 TOR=18 | holding=CHI
+ *   13:34:35  pctile: CHI=96 TOR=63 NYC=21 | best=CHI | holding=USDC
+ *   13:11:34  z: CHI=3.13σ NYC=-1.14σ TOR=0.17σ | holding=CHI
+ */
+function extractSignalsFromLog(logLines: string[]): {
+  pctileByRegion: Partial<Record<RegionKey, number>>;
+  zByRegion: Partial<Record<RegionKey, number>>;
+  lastTickMs: number | null;
+} {
+  const pctile: Partial<Record<RegionKey, number>> = {};
+  const z: Partial<Record<RegionKey, number>> = {};
+  let lastTickMs: number | null = null;
+  // Walk newest-to-oldest so first match wins
+  for (let i = logLines.length - 1; i >= 0; i--) {
+    const line = logLines[i];
+    // Tick separator: "━━━ tick N @ <iso> ━━━" — extract iso from inside.
+    const tickMatch = line.match(/━━━ tick \d+ @ (\S+) ━━━/);
+    if (tickMatch && lastTickMs == null) {
+      const ms = Date.parse(tickMatch[1]);
+      if (!Number.isNaN(ms)) lastTickMs = ms;
+    }
+    // Stop walking once we have everything we need.
+    if (lastTickMs != null && Object.keys(pctile).length && Object.keys(z).length) break;
+    if (!Object.keys(pctile).length) {
+      const pctMatch = line.match(/pctile[^:]*:\s*((?:\w+=\d+\s*)+)/i);
+      if (pctMatch) {
+        for (const tok of pctMatch[1].split(/\s+/)) {
+          const m = tok.match(/^(CHI|NYC|TOR)=(\d+)/);
+          if (m) pctile[m[1] as RegionKey] = Number(m[2]);
+        }
+      }
+    }
+    if (!Object.keys(z).length) {
+      const zMatch = line.match(/\bz:\s*((?:\w+=[-\d.]+σ?\s*)+)/i);
+      if (zMatch) {
+        for (const tok of zMatch[1].split(/\s+/)) {
+          const m = tok.match(/^(CHI|NYC|TOR)=([-\d.]+)/);
+          if (m) z[m[1] as RegionKey] = parseFloat(m[2]);
+        }
+      }
+    }
+  }
+  return { pctileByRegion: pctile, zByRegion: z, lastTickMs };
+}
+
+function buildGauge(strategyName: string, holding: string, pctile: Partial<Record<RegionKey, number>>, z: Partial<Record<RegionKey, number>>): {
+  label: string;
+  valueText: string;
+  needlePos: number;
+  exitZone?: [number, number];
+  entryZone?: [number, number];
+  ticks: { pos: number; label: string }[];
+} | null {
+  if (strategyName.includes('band')) {
+    // gauge is 0-100. exit ≤20, entry ≥80.
+    const region = (holding as RegionKey) || 'CHI';
+    const value = pctile[region];
+    if (value == null) return null;
+    return {
+      label: region + ' pctile',
+      valueText: value.toFixed(0) + ' / 100',
+      needlePos: Math.max(0, Math.min(100, value)),
+      exitZone: [0, 20],
+      entryZone: [80, 100],
+      ticks: [
+        { pos: 20, label: '≤20 exit' },
+        { pos: 80, label: '≥80 entry' },
+      ],
+    };
+  }
+  if (strategyName.includes('all_in')) {
+    // gauge is "lead vs next region". 0..100 = 0..100 percentile points.
+    const sorted = (Object.entries(pctile) as [RegionKey, number][]).sort((a, b) => b[1] - a[1]);
+    if (sorted.length < 2) return null;
+    const [best, second] = sorted;
+    const lead = best[1] - second[1];
+    return {
+      label: best[0] + ' lead vs ' + second[0],
+      valueText: '+' + lead.toFixed(0) + 'pp',
+      needlePos: Math.max(0, Math.min(100, lead)),
+      entryZone: [30, 100],
+      ticks: [{ pos: 30, label: '≥30pp rotate' }],
+    };
+  }
+  if (strategyName.includes('zscore')) {
+    // bipolar gauge -3σ..+3σ → 0..100
+    const region = (holding as RegionKey) || 'CHI';
+    const value = z[region];
+    if (value == null) return null;
+    const pos = Math.max(0, Math.min(100, ((value + 3) / 6) * 100));
+    return {
+      label: region + ' z-score',
+      valueText: (value >= 0 ? '+' : '') + value.toFixed(2) + 'σ',
+      needlePos: pos,
+      exitZone: [0, 33.33],
+      entryZone: [83.33, 100],
+      ticks: [
+        { pos: 33.33, label: '−1σ exit' },
+        { pos: 50, label: '0σ' },
+        { pos: 83.33, label: '+2σ entry' },
+      ],
+    };
+  }
+  return null;
+}
+
+app.get('/dashboard/state', async () => {
+  const wallets = store.listWallets();
+  // The orchestrator is ALWAYS constructed — paper bots run RPC-free in
+  // explore-only mode too — so the running set is always read from it.
+  const running = new Set(
+    orchestrator.list().filter((b) => b.running).map((b) => b.name),
+  );
+  // Pricing fork, mirroring the trading path: a LIVE bot's holdings are
+  // valued off the RPC oracle (`getAllPrices`); a PAPER bot's off
+  // Jupiter's public API (`getAllPricesPaper`, RPC-free). Without the
+  // paper feed, a paper bot's region holding is valued at $0 in
+  // explore-only mode (getAllPrices returns nulls) and the bot shows a
+  // phantom −100% — even though it's holding the tokens just fine.
+  let prices: Record<RegionKey, number | null> = { CHI: null, NYC: null, TOR: null };
+  if (LIVE_TRADING_ENABLED) {
+    try { prices = await getAllPrices(); } catch { /* fall through with nulls */ }
+  }
+  let paperPrices: Record<RegionKey, number | null> = { CHI: null, NYC: null, TOR: null };
+  if (wallets.some((w) => w.mode === 'paper')) {
+    try { paperPrices = await getAllPricesPaper(); } catch { /* nulls */ }
+  }
+  const liveSigsForCards = await getDashboardSignals();
+
+  // Build the pctile/z maps the bot-card gauges read. Sourced from the
+  // shared Pm25History (not the per-bot log parsing, which can't see
+  // strategy stdout).
+  const allPctile: Partial<Record<RegionKey, number>> = {};
+  const allZ: Partial<Record<RegionKey, number>> = {};
+  for (const r of REGIONS) {
+    const live = liveSigsForCards.byRegion[r.key];
+    if (live) {
+      if (live.pctile != null) allPctile[r.key] = live.pctile;
+      if (live.z != null) allZ[r.key] = live.z;
+    }
+  }
+  let globalLastTickMs: number | null = null;
+
+  const bots = await Promise.all(wallets.map(async (w) => {
+    const state = store.loadState(w.name);
+    const usdcBalance = state ? Number(state.usdcBalance) / 1e6 : 0;
+    const tokens = state ? Number(state.regionBalance) / 1e6 : 0;
+    const holding = state?.holding ?? 'USDC';
+
+    // Trade history from log
+    let logLines: string[] = [];
+    try { logLines = readFileSync(store.logPath(w.name), 'utf8').split('\n'); } catch {}
+    const trades = parseBotLog(store.logPath(w.name), w.name);
+    const roundTrips = pairRoundTrips(trades);
+
+    // Per-bot log only gives us the tick timestamp (signal pctile/z come
+    // from the shared Pm25History above).
+    const { lastTickMs } = extractSignalsFromLog(logLines);
+    if (lastTickMs && (!globalLastTickMs || lastTickMs > globalLastTickMs)) globalLastTickMs = lastTickMs;
+
+    const closedRts = roundTrips.filter((r) => r.bot === w.name && r.status === 'CLOSED');
+    const realizedPnlUsd = closedRts.reduce((a, r) => a + (r.realizedPnlUsdc || 0), 0);
+    const winRate = closedRts.length === 0 ? null : closedRts.filter((r) => (r.realizedPnlUsdc || 0) > 0).length / closedRts.length;
+
+    // NAV is always computed from the chain-state truth (usdcBalance +
+    // regionBalance × current price) — never depends on trade history,
+    // so a botstart with no parseable trades still reports correct NAV.
+    let openPosition: object | null = null;
+    let nav = usdcBalance;
+    if (holding !== 'USDC' && tokens > 0) {
+      const region = holding as RegionKey;
+      // Price feed matching the bot's mode — paper bots off Jupiter,
+      // live bots off the RPC oracle. A price of null/0 means UNKNOWN
+      // (oracle down / Jupiter rate-limited), NOT genuinely worthless.
+      const botPrices = w.mode === 'paper' ? paperPrices : prices;
+      const rawPrice = botPrices[region];
+      const priceKnown = rawPrice != null && rawPrice > 0;
+
+      // Cost basis FIRST — branches 1 & 2 need no live price.
+      // Aggregate ALL OPEN entries for this bot+region: a strategy can
+      // fire multiple entries before an exit, so held tokens are a sum.
+      const openEntries = roundTrips.filter(
+        (r) => r.bot === w.name && r.status === 'OPEN' && r.region === region,
+      );
+      const totalCostFromTrades = openEntries.reduce((a, r) => a + r.costBasisUsdc, 0);
+      const totalTokensFromTrades = openEntries.reduce((a, r) => a + r.tokensHeld, 0);
+      const tradeCoverage = totalTokensFromTrades > 0 ? totalTokensFromTrades / tokens : 0;
+      //   1. trade-derived if coverage ≥ 80% (fully accurate)
+      //   2. capital-residual if zero closed trades (start capital − liquid USDC)
+      //   3. genuinely unknown
+      let costBasisUsdc: number;
+      let costBasisKnown: boolean;
+      if (openEntries.length > 0 && tradeCoverage >= 0.8) {
+        costBasisUsdc = totalCostFromTrades;
+        costBasisKnown = true;
+      } else if (closedRts.length === 0) {
+        costBasisUsdc = Math.max(0, startingCapitalFor(w) - usdcBalance);
+        costBasisKnown = true;
+      } else {
+        costBasisUsdc = 0;
+        costBasisKnown = false;
+      }
+
+      // Value the position. A KNOWN price → tokens × price. An UNKNOWN
+      // price must NOT be valued at $0 — that reports a healthy held
+      // position as a phantom −100%. Fall back to cost basis (the best
+      // estimate; unrealized PnL is then 0 — it can't be computed without
+      // a price) and flag `priceUnavailable` so the UI can say so.
+      const currentValueUsd = priceKnown
+        ? tokens * (rawPrice as number)
+        : costBasisUsdc;
+      nav = usdcBalance + currentValueUsd;
+      const entryPrice = costBasisKnown && tokens > 0 ? costBasisUsdc / tokens : 0;
+      const currentPrice = priceKnown ? (rawPrice as number) : entryPrice;
+      const unrealizedPnlUsd = priceKnown ? currentValueUsd - costBasisUsdc : 0;
+      const unrealizedPnlPct =
+        priceKnown && costBasisUsdc > 0 ? (unrealizedPnlUsd / costBasisUsdc) * 100 : 0;
+      openPosition = {
+        region,
+        tokens,
+        entryPrice,
+        currentPrice,
+        costBasisUsdc,
+        currentValueUsd,
+        unrealizedPnlUsd,
+        unrealizedPnlPct,
+        costBasisKnown,
+        priceUnavailable: !priceKnown,
+      };
+    }
+
+    const lastTradeMs = trades.length > 0 ? trades[trades.length - 1].ts : null;
+    const gauge = w.strategy ? buildGauge(w.strategy, holding, allPctile, allZ) : null;
+
+    // "Unfunded" — bot has no capital, no open position, and no real
+    // baseline. Dashboard suppresses PnL display for these so we don't
+    // show misleading "-100%" against the $10 default baseline OR a
+    // misleading "+0.00%" from a $0 baseline (the arb-confirm case:
+    // baseline was snapshotted while wallet was $0, so the legacy
+    // check thought it was funded).
+    //
+    // We treat baseline of "0" same as null — a $0 baseline isn't a
+    // real capital marker, it's "we tried to set this but had nothing".
+    const baselineMeaningful = w.startingCapitalUsdcRaw != null
+      && BigInt(w.startingCapitalUsdcRaw) > 0n;
+    const unfunded = !baselineMeaningful
+      && usdcBalance === 0
+      && (openPosition == null);
+
+    return {
+      name: w.name,
+      strategyName: w.strategy ?? '',
+      strategyDesc: w.strategy ? (STRATEGY_DESCRIPTIONS[w.strategy] ?? w.strategy) : '',
+      running: running.has(w.name),
+      createdAtMs: Date.parse(w.createdAt),
+      startingCapital: startingCapitalFor(w),
+      nav,
+      usdcBalance,
+      openPosition,
+      unfunded,
+      totalTrades: trades.length,
+      closedTrades: closedRts.length,
+      realizedPnlUsd,
+      winRateText: winRate == null
+        ? '0/0 (no exits)'
+        : `${closedRts.filter((r) => (r.realizedPnlUsdc || 0) > 0).length}/${closedRts.length} ${(winRate * 100).toFixed(0)}%`,
+      lastTradeMs,
+      gauge,
+    };
+  }));
+
+  // Build the trade history rows to mirror the per-bot card numbers
+  // exactly. CLOSED round-trips remain individual rows (each is a real
+  // realized event). OPEN rows are aggregated per (bot, region) so the
+  // displayed cost basis + unrealized PnL match the bot card — using
+  // the same capital-residual fallback when log coverage is partial.
+  const allTrades: Array<any> = [];
+  for (const w of wallets) {
+    const trades = parseBotLog(store.logPath(w.name), w.name);
+    const rts = pairRoundTrips(trades);
+    const botCard = bots.find((b) => b.name === w.name);
+
+    // CLOSED rows: one per round-trip
+    for (const r of rts.filter((x) => x.status === 'CLOSED')) {
+      allTrades.push({
+        bot: r.bot, region: r.region, status: 'CLOSED',
+        entry: { signature: r.entry.signature, ts: r.entry.ts, reason: r.entry.reason },
+        exit: r.exit ? { signature: r.exit.signature, ts: r.exit.ts, reason: r.exit.reason } : null,
+        costBasisUsd: r.costBasisUsdc,
+        tokensHeld: r.tokensHeld,
+        entryPrice: r.entryPrice,
+        durationMs: r.durationMs,
+        exitPrice: r.exitPrice,
+        exitProceedsUsd: r.exitProceedsUsdc,
+        realizedPnlUsd: r.realizedPnlUsdc,
+        realizedPnlPct: r.realizedPnlPct,
+      });
+    }
+
+    // OPEN row: one composite per bot, derived from the bot card. Skip
+    // if no open position. Otherwise display the same numbers the card
+    // shows so totals reconcile across panels.
+    const op = botCard?.openPosition as
+      | {
+          region: RegionKey;
+          tokens: number;
+          entryPrice: number;
+          currentPrice: number;
+          currentValueUsd: number;
+          unrealizedPnlUsd: number;
+          unrealizedPnlPct: number;
+          costBasisKnown: boolean;
+        }
+      | null
+      | undefined;
+    if (op) {
+      // Pick the earliest open entry for this region for the timestamp +
+      // signature. If no entries are in the parsed log, fall back to the
+      // wallet creation time so the row still has shape.
+      const openLegs = rts.filter((x) => x.status === 'OPEN' && x.region === op.region);
+      openLegs.sort((a, b) => a.entry.ts - b.entry.ts);
+      const earliest = openLegs[0]?.entry;
+      const earliestExit = openLegs.length > 0 ? null : null;
+      const triggerText = earliest?.reason ?? '(open from prior deploy — entry log truncated)';
+      allTrades.push({
+        bot: w.name, region: op.region, status: 'OPEN',
+        entry: {
+          signature: earliest?.signature ?? '',
+          ts: earliest?.ts ?? Date.parse(w.createdAt),
+          reason: triggerText,
+        },
+        exit: null,
+        // Composite cost basis matches the bot card exactly.
+        costBasisUsd: op.tokens * op.entryPrice,
+        tokensHeld: op.tokens,
+        entryPrice: op.entryPrice,
+        currentPrice: op.currentPrice,
+        currentValueUsd: op.currentValueUsd,
+        unrealizedPnlUsd: op.unrealizedPnlUsd,
+        unrealizedPnlPct: op.unrealizedPnlPct,
+        costBasisKnown: op.costBasisKnown,
+        partialLog: openLegs.length === 0 || (op.tokens > 0 && openLegs.reduce((a, x) => a + x.tokensHeld, 0) / op.tokens < 0.8),
+        durationMs: null,
+        // Suppress unused warning
+        _earliestExit: earliestExit,
+      });
+    }
+  }
+  allTrades.sort((a, b) => (b.entry.ts) - (a.entry.ts));
+
+  // NAV history (last 30d so the dashboard's 1h/4h/24h/7d toggles all
+  // have data to slice. Snapshots are tiny JSON lines — 30d × 1/min
+  // ≈ 43k lines / a few MB, well within budget.)
+  const navHistory = store.loadNavHistory(Date.now() - 30 * 24 * 3600 * 1000);
+
+  // Unfunded bots (created but never funded) carry a phantom $10
+  // startingCapital from the DEFAULT_STARTING_CAPITAL_USDC fallback and
+  // $0 nav. Including them anywhere PnL is computed shows a fake -$10 /
+  // -100%. The per-bot card already suppresses this via b.unfunded;
+  // header totals + the backtest table must do the same.
+  const fundedBots = bots.filter((b) => !b.unfunded);
+
+  // Backtest comparison rows
+  const liveUptimeHours = (Date.now() - SERVER_BOOT_MS) / 3_600_000;
+  // Only project pace once we have ≥1h of live data — extrapolating
+  // 3min × 480 to 5d gives absurd numbers that erode trust.
+  const PACE_MIN_HOURS = 1;
+  const backtestRows = fundedBots.map((b) => {
+    const bench = BACKTEST_BY_STRATEGY[b.strategyName] ?? { pct: 0, trades: 0 };
+    const livePct = b.startingCapital > 0 ? ((b.nav - b.startingCapital) / b.startingCapital) * 100 : 0;
+    const hasEnoughData = liveUptimeHours >= PACE_MIN_HOURS;
+    const projectedPct = hasEnoughData ? (livePct / liveUptimeHours) * (24 * 5) : null;
+    const onPace = projectedPct != null && projectedPct >= bench.pct * 0.8;
+    return {
+      bot: b.name,
+      strategy: b.strategyName,
+      backtestPct: bench.pct,
+      expectedTrades: bench.trades,
+      livePct,
+      projectedPct,
+      onPace,
+      paceLabel: !hasEnoughData
+        ? `wait ${(PACE_MIN_HOURS - liveUptimeHours).toFixed(1)}h`
+        : (onPace ? 'on pace ✓' : 'below pace'),
+    };
+  });
+
+  const totalCapital = fundedBots.reduce((sum, b) => sum + b.startingCapital, 0);
+  const totalNav = fundedBots.reduce((a, b) => a + b.nav, 0);
+
+  // Cumulative dollar volume traded across every bot. Each entry leg
+  // counts once (USDC → token) and each exit leg counts once (token →
+  // USDC) so a closed round-trip contributes ~2× its position size.
+  let totalVolumeUsd = 0;
+  let totalSwaps = 0;
+  for (const t of allTrades) {
+    if (t.costBasisUsd) { totalVolumeUsd += t.costBasisUsd; totalSwaps += 1; }
+    if (t.status === 'CLOSED' && t.exitProceedsUsd) {
+      totalVolumeUsd += t.exitProceedsUsd;
+      totalSwaps += 1;
+    }
+  }
+
+  // Funder wallet snapshot — surfaces balance + capacity ("can spawn
+  // N more bots") inline so the dashboard renders it in one round-trip.
+  // Failures here must not break the dashboard endpoint, so wrap.
+  let funder: {
+    exists: boolean; pubkey?: string; solLamports?: string | null; usdcRaw?: string | null; liveTradingDisabled?: boolean;
+  } = { exists: false };
+  try {
+    if (store.hasFunder()) {
+      const pubkey = store.getFunderPubkey();
+      if (!LIVE_TRADING_ENABLED) {
+        funder = { exists: true, pubkey, solLamports: null, usdcRaw: null, liveTradingDisabled: true };
+      } else {
+        const [sol, usdc] = await Promise.all([
+          conn.getBalance(new PublicKey(pubkey)),
+          getUsdcBalance(new PublicKey(pubkey)),
+        ]);
+        funder = { exists: true, pubkey, solLamports: sol.toString(), usdcRaw: usdc.toString() };
+      }
+    }
+  } catch (err) {
+    app.log.warn({ err: (err as Error).message }, 'funder snapshot failed');
+  }
+
+  // Live signals from the same Pm25History the gauges use.
+  const signals: SignalSnapshot[] = REGIONS.map((r) => {
+    const live = liveSigsForCards.byRegion[r.key];
+    return {
+      region: r.key,
+      pm25: live?.pm25 ?? 0,
+      pctile: live?.pctile ?? null,
+      z: live?.z ?? null,
+    };
+  });
+
+  const backupState = readBackupState();
+  const liveBotCount = wallets.filter((w) => w.mode === 'live').length;
+
+  return {
+    serverUptimeMs: Date.now() - SERVER_BOOT_MS,
+    lastTickMs: globalLastTickMs,
+    botsTotal: bots.length,
+    botsRunning: bots.filter((b) => b.running).length,
+    totalCapital,
+    totalNav,
+    totalVolumeUsd,
+    totalSwaps,
+    funder,
+    bots,
+    signals,
+    signalsUpdatedMs: liveSigsForCards.updatedAt,
+    trades: allTrades,
+    navHistory,
+    backtestRows,
+    backup: {
+      mnemonicAvailable: Boolean(HD_MNEMONIC),
+      verifiedAt: backupState.verifiedAt,
+      shouldPrompt: shouldPromptBackup(backupState, liveBotCount, Date.now()),
+      liveBotCount,
+    },
+  };
+});
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+async function getUsdcBalance(owner: PublicKey): Promise<bigint> {
+  const ata = getAssociatedTokenAddressSync(USDC, owner);
+  try {
+    const acc = await getAccount(conn, ata);
+    return BigInt(acc.amount.toString());
+  } catch (err) {
+    if (err instanceof TokenAccountNotFoundError) return 0n;
+    throw err;
+  }
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────
+
+const shutdown = async (signal: string) => {
+  app.log.info(`shutdown via ${signal}`);
+  // shutdownAll preserves desiredRunning so resumeAll() picks them back
+  // up. Runs in every mode now — paper bots also run in the orchestrator
+  // (explore-only) and must be checkpointed cleanly on SIGTERM.
+  orchestrator.shutdownAll();
+  await app.close();
+  process.exit(0);
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+const navSnapshotter = LIVE_TRADING_ENABLED ? new NavSnapshotter(store, conn) : null;
+
+app.listen({ port: PORT, host: HOST }).then(async () => {
+  app.log.info(`pbx-bots server listening on ${HOST}:${PORT}`);
+  if (!LIVE_TRADING_ENABLED) {
+    app.log.info('explore-only mode — set HELIUS_MAINNET_URL to enable live trading');
+  }
+  // Auto-resume any bots whose intent was sticky-running before the last
+  // SIGTERM / crash. Runs after listen() so /health is reachable while
+  // bots are spinning back up. Runs in EVERY mode — in explore-only mode
+  // it resumes paper bots (RPC-free); orchestrator.launch() itself
+  // refuses to resume a live bot when no RPC is configured, and
+  // resumeAll() swallows that per-bot so paper bots still come up.
+  await orchestrator.resumeAll();
+  // Start the per-bot NAV snapshotter for the dashboard chart.
+  // Live-only — it reads on-chain NAV via RPC.
+  navSnapshotter?.start();
+  // Air-quality data layer: backfill once if cold, then poll every 5 min.
+  void backfillAirQualityIfEmpty().then(() => pollAirQuality());
+  setInterval(() => { void pollAirQuality(); }, AIR_QUALITY_POLL_MS);
+}).catch((listenErr: NodeJS.ErrnoException) => {
+  // Without this, a port clash surfaces as an unhandled rejection — a
+  // raw Node stack trace that buries the one thing the user needs to do.
+  if (listenErr.code === 'EADDRINUSE') {
+    app.log.error(
+      `port ${PORT} is already in use — another process (often a second ` +
+      `pbx-bots server) is bound to ${HOST}:${PORT}.`,
+    );
+    app.log.error(`start this one on a free port:  PORT=${PORT + 1} npm run server`);
+  } else {
+    app.log.error(listenErr, 'server failed to start');
+  }
+  process.exit(1);
+});

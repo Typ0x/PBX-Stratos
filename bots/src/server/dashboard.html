@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PBX Bots — Trading Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/dashboard.css">
+</head>
+<body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
+
+<div id="auth-overlay" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center">
+  <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+    <h2 class="text-base font-semibold text-zinc-50 mb-1">Authenticate</h2>
+    <p class="text-[12px] muted mb-4">Paste your <code class="mono text-zinc-300">BOT_API_TOKEN</code> (saved to this browser only).</p>
+    <input id="token-input" type="password" autocomplete="off" placeholder="BOT_API_TOKEN"
+      class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-sm value placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500">
+    <button id="token-save" class="mt-3 w-full bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-emerald-400">Save</button>
+    <p id="token-err" class="text-[12px] text-rose-400 mt-2 hidden"></p>
+  </div>
+</div>
+
+<!-- Deploy-as-bot modal: opens from the workflow card's "Deploy as bot"
+     button per row. Pre-fills name + template + funding from the
+     decoded plan. Confirms with the user, then walks the 4-step POST
+     chain (create wallet → set strategy → fund from funder → launch),
+     showing per-step progress. -->
+<div id="deploy-overlay" class="hidden fixed inset-0 z-40 modal-bg flex items-center justify-center px-4">
+  <div class="card rounded-xl p-6 w-full max-w-lg">
+    <header class="mb-4 flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-base font-semibold text-zinc-50">Deploy as bot</h2>
+        <p class="text-[12px] muted mt-1" id="deploy-source">—</p>
+      </div>
+      <button id="deploy-close" class="text-[11px] mono muted hover:text-zinc-300 transition">close</button>
+    </header>
+
+    <section id="deploy-form" class="space-y-3 text-[12px]">
+      <label class="block">
+        <div class="muted mono mb-1">Bot name</div>
+        <input id="deploy-name" type="text" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-zinc-100 focus:outline-none focus:border-emerald-500" placeholder="arb-something">
+      </label>
+
+      <label class="block">
+        <div class="muted mono mb-1">Strategy template</div>
+        <input id="deploy-strategy" type="text" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+
+      <!-- Decoded-rule predicate pair. Shown only when deploying a
+           decoded wallet (strategy = decoded_rule); filled by JS. -->
+      <div id="deploy-rule-box" class="hidden space-y-1 border border-zinc-800 rounded p-2 bg-[#0a0d13]">
+        <div class="muted mono">Decoded rule</div>
+        <div class="mono text-[11px]"><span class="text-zinc-500">entry:</span> <span id="deploy-rule-entry" class="text-zinc-200"></span></div>
+        <div class="mono text-[11px]"><span class="text-zinc-500">exit:</span> <span id="deploy-rule-exit" class="text-zinc-200"></span></div>
+      </div>
+
+      <!-- Run mode: Paper (safe default) vs Live (real capital). -->
+      <div class="block">
+        <div class="muted mono mb-1">Run mode</div>
+        <div id="deploy-mode" class="grid grid-cols-2 gap-2">
+          <button type="button" data-mode="paper" class="deploy-mode-btn rounded border px-3 py-2 text-left transition">
+            <div class="font-medium text-zinc-100">Paper <span class="text-[10px] text-sky-300 mono">recommended</span></div>
+            <div class="text-[10px] muted mt-0.5">Simulated balance. No real USDC moves.</div>
+          </button>
+          <button type="button" data-mode="live" class="deploy-mode-btn rounded border px-3 py-2 text-left transition">
+            <div class="font-medium text-zinc-100">Live</div>
+            <div class="text-[10px] muted mt-0.5">Real USDC on Solana mainnet.</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Extra explicit gate before live capital. Hidden in paper mode. -->
+      <label id="deploy-live-confirm-wrap" class="hidden items-start gap-2 text-[11px] text-rose-200 border border-rose-500/40 bg-rose-500/5 rounded p-2 cursor-pointer">
+        <input id="deploy-live-confirm" type="checkbox" class="accent-rose-500 mt-0.5">
+        <span>I understand this will trade <strong>real USDC</strong> from the funder on Solana mainnet, using the entire balance on the first eligible tick.</span>
+      </label>
+
+      <div class="grid grid-cols-3 gap-3">
+        <label class="block">
+          <div class="muted mono mb-1">Starting USDC ($)</div>
+          <input id="deploy-usdc" type="number" step="0.01" min="0.01" value="50" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+        </label>
+        <label class="block">
+          <div class="muted mono mb-1">SOL (gas)</div>
+          <input id="deploy-sol" type="number" step="0.01" min="0.001" value="0.05" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+        </label>
+        <label class="block">
+          <div class="muted mono mb-1">Tick ms</div>
+          <input id="deploy-tick" type="number" step="1000" min="5000" value="30000" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-3 py-2 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+        </label>
+      </div>
+
+      <div id="deploy-fund-note" class="text-[11px] text-amber-200/90 leading-relaxed border border-amber-500/30 bg-amber-500/5 rounded p-2">
+        The bot trades with its <strong>entire USDC balance</strong>. Whatever you put in "Starting USDC" is what it will buy with on its first eligible tick — not a per-trade cap. If you want $50 risk, fund $50.
+      </div>
+
+      <div id="deploy-mainnet-note" class="text-[11px] muted leading-relaxed border-t border-zinc-800/60 pt-3">
+        <span class="text-amber-300">⚠ Live mainnet:</span> this creates a Solana wallet, transfers real USDC + SOL from the funder, sets the strategy, and starts trading. You'll see a final review before anything moves.
+      </div>
+
+      <p id="deploy-err" class="text-[12px] text-rose-400 hidden"></p>
+
+      <div class="flex gap-2 pt-1">
+        <button id="deploy-cancel" class="flex-1 border border-zinc-700 rounded py-2 hover:border-zinc-500 transition text-zinc-300">Cancel</button>
+        <button id="deploy-confirm" class="flex-1 bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Review</button>
+      </div>
+    </section>
+
+    <section id="deploy-review" class="hidden space-y-3 text-[12px]">
+      <div class="text-[13px] text-zinc-100 font-medium">Review before deploying</div>
+      <div id="deploy-review-body" class="space-y-2 mono text-[12px] bg-[#0a0d13] border border-zinc-800 rounded p-3"></div>
+      <div class="text-[11px] text-amber-200/90 leading-relaxed border border-amber-500/30 bg-amber-500/5 rounded p-2">
+        Funds move on confirm. SOL stays in the bot wallet to pay gas. The full USDC balance will be used on the first eligible tick — this is irreversible.
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button id="deploy-review-back" class="flex-1 border border-zinc-700 rounded py-2 hover:border-zinc-500 transition text-zinc-300">Back</button>
+        <button id="deploy-review-confirm" class="flex-1 bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Confirm &amp; deploy</button>
+      </div>
+    </section>
+
+    <section id="deploy-progress" class="hidden space-y-2 text-[12px] mono"></section>
+
+    <section id="deploy-success" class="hidden text-center py-4 space-y-2">
+      <div class="text-emerald-400 text-4xl">✓</div>
+      <p class="text-zinc-100 font-medium">Bot deployed</p>
+      <p class="text-[12px] muted" id="deploy-success-detail">—</p>
+    </section>
+  </div>
+</div>
+
+<!-- Backup modal: stays open until the user confirms they wrote down
+     the mnemonic by re-typing 3 random words. Three-step flow:
+       (1) reveal — show 24 words in a grid, "I wrote these down" CTA
+       (2) verify — type back 3 random positions
+       (3) success — green check + close
+     Closing only via successful verify or explicit "remind me later". -->
+<div id="backup-overlay" class="hidden fixed inset-0 z-40 modal-bg flex items-center justify-center px-4">
+  <div class="card rounded-xl p-6 w-full max-w-2xl">
+    <header class="mb-4 flex items-start justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <h2 class="text-base font-semibold text-zinc-50">Back up your recovery phrase</h2>
+        </div>
+        <p class="text-[12px] muted mt-1">
+          These 24 words are the only way to recover your funder + all bot wallets if this
+          machine is lost. Write them down on paper, in order. Do not screenshot. Do not
+          email yourself.
+        </p>
+        <p id="backup-risk-line" class="text-[12px] text-amber-300/90 mono mt-2 hidden"></p>
+      </div>
+      <button id="backup-later" class="text-[11px] mono muted hover:text-zinc-300 transition">remind me later</button>
+    </header>
+
+    <section id="backup-step-gate" class="space-y-4">
+      <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded text-[13px] text-rose-200">
+        <p class="font-medium text-rose-100">⚠ Make sure no one is watching your screen.</p>
+        <p class="mt-1 text-rose-200/90">
+          The next screen shows 24 words that let anyone recover — and drain —
+          your funder and every bot wallet. Close any livestream, screen share,
+          or recording before you continue.
+        </p>
+      </div>
+      <button id="backup-reveal-confirm" class="w-full bg-amber-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-amber-400 transition">
+        Show recovery phrase
+      </button>
+    </section>
+
+    <section id="backup-step-reveal" class="hidden space-y-4">
+      <div id="backup-mnemonic-grid" class="grid grid-cols-4 gap-2 p-4 bg-[#0a0d13] border border-amber-500/30 rounded">
+        <div class="col-span-4 text-center text-[11px] muted">loading…</div>
+      </div>
+      <button id="backup-wrote-it-down" class="w-full bg-amber-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-amber-400 transition">
+        I wrote these down — verify
+      </button>
+    </section>
+
+    <section id="backup-step-verify" class="hidden space-y-4">
+      <p class="text-[13px] text-zinc-300">
+        To confirm you wrote them down correctly, type the words at these positions:
+      </p>
+      <div id="backup-verify-inputs" class="space-y-3"></div>
+      <p id="backup-verify-err" class="text-[12px] text-rose-400 hidden"></p>
+      <div class="flex gap-2">
+        <button id="backup-verify-back" class="flex-1 border border-zinc-700 rounded py-2 hover:border-zinc-500 transition text-zinc-300">Show words again</button>
+        <button id="backup-verify-submit" class="flex-1 bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Verify</button>
+      </div>
+    </section>
+
+    <section id="backup-step-success" class="hidden text-center py-4">
+      <div class="text-emerald-400 text-4xl mb-2">✓</div>
+      <p class="text-zinc-100 font-medium">Backup verified</p>
+      <p class="text-[12px] muted mt-1">You can now safely fund this wallet. Keep your paper backup somewhere fireproof.</p>
+    </section>
+  </div>
+</div>
+
+<!-- Sticky amber banner while the mnemonic exists but isn't verified.
+     Sits ABOVE the header so it stays visible during scroll. -->
+<div id="backup-banner" class="hidden bg-amber-500/15 border-b border-amber-500/30 text-amber-200 text-[12px] mono">
+  <div class="max-w-[1440px] mx-auto px-6 py-2 flex items-center gap-4">
+    <span>⚠ Your wallet recovery phrase isn’t backed up yet.</span>
+    <button id="backup-banner-open" class="underline hover:text-amber-100 transition">Back it up now</button>
+  </div>
+</div>
+
+<header class="border-b border-zinc-800/60 bg-[#0a0d13]/95 backdrop-blur sticky top-0 z-10">
+  <div class="max-w-[1440px] mx-auto px-6 py-3 flex items-center gap-6">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+      <span class="font-semibold tracking-tight text-zinc-50">PBX BOTS</span>
+      <span class="text-[11px] text-zinc-400 mono">mainnet</span>
+    </div>
+    <div id="health-pills" class="flex items-center gap-2 text-[11px] mono"></div>
+    <label id="show-stopped-wrap" class="flex items-center gap-1.5 text-[11px] text-zinc-400 mono cursor-pointer select-none" title="Toggle to also show stopped bots">
+      <input id="show-stopped" type="checkbox" class="accent-emerald-500" />
+      <span id="show-stopped-label">show stopped</span>
+    </label>
+    <select id="fleet-mode-filter" class="hidden text-[11px] mono bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5 border border-zinc-700 cursor-pointer" title="Filter the fleet by paper vs live bots">
+      <option value="all">all bots</option>
+      <option value="paper">paper only</option>
+      <option value="live">live only</option>
+    </select>
+    <a href="https://pbx.earth/docs" target="_blank" rel="noopener noreferrer"
+       class="text-[11px] text-zinc-400 mono hover:text-zinc-100 transition"
+       title="Protocol mechanics, region-token math, FAQs">docs ↗</a>
+    <div id="header-kpis" class="ml-auto flex items-center gap-7 text-sm">
+      <div><div class="label">Capital</div><div id="kpi-capital" class="mono text-base value">—</div></div>
+      <div><div class="label">NAV</div><div id="kpi-nav" class="mono text-base value">—</div></div>
+      <div><div class="label">PnL</div><div id="kpi-pnl" class="mono text-base value">—</div></div>
+      <div><div class="label">Volume</div><div id="kpi-volume" class="mono text-base value" title="Cumulative $ traded across all bot legs (entries + exits)">—</div></div>
+      <div><div class="label">Last tick</div><div id="kpi-last-tick" class="mono text-sm value">—</div></div>
+      <div><div class="label">Uptime</div><div id="kpi-uptime" class="mono text-sm value">—</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     App shell: a fixed left sidebar nav + a content area. The nav
+     switches between 4 mutually-exclusive views (Discover, Leaderboard,
+     Paper trading, Live trading); only one view div is un-hidden at a
+     time. dashboard.js (showView / initNav) drives the toggling and
+     persists state to localStorage. The header, backup banner, and
+     modal overlays above stay OUTSIDE this shell.
+     ============================================================ -->
+<div class="flex">
+
+  <!-- Left sidebar nav. Full height under the sticky header; collapses
+       to an icon rail (~56px). Each button carries data-view so the JS
+       can wire clicks generically. Collapsed state persists. -->
+  <nav id="sidebar" class="shrink-0 border-r border-zinc-800/60 bg-[#0c1018] sticky top-[57px] h-[calc(100vh-57px)] flex flex-col py-3 transition-[width] duration-150" style="width:200px">
+    <div id="nav-items" class="flex-1 flex flex-col gap-1 px-2">
+      <button type="button" data-view="discover" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Discover">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+        <span class="nav-label">Discover</span>
+      </button>
+      <button type="button" data-view="leaderboard" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Leaderboard">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+        <span class="nav-label">Leaderboard</span>
+      </button>
+      <button type="button" data-view="strategies" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Strategies">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span class="nav-label">Strategies</span>
+      </button>
+      <button type="button" data-view="paper" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Paper trading">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.58 16.5h12.85"></path></svg>
+        <span class="nav-label">Paper trading</span>
+      </button>
+      <button type="button" data-view="live" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Live trading">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span class="nav-label">Live trading</span>
+      </button>
+    </div>
+    <!-- Collapse / expand toggle, pinned to the sidebar bottom. -->
+    <div class="px-2 pt-2 border-t border-zinc-800/60">
+      <button id="nav-toggle" type="button" class="nav-btn w-full flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Collapse sidebar">
+        <svg id="nav-toggle-icon" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span class="nav-label">Collapse</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Content area: the 4 view containers. Keeps the existing max-w
+       centering inside it. Each view is shown/hidden by showView(). -->
+  <div class="flex-1 min-w-0">
+
+  <!-- ===== Discover view ===== -->
+  <main id="view-discover" class="max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+
+  <!-- First-run welcome. Shown only while the user has zero bots;
+       renderWelcomeHero() hides it the moment a bot exists. This is the
+       single clear "what do I do" entry point for a fresh dashboard. -->
+  <section id="welcome-hero" class="hidden px-10 py-12 min-h-[82vh] flex items-center justify-center text-center relative overflow-hidden">
+    <div class="absolute inset-0 opacity-[0.10] pointer-events-none"
+         style="background: radial-gradient(640px circle at 50% 38%, #10b981, transparent 70%);"></div>
+    <div class="relative z-10 max-w-2xl mx-auto space-y-10">
+      <div class="space-y-3">
+        <h1 class="text-3xl font-semibold text-zinc-50 tracking-tight">Welcome to PBX Trader Lab</h1>
+        <p class="text-[15px] text-zinc-300 leading-relaxed">
+          See how the sharpest traders read this market — then put what
+          you learn to work.
+        </p>
+      </div>
+      <div class="grid grid-cols-3 gap-10 text-left">
+        <div class="space-y-1.5">
+          <div class="text-emerald-400 text-[11px] font-semibold mono tracking-wide">01 · DISCOVER</div>
+          <div class="text-[13px] text-zinc-200 leading-snug min-h-[2.6rem]">Find the top traders on PBX right now.</div>
+        </div>
+        <div class="space-y-1.5">
+          <div class="text-emerald-400 text-[11px] font-semibold mono tracking-wide">02 · DECODE</div>
+          <div class="text-[13px] text-zinc-200 leading-snug min-h-[2.6rem]">Reverse-engineer the rules behind their trades.</div>
+        </div>
+        <div class="space-y-1.5">
+          <div class="text-emerald-400 text-[11px] font-semibold mono tracking-wide">03 · DEPLOY</div>
+          <div class="text-[13px] text-zinc-200 leading-snug min-h-[2.6rem]">Backtest the winners, run them as bots.</div>
+        </div>
+      </div>
+      <div>
+        <button id="hero-start" type="button"
+                class="bg-emerald-500 text-[#0a0d13] font-semibold rounded-lg px-8 py-3 text-[15px] hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20">
+          Find top traders &amp; decode&nbsp;&nbsp;→
+        </button>
+        <p class="text-[12px] text-zinc-300 mt-4">
+          No wallet or funds needed to explore. Takes about two minutes.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="workflow-card" class="card rounded-xl p-5">
+    <header class="mb-4 flex items-start justify-between gap-4">
+      <div>
+        <div class="text-sm font-semibold text-zinc-50">Strategy Discovery</div>
+        <div class="text-[12px] muted mt-0.5">
+          Find top traders on PBX, reverse-engineer their strategies, backtest them, deploy the winners as bots.
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="workflow-start" type="button" class="bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+          Find top traders &amp; decode
+        </button>
+        <button id="workflow-cancel" type="button" class="hidden border border-rose-500/60 text-rose-300 rounded px-4 py-1.5 hover:bg-rose-500/10 transition text-sm">
+          Cancel
+        </button>
+      </div>
+    </header>
+
+    <!-- Filled by checkWorkflowPreflight() — hidden when all green. -->
+    <div id="workflow-preflight" class="hidden mb-3 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-[12px] space-y-2"></div>
+
+    <div id="workflow-params" class="grid grid-cols-5 gap-x-5 gap-y-3 text-[12px]">
+      <label class="space-y-1">
+        <div class="muted mono">Discover days</div>
+        <input id="wf-discover-days" type="number" value="30" min="1" max="90" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-2 py-1 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+      <label class="space-y-1">
+        <div class="muted mono">Top N wallets</div>
+        <input id="wf-limit" type="number" value="10" min="1" max="20" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-2 py-1 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+      <label class="space-y-1">
+        <div class="muted mono">Decode days</div>
+        <input id="wf-decode-days" type="number" value="14" min="1" max="60" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-2 py-1 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+      <label class="space-y-1">
+        <div class="muted mono">Decode epochs</div>
+        <input id="wf-decode-epochs" type="number" value="2" min="1" max="10" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-2 py-1 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+      <label class="space-y-1">
+        <div class="muted mono">Backtest days</div>
+        <input id="wf-backtest-days" type="number" value="14" min="1" max="30" class="w-full bg-[#0a0d13] border border-zinc-700 rounded px-2 py-1 mono text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </label>
+    </div>
+
+  </section>
+
+  <!-- Funder card lives at the BOTTOM of the Discover view (below the
+       discovery controls) — explore-first, fund-later ordering. -->
+  <section id="funder-card"></section>
+
+  </main>
+
+  <!-- ===== Leaderboard view ===== -->
+  <!-- Houses the live decode progress: #workflow-status moved here out
+       of #workflow-card. The element IDs are unchanged so dashboard.js
+       keeps finding them by id. -->
+  <main id="view-leaderboard" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div class="flex items-end justify-between gap-4 flex-wrap">
+      <div>
+        <div class="text-sm font-semibold text-zinc-50">Leaderboard</div>
+        <div class="text-[12px] muted mt-0.5">Top traders on the live PBX market, ranked by volume. Wallets you've decoded are marked.</div>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] mono">
+        <label class="flex items-center gap-1.5 muted">window
+          <select id="lb-days" class="bg-[#0a0d13] border border-zinc-700 rounded px-1.5 py-1 mono text-zinc-200 focus:outline-none focus:border-emerald-500">
+            <option value="7">7d</option>
+            <option value="30" selected>30d</option>
+            <option value="90">90d</option>
+          </select>
+        </label>
+        <button id="lb-refresh" type="button" class="border border-zinc-700 rounded px-3 py-1 hover:border-zinc-500 text-zinc-300 transition">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Live market leaderboard — filled by renderMarketLeaderboard(). -->
+    <div id="market-leaderboard" class="card rounded-xl overflow-hidden"></div>
+  </main>
+
+  <!-- ===== Strategies view ===== -->
+  <!-- Strategies decoded or being decoded. #workflow-status holds the
+       live decode progress + the ranked decoded results; it lives here
+       (not in the Leaderboard view) so the rich streaming progress is
+       never buried under the 50-row market table. -->
+  <main id="view-strategies" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div>
+      <div class="text-sm font-semibold text-zinc-50">Strategies</div>
+      <div class="text-[12px] muted mt-0.5">Winners from your evolution runs, and strategies decoded from on-chain wallets.</div>
+    </div>
+
+    <!-- Decoded strategies — wallet-decode runs and their results. -->
+    <section class="space-y-3">
+      <header>
+        <div class="text-sm font-semibold text-zinc-50">Decoded strategies</div>
+        <div class="text-[12px] muted mt-0.5">Strategies reverse-engineered from on-chain wallets, and any decode runs in progress.</div>
+      </header>
+
+      <!-- Empty state — shown until a decode run populates #workflow-status. -->
+      <div id="strategies-empty" class="card rounded-xl py-16 px-6 text-center">
+        <div class="text-[13px] muted">No decoded strategies yet — pick a wallet on the Leaderboard and hit Decode, or run a discovery from Discover.</div>
+      </div>
+
+      <!-- Persisted decoded strategies, loaded from GET /api/workflow/decodes. -->
+      <div id="decoded-list" class="space-y-2"></div>
+
+      <!-- Live decode progress + decoded results. -->
+      <div id="workflow-status" class="hidden">
+        <div id="workflow-overall" class="flex items-center gap-4 text-[12px] mono mb-3"></div>
+        <div id="workflow-wallets" class="space-y-3"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Paper trading view ===== -->
+  <!-- The live bot fleet + all analytics panels. These elements are
+       rendered into by id/selector and must exist exactly ONCE. -->
+  <main id="view-paper" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+
+  <section id="bot-cards" class="grid grid-cols-3 gap-4"></section>
+
+  <section data-analytics class="grid grid-cols-3 gap-4">
+    <div class="card rounded-xl p-5 col-span-2">
+      <header class="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <div class="text-sm font-semibold text-zinc-50">Performance</div>
+          <div class="text-[12px] muted mt-0.5" id="chart-subtitle">—</div>
+        </div>
+        <div id="chart-range" class="flex items-center gap-1 text-[11px] mono"></div>
+      </header>
+      <div class="h-[300px]"><canvas id="navChart"></canvas></div>
+      <div id="chart-legend" class="mt-3 pt-3 border-t border-zinc-800/60 flex items-center gap-6 text-[11px] mono"></div>
+    </div>
+    <div class="card rounded-xl p-5">
+      <header class="mb-4">
+        <div class="text-sm font-semibold text-zinc-50">Live PM2.5 signals</div>
+        <div class="text-[12px] muted mono mt-0.5" id="signals-meta">—</div>
+      </header>
+      <div id="signals" class="space-y-4"></div>
+    </div>
+  </section>
+
+  <section data-analytics class="card rounded-xl overflow-hidden">
+    <header class="flex items-baseline justify-between p-5 border-b border-zinc-800/60">
+      <div>
+        <div class="text-sm font-semibold text-zinc-50">Trade history</div>
+        <div id="trades-summary" class="text-[12px] muted mt-0.5">—</div>
+      </div>
+    </header>
+    <div class="overflow-x-auto scrollbar">
+      <table class="w-full text-sm">
+        <thead class="text-[11px] tracking-wide muted">
+          <tr class="border-b border-zinc-800/40">
+            <th class="px-5 py-2.5 text-left font-medium">Status / asset</th>
+            <th class="px-5 py-2.5 text-left font-medium">Bot</th>
+            <th class="px-5 py-2.5 text-right font-medium">Held</th>
+            <th class="px-5 py-2.5 text-right font-medium">Cost basis</th>
+            <th class="px-5 py-2.5 text-right font-medium">Exit / now</th>
+            <th class="px-5 py-2.5 text-right font-medium">PnL</th>
+            <th class="px-5 py-2.5 text-left font-medium">Trigger</th>
+            <th class="px-5 py-2.5 text-right font-medium">Sig</th>
+          </tr>
+        </thead>
+        <tbody id="trades-body" class="text-zinc-200 mono text-[12px]"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section data-analytics class="grid grid-cols-2 gap-4">
+    <div class="card rounded-xl p-5">
+      <header class="flex items-baseline justify-between mb-3">
+        <div>
+          <div class="text-sm font-semibold text-zinc-50">Tick log</div>
+          <div class="text-[12px] muted mono mt-0.5">live</div>
+        </div>
+        <div id="log-tabs" class="flex gap-1 text-[11px] mono"></div>
+      </header>
+      <pre id="log-body" class="mono text-[11px] leading-relaxed text-zinc-400 max-h-[260px] overflow-y-auto scrollbar whitespace-pre-wrap bg-[#0a0d13]/60 rounded p-3 border border-zinc-800/60">loading…</pre>
+    </div>
+    <div class="card rounded-xl p-5">
+      <header class="mb-4">
+        <div class="text-sm font-semibold text-zinc-50">Backtest vs live</div>
+        <div class="text-[12px] muted mt-0.5">backtest = 5d post-spike sim · live = uptime to date</div>
+      </header>
+      <table class="w-full text-sm mono">
+        <thead class="text-[10px] tracking-wide muted">
+          <tr class="border-b border-zinc-800/60">
+            <th class="text-left py-2 font-medium">Strategy</th>
+            <th class="text-right py-2 font-medium">Backtest 5d</th>
+            <th class="text-right py-2 font-medium">Live</th>
+            <th class="text-right py-2 font-medium">Pace</th>
+          </tr>
+        </thead>
+        <tbody id="backtest-body" class="text-[12px]"></tbody>
+      </table>
+    </div>
+  </section>
+  </main>
+
+  <!-- ===== Live trading view ===== -->
+  <!-- Placeholder stub for now — live bots + analytics live under Paper.
+       The user can grow this view into a real live-only fleet later. -->
+  <main id="view-live" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div class="card rounded-xl py-16 px-6 text-center">
+      <div class="text-[13px] muted">Live trading — fund the funder wallet and deploy a live bot to see it here.</div>
+    </div>
+  </main>
+
+  </div><!-- /content area -->
+</div><!-- /app shell -->
+
+<script src="/leaderboard-sort.js"></script>
+<script src="/dashboard.js"></script>
+</body>
+</html>

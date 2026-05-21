@@ -1,0 +1,53 @@
+# Render service definition for the @pbx/bots remote control plane.
+#
+# Deploy by linking this repo on Render and pointing it at this file
+# (or via Render's Blueprint feature). Set the four required env vars
+# in the dashboard before the first deploy.
+#
+# Cost ≈ $7/mo (starter web) + $0.25/mo (1GB persistent disk).
+
+services:
+  - type: web
+    name: pbx-bots-server
+    runtime: node
+    plan: starter
+    region: oregon
+    # Deploy from whichever branch you connect in the Render dashboard.
+    # If you set `branch:` here it overrides the dashboard, which causes
+    # silent surprises during PR-driven workflows.
+    rootDir: .
+    # `npm install --include=dev` is required because `tsx` (used as the
+    # production runner via `node --import tsx`) is in dependencies anyway,
+    # but build-time devDeps still need to install for typecheck/etc.
+    buildCommand: npm install --workspace bots --include-workspace-root --include=dev
+    startCommand: cd bots && node --import tsx src/server/index.ts
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: PORT
+        value: 8787
+      # Bind to all interfaces so Render's load balancer can reach us.
+      # Local dev defaults to 127.0.0.1 — see apps/bots/README.md.
+      - key: HOST
+        value: 0.0.0.0
+      - key: BOTS_DATA_DIR
+        value: /var/data/pbx-bots
+      # Set these manually in the Render dashboard, do not commit values:
+      - key: BOT_API_TOKEN
+        sync: false
+      - key: BOT_MASTER_KEY
+        sync: false
+      - key: HELIUS_MAINNET_URL
+        sync: false
+      # DATABASE_URL points at the prod Postgres holding pm25_aggregates.
+      # Strategies use it ONLY to backfill pm25 history at boot so they
+      # don't have to wait 11-24h for the first decision. Read-only access
+      # is sufficient — the bot never writes to this DB.
+      - key: DATABASE_URL
+        sync: false
+    disk:
+      name: pbx-bots-data
+      mountPath: /var/data/pbx-bots
+      sizeGB: 1
