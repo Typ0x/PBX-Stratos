@@ -263,6 +263,10 @@ export async function claudeDecodeWallet(
         // Windows: npm installs `claude.cmd`; Node won't spawn a .cmd
         // without a shell. Safe here because args are small + fixed.
         shell: CLAUDE_NEEDS_SHELL,
+        // Hide Windows console popups. Critical here because Claude CLI
+        // spawns can take seconds and the cmd.exe wrapper window would
+        // sit visibly on the user's screen for the full duration.
+        windowsHide: true,
       });
     } catch (err) {
       const e = err as NodeJS.ErrnoException;

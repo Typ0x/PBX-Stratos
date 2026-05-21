@@ -114,6 +114,10 @@ function runPython(
       cwd: runnersDir(),
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Hide the Windows console popup that would otherwise flash for
+      // every Python decoder invocation. See index.ts preflight probe
+      // for the canonical comment on this convention.
+      windowsHide: true,
     });
     const onAbort = () => {
       try { proc.kill('SIGTERM'); } catch { /* noop */ }

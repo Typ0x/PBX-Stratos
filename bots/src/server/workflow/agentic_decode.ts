@@ -167,6 +167,10 @@ export async function agenticDecodeWallet(
       proc = spawn(resolvePython(), args, {
         env: { ...process.env, STRATOS_CLAUDE_BIN: resolveClaude() },
         stdio: ['ignore', 'pipe', 'pipe'],
+        // Hide Windows console popups for the agentic decoder loop —
+        // a long-running Python subprocess that would otherwise show
+        // a console window for the entire round-trip simulation.
+        windowsHide: true,
       });
     } catch (err) {
       resolveResult({ ran: false, skipReason: `spawn failed: ${(err as Error).message}` });

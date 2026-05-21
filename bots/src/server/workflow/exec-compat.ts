@@ -44,7 +44,10 @@ function repoRoot(): string {
 /** True if `cmd` runs and reports Python ≥ MIN_PYTHON_MINOR. */
 function isPython310Plus(cmd: string): boolean {
   try {
-    const r = spawnSync(cmd, ['--version'], { encoding: 'utf8', timeout: 4000 });
+    // windowsHide: true on every probe — these fire on dashboard load,
+    // and without it every page render would flash multiple console
+    // windows on Windows users' screens.
+    const r = spawnSync(cmd, ['--version'], { encoding: 'utf8', timeout: 4000, windowsHide: true });
     if (r.status !== 0) return false;
     const m = (r.stdout || r.stderr || '').match(/(\d+)\.(\d+)/);
     if (!m) return false;
@@ -93,7 +96,7 @@ export function resolvePython(): string {
   let firstThatRuns: string | null = null;
   for (const cand of candidates) {
     try {
-      const r = spawnSync(cand, ['--version'], { encoding: 'utf8', timeout: 4000 });
+      const r = spawnSync(cand, ['--version'], { encoding: 'utf8', timeout: 4000, windowsHide: true });
       if (r.status !== 0) continue;
       if (firstThatRuns == null) firstThatRuns = cand;
       if (isPython310Plus(cand)) {
@@ -123,7 +126,7 @@ export function isClaudeAvailable(): boolean {
   if (_claudeAvailable !== null) return _claudeAvailable;
   try {
     const r = spawnSync(resolveClaude(), ['--version'], {
-      encoding: 'utf8', timeout: 4000, shell: CLAUDE_NEEDS_SHELL,
+      encoding: 'utf8', timeout: 4000, shell: CLAUDE_NEEDS_SHELL, windowsHide: true,
     });
     _claudeAvailable = r.status === 0;
   } catch {
@@ -149,7 +152,7 @@ export function resolveClaude(): string {
   // 1. On PATH already?
   try {
     const r = spawnSync('claude', ['--version'], {
-      encoding: 'utf8', timeout: 4000, shell: CLAUDE_NEEDS_SHELL,
+      encoding: 'utf8', timeout: 4000, shell: CLAUDE_NEEDS_SHELL, windowsHide: true,
     });
     if (r.status === 0) { _claude = 'claude'; return _claude; }
   } catch { /* not on PATH — fall through to well-known locations */ }

@@ -652,7 +652,12 @@ app.get('/api/workflow/preflight', async () => {
   type ProbeResult = { ok: boolean; version?: string; error?: string };
   const probe = (cmd: string, args: string[], useShell = false): Promise<ProbeResult> =>
     new Promise((resolveProbe) => {
-      const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: useShell });
+      // windowsHide: true is required on Windows — without it every
+      // child process flashes a console window on the user's screen.
+      // Apply this to EVERY spawn / spawnSync / execSync in the server
+      // tree; the convention is enforced by grep at PR time. See also:
+      // bots/src/server/workflow/exec-compat.ts (resolveClaude probes).
+      const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: useShell, windowsHide: true });
       let out = '';
       let err = '';
       const timer = setTimeout(() => { try { proc.kill('SIGTERM'); } catch { /* noop */ } }, 3000);
@@ -1534,6 +1539,7 @@ async function snapshotPm2(): Promise<Pm2Row[]> {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
       shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
     });
     const parsed = JSON.parse(raw) as Array<{
@@ -1577,6 +1583,7 @@ async function snapshotSchtasks(): Promise<SchedRow[]> {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
       shell: 'cmd.exe',
     });
     const parseIso = (s: string | null): string | null => {
@@ -1590,6 +1597,7 @@ async function snapshotSchtasks(): Promise<SchedRow[]> {
           encoding: 'utf8',
           timeout: 5000,
           stdio: ['ignore', 'pipe', 'ignore'],
+          windowsHide: true,
           shell: 'cmd.exe',
         });
         const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
