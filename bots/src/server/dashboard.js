@@ -4293,3 +4293,53 @@
 
     replace(host, controlBar, profileCard, ...sectionCards, eventCard);
   }
+
+  // ============ theme motif injection ============
+  // Themes that want a "shooting-star" atmospheric layer opt in by
+  // setting --motif-enabled: 1 on :root. When that flag is set, we
+  // inject N individual motif spans into <body> — each with its own
+  // randomized position, animation-delay, and duration via inline
+  // CSS custom properties. The theme's CSS handles the shape (via
+  // background-image / pseudo content) and the keyframe animation.
+  //
+  // Why individual DOM elements instead of one tiled pseudo:
+  //   Pure-CSS pseudos paint a SAME tile repeatedly — every visible
+  //   "$" fades together because they share one animation timeline.
+  //   To get per-element shooting-star independence each motif must
+  //   be its own element with its own animation-delay seed.
+  //
+  // ~32 elements is the sweet spot for a typical 1440px viewport —
+  // enough density that 2-3 are visibly peaking at any moment but
+  // never crowding the screen. Counts per type are tunable.
+  (function injectThemeMotifs() {
+    // Defensive: skip if already injected (script loaded twice).
+    if (document.querySelector('.motif-layer')) return;
+
+    const enabled = getComputedStyle(document.documentElement)
+      .getPropertyValue('--motif-enabled').trim();
+    if (enabled !== '1') return;
+
+    const layer = document.createElement('div');
+    layer.className = 'motif-layer';
+    layer.setAttribute('aria-hidden', 'true');
+
+    const counts = { dollar: 14, chart: 10, bar: 8 };
+    for (const type in counts) {
+      for (let i = 0; i < counts[type]; i++) {
+        const span = document.createElement('span');
+        span.className = 'motif motif-' + type;
+        // Per-element randomness. Position is in viewport units so the
+        // motif scales with viewport size. Delay is randomized across
+        // the full animation duration so elements peak at independent
+        // moments. Duration also jittered slightly so two elements
+        // with identical delays still drift out of sync over time.
+        span.style.setProperty('--mx', (Math.random() * 100).toFixed(2) + 'vw');
+        span.style.setProperty('--my', (Math.random() * 100).toFixed(2) + 'vh');
+        span.style.setProperty('--d',  (Math.random() * 14).toFixed(2) + 's');
+        span.style.setProperty('--dur', (10 + Math.random() * 6).toFixed(2) + 's');
+        layer.appendChild(span);
+      }
+    }
+
+    document.body.appendChild(layer);
+  })();
