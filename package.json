@@ -11,6 +11,6 @@
     "server": "npm --workspace bots run server"
   },
   "devDependencies": {
-    "playwright": "1.49.1"
+    "playwright": "^1.49.1"
   }
 }
