@@ -432,7 +432,19 @@
      without obliterating the surrounding context. */
   .onboard-backdrop {
     background: rgba(0,0,0,0.65);
+    /* CRITICAL: backdrop must NOT capture clicks. The tour gates on
+       real button clicks (e.g. Find top traders & decode on step 2);
+       if the backdrop swallows clicks, the user can see the button
+       but can't actually press it. Modal card on z-60 keeps its own
+       pointer-events:auto so Previous/Next/Skip still work. */
+    pointer-events: none;
   }
+  /* Lift the welcome-hero above the backdrop's z-50 during the tour
+     so its highlighted #hero-start CTA escapes its parent stacking
+     context and renders sharp on top of the dim. Without this the
+     pulse ring is invisible because #welcome-hero with position:
+     relative traps z-index inside its own context. */
+  body.onboard-active #welcome-hero { z-index: 52; }
   /* Pulse highlight on a panel the current tour step is pointing at.
      The backdrop sits at z-50; the highlight needs z-index ABOVE that
      (z-55) AND its own stacking context (position: relative + the

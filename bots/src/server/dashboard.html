@@ -9,7 +9,10 @@
 <!-- canvas-confetti: used by the onboarding tour step 1 celebration.
      Loaded lazily, ~10kb gzipped. No-op if blocked (graceful fallback). -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-<link rel="stylesheet" href="/dashboard.css">
+<!-- Cache-bust CSS + JS on every onboarding-impacting change so the
+     browser doesn't serve stale .onboard-* rules. Bump the version
+     suffix when shipping new CSS or JS edits the tour depends on. -->
+<link rel="stylesheet" href="/dashboard.css?v=20260521-3">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 
