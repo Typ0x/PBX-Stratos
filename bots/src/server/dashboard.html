@@ -12,13 +12,14 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260521-9">
+<link rel="stylesheet" href="/dashboard.css?v=20260521-10">
 <!-- Active personality theme. Loaded AFTER dashboard.css so theme
      overrides win. The pbx-set-theme skill copies themes/<id>.css to
-     bots/src/server/active-theme.css on switch; this link just
-     reads whatever is currently there. Cache-bust shares the
-     dashboard.css version so a single Ctrl+F5 covers both. -->
-<link rel="stylesheet" href="/active-theme.css?v=20260521-9" id="active-theme-link">
+     bots/src/server/active-theme.css on switch; the /active-theme.css
+     route sends Cache-Control: no-cache so the browser always pulls
+     fresh content on refresh — no manual cache-bust bumps needed
+     when themes swap or get edited. -->
+<link rel="stylesheet" href="/active-theme.css" id="active-theme-link">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 

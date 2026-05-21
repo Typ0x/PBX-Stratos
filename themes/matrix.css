@@ -273,3 +273,14 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   box-shadow: 0 0 12px rgba(0, 255, 102, 0.6) !important;
 }
 .bg-emerald-500[style*="width"] { background-color: #00ff66 !important; }
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(0, 255, 102, 0.70) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(0, 255, 102, 0.35) !important; }

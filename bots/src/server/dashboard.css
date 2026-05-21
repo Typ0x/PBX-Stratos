@@ -153,6 +153,23 @@
   .evo-ledger-li::before { content: "—  "; color: #475569; }
   .evo-ledger-p    { color: #cbd5e1; margin: 2px 0; }
 
+  /* ── Hover glow on clickable elements ─────────────────────────────────
+     Subtle outer glow when the user hovers a primary button (emerald-
+     bg CTAs, the welcome-hero #hero-start, the workflow #workflow-start,
+     the Setup Guide ? button) so every clickable surface feels alive.
+     Themes override --theme-glow to recolor (gold for lambo, green for
+     matrix, brown for academia, etc). Pure CSS variable swap — no
+     extra rules per theme. */
+  :root { --theme-glow: rgba(16, 185, 129, 0.55); }
+  .bg-emerald-500:not(:disabled):hover,
+  .hover\:bg-emerald-400:not(:disabled):hover,
+  #hero-start:hover,
+  #workflow-start:hover,
+  button[type="submit"]:not(:disabled):hover {
+    box-shadow: 0 0 18px var(--theme-glow), 0 0 4px var(--theme-glow) !important;
+    transition: box-shadow 180ms ease;
+  }
+
   /* Extension-requests expandable panel */
   .evo-ext-badge {
     display: inline-flex; align-items: center; gap: 4px;

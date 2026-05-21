@@ -2801,6 +2801,13 @@ app.get('/dashboard.css', async (_req, reply) => {
 // is missing (fresh clone with no theme picked yet), serve an
 // empty stylesheet so the page still renders cleanly.
 app.get('/active-theme.css', async (_req, reply) => {
+  // Tell the browser NEVER to cache this — every refresh re-fetches
+  // from disk so a `pbx-set-theme` switch shows immediately without
+  // a manual cache-bust bump on the link tag. The file is tiny
+  // (~15kb) so this costs nothing.
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
   try {
     reply.type('text/css').send(readDashboardAsset('active-theme.css'));
   } catch {
