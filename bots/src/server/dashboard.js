@@ -4333,10 +4333,22 @@
         // the full animation duration so elements peak at independent
         // moments. Duration also jittered slightly so two elements
         // with identical delays still drift out of sync over time.
+        //
+        // --dx / --dy seed the slight drift each element does over its
+        // full cycle: random direction (0-360°), 18-38px of total
+        // displacement. Because the visible window is only 25% of the
+        // cycle, the user sees ~5-10px of actual motion per element —
+        // "alive but not floating away."
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 18 + Math.random() * 20;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance;
         span.style.setProperty('--mx', (Math.random() * 100).toFixed(2) + 'vw');
         span.style.setProperty('--my', (Math.random() * 100).toFixed(2) + 'vh');
         span.style.setProperty('--d',  (Math.random() * 14).toFixed(2) + 's');
         span.style.setProperty('--dur', (10 + Math.random() * 6).toFixed(2) + 's');
+        span.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        span.style.setProperty('--dy', dy.toFixed(1) + 'px');
         layer.appendChild(span);
       }
     }

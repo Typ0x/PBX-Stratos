@@ -336,7 +336,10 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   top:  var(--my, 50vh);
   opacity: 0;
   animation: lambo-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
-  will-change: opacity;
+  /* Both opacity and transform animate per-element, so hint the
+   * compositor on both. Each motif is small + fixed-positioned, so
+   * promoting them to their own layers is cheap. */
+  will-change: opacity, transform;
   background-repeat: no-repeat;
   background-position: center;
 }
@@ -362,16 +365,27 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 10'><rect x='0' y='0' width='30' height='10' rx='2' fill='%23d4af37'/><line x1='4' y1='5' x2='26' y2='5' stroke='%23a08828' stroke-width='0.7'/></svg>");
 }
 
-/* ── Twinkle keyframes ────────────────────────────────────────────── */
+/* ── Twinkle keyframes ────────────────────────────────────────────── *
+ * Opacity drives the visibility envelope (invisible 60% of cycle,
+ * sharp rise, brief peak, slow decay). Transform drifts continuously
+ * from translate(0,0) at cycle start to translate(--dx, --dy) at
+ * cycle end — set per element by the JS injector with a random
+ * direction + 18-38px magnitude. Because the visible window is only
+ * 25% of the cycle (60%-95%), the user only sees ~5-10px of motion
+ * per element while it's lit. The loop restart's jump back to (0,0)
+ * happens while opacity is 0 → invisible to the eye.
+ */
 @keyframes lambo-twinkle {
-  0%, 60%, 100% { opacity: 0; }
-  70%           { opacity: 0.14; }
-  78%           { opacity: 0.14; }
-  95%           { opacity: 0; }
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.14; }
+  78%  { opacity: 0.14; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motif { animation: none; opacity: 0.06; }
+  .motif { animation: none; opacity: 0.06; transform: none; }
 }
 
 /* Ensure dashboard chrome sits above the motif layer. Sidebar, header,
