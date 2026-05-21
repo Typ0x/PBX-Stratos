@@ -40,8 +40,12 @@ const NO_DATA_EXIT = 3;
  *  layouts (e.g. running the server out-of-tree). */
 function runnersDir(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
-  if (envRoot) return resolve(envRoot, 'lab', 'runners');
-  return resolve(process.cwd(), '..', 'lab', 'runners');
+  // Runners moved from lab/runners → bear-scout/runners during the
+  // bear-scout reorg. The comment above already documents this; the
+  // code paths just hadn't been updated, which silently broke every
+  // wallet decode (spawn ENOENT because the CWD didn't exist).
+  if (envRoot) return resolve(envRoot, 'bear-scout', 'runners');
+  return resolve(process.cwd(), '..', 'bear-scout', 'runners');
 }
 
 export interface DecodeProgress {

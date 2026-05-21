@@ -145,7 +145,10 @@ export interface AgenticDecodeOpts {
 export async function agenticDecodeWallet(
   opts: AgenticDecodeOpts,
 ): Promise<AgenticDecodeResult> {
-  const script = join(repoRoot(), 'lab', 'runners', 'agentic-decode.py');
+  // Runners moved from lab/runners → bear-scout/runners during the
+  // bear-scout reorg. (The decode.ts spawn-cwd bug had the same root
+  // cause — see its comment for context.)
+  const script = join(repoRoot(), 'bear-scout', 'runners', 'agentic-decode.py');
   const args = [
     script,
     opts.pubkey,

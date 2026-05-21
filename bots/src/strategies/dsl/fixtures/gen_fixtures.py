@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 # fixtures/ -> dsl/ -> strategies/ -> src/ -> bots/ -> repo root
 REPO_ROOT = HERE.parents[4]
-DECODE_PY = REPO_ROOT / 'lab' / 'runners' / 'agentic-decode.py'
+DECODE_PY = REPO_ROOT / 'bear-scout' / 'runners' / 'agentic-decode.py'
 
 
 def load_decoder():
