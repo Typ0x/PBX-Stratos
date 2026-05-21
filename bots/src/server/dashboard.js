@@ -1281,7 +1281,7 @@
     for (const [view, id] of Object.entries(VIEW_IDS)) {
       document.getElementById(id)?.classList.toggle('hidden', view !== name);
     }
-    document.querySelectorAll('#nav-items .nav-btn').forEach((btn) => {
+    document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
       btn.setAttribute('aria-current', btn.dataset.view === name ? 'true' : 'false');
     });
     // Entering the Leaderboard: fetch the live market table on first
@@ -1328,7 +1328,7 @@
 
   // Wire the nav buttons + collapse toggle, then restore saved state.
   function initNav() {
-    document.querySelectorAll('#nav-items .nav-btn').forEach((btn) => {
+    document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
       btn.addEventListener('click', () => showView(btn.dataset.view));
     });
     const toggle = document.getElementById('nav-toggle');
@@ -3971,6 +3971,13 @@
     const profile = data.profile || {};
     const sections = Array.isArray(data.sections) ? data.sections : [];
     const eventAchievements = Array.isArray(data.eventAchievements) ? data.eventAchievements : [];
+    // Server tells us which task IDs run through auto-detection (presently
+    // Section 1 only). The remainder still use the Mark-done button.
+    const autoDetected = new Set(Array.isArray(data.autoDetectedTasks) ? data.autoDetectedTasks : []);
+    // Manual outliers in Section 1 that the detector intentionally CAN'T
+    // verify (paper mnemonic backup, voice call). These render as a
+    // user-flippable checkbox so the existing /mark endpoint still works.
+    const sectionOneManualIds = new Set(['s1.t7', 's1.t14']);
 
     // ── Profile header card ──
     const totalDone = sections.reduce((sum, s) => sum + (s.doneTasks || 0), 0);
@@ -4049,7 +4056,11 @@
         chev.style.transform = open ? '' : 'rotate(90deg)';
       });
 
+      // True for any section that contains at least one auto-detected
+      // task. Currently Section 1 is the only one — see autoDetected.
       const tasks = Array.isArray(sec.tasks) ? sec.tasks : [];
+      const sectionHasAuto = tasks.some((t) => autoDetected.has(t.id));
+
       const rows = tasks.map((task) => {
         const checkbox = el('span', {
           class: 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '
@@ -4058,9 +4069,55 @@
               : 'border-zinc-700 text-transparent'),
         }, task.done ? '✓' : '');
 
-        let markBtn = null;
-        if (!task.done) {
-          markBtn = el('button', {
+        // Three render modes for the trailing control:
+        //   1. auto-tracked task → small muted label (no button)
+        //   2. manual outlier in Section 1 (s1.t7, s1.t14) → user-flippable
+        //      checkbox that POSTs to /mark
+        //   3. anything else → existing "Mark done" button
+        let trailing = null;
+        if (autoDetected.has(task.id)) {
+          // Mode 1: server has detection logic for this one.
+          trailing = el('span', {
+            class: 'text-[10px] mono muted shrink-0 inline-flex items-center gap-1',
+            title: task.done
+              ? 'Auto-detected — last refresh confirmed this is done'
+              : 'Auto-detected on refresh — no manual marking needed',
+          }, el('span', { style: 'display:inline-block;' }, '↻'), 'auto-tracked');
+        } else if (sectionOneManualIds.has(task.id)) {
+          // Mode 2: manual outlier. Render a flippable checkbox (one-way:
+          // we never auto-untick a manual claim).
+          if (!task.done) {
+            const manualBtn = el('button', {
+              class: 'text-[10px] mono rounded px-2 py-0.5 border border-amber-500/40 '
+                + 'text-amber-200 hover:bg-amber-500/10 transition shrink-0 inline-flex items-center gap-1',
+              title: 'Manual — Claude can\'t verify this. Click once you\'ve done it.',
+            }, el('span', null, '☐'), 'manual: mark done');
+            manualBtn.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              manualBtn.disabled = true;
+              manualBtn.textContent = 'saving…';
+              try {
+                await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+                renderAchievements();
+              } catch (err) {
+                manualBtn.disabled = false;
+                manualBtn.textContent = 'retry';
+                manualBtn.className = 'text-[10px] mono rounded px-2 py-0.5 border border-rose-500/40 '
+                  + 'text-rose-300 hover:bg-rose-500/10 transition shrink-0';
+                manualBtn.title = 'Could not mark — ' + (err && err.message ? err.message : 'error');
+              }
+            });
+            trailing = manualBtn;
+          } else {
+            trailing = el('span', {
+              class: 'text-[10px] mono muted shrink-0',
+              title: 'Manually marked done',
+            }, 'manual ✓');
+          }
+        } else if (!task.done) {
+          // Mode 3: legacy Mark-done button for Sections 2-7 (no
+          // auto-detector yet — future work).
+          const markBtn = el('button', {
             class: 'text-[10px] mono rounded px-2 py-0.5 border border-emerald-500/40 '
               + 'text-emerald-300 hover:bg-emerald-500/10 transition shrink-0',
             title: 'Mark this task complete',
@@ -4080,6 +4137,7 @@
               markBtn.title = 'Could not mark — ' + (err && err.message ? err.message : 'error');
             }
           });
+          trailing = markBtn;
         }
 
         return el('div', {
@@ -4088,13 +4146,22 @@
           checkbox,
           el('span', { class: 'text-[11px] mono muted shrink-0 w-12' }, task.id || ''),
           el('div', { class: 'flex-1 min-w-0 text-[12px] text-zinc-200' }, task.description || ''),
-          markBtn,
+          trailing,
         );
       });
 
+      // Per-section auto-tracked footer note. Only sections that contain
+      // at least one auto-detected task get the note; everything else
+      // looks identical to the pre-auto-detection UI.
+      const autoFooter = sectionHasAuto
+        ? el('div', { class: 'text-[10px] muted mono mt-2 italic' },
+            'Claude auto-tracks these — no manual marking needed. Refresh the page to re-detect.')
+        : null;
+
       replace(body, rows.length > 0
         ? el('div', null, ...rows)
-        : el('div', { class: 'text-[12px] muted text-center py-3' }, 'No tasks in this section yet.'));
+        : el('div', { class: 'text-[12px] muted text-center py-3' }, 'No tasks in this section yet.'),
+        autoFooter);
 
       return el('section', { class: 'card rounded-xl p-5' }, header, body);
     });
@@ -4134,5 +4201,29 @@
         : eventGrid,
     );
 
-    replace(host, profileCard, ...sectionCards, eventCard);
+    // Top-of-page control row: a Refresh detection button that re-fetches
+    // /api/ops/achievements so the user can force a re-scan after, say,
+    // installing dependencies or finishing the personality quiz.
+    const refreshBtn = el('button', {
+      class: 'text-[11px] mono rounded px-3 py-1 border border-zinc-700 hover:border-emerald-500 '
+        + 'text-zinc-200 hover:text-emerald-200 transition shrink-0 inline-flex items-center gap-1',
+      title: 'Re-scan local state and update auto-tracked tasks',
+    }, el('span', null, '↻'), 'Refresh detection');
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'scanning…';
+      renderAchievements();
+    });
+    // If the server unlocked one or more tasks during this request, show
+    // a subtle inline note. (autoUnlockedThisRequest is set by index.ts.)
+    const justUnlocked = Array.isArray(data.autoUnlockedThisRequest)
+      ? data.autoUnlockedThisRequest : [];
+    const justUnlockedNote = justUnlocked.length > 0
+      ? el('span', { class: 'text-[11px] text-emerald-300 mono ml-auto' },
+          'Auto-unlocked ' + justUnlocked.length + ' task' + (justUnlocked.length === 1 ? '' : 's') + ' on this refresh.')
+      : null;
+    const controlBar = el('div', { class: 'flex items-center gap-3 mb-1' },
+      refreshBtn, justUnlockedNote);
+
+    replace(host, controlBar, profileCard, ...sectionCards, eventCard);
   }

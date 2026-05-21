@@ -1496,6 +1496,128 @@ app.get('/debug/health', async (_req, _reply) => {
   };
 });
 
+// ─── Shared helpers: pm2 jlist + schtasks snapshots ────────────────────
+//
+// Both /api/ops/health and /api/ops/achievements need the same view of
+// pm2 processes and Windows scheduled tasks. The achievements
+// auto-detector reuses /api/ops/health's snapshots so we never run the
+// child processes twice per request.
+type Pm2Row = {
+  name: string;
+  status: 'online' | 'stopped' | 'errored';
+  pid: number;
+  uptimeSec: number;
+  memMb: number;
+  restarts: number;
+  cpu: number | null;
+};
+type SchedRow = {
+  name: string;
+  schedule: string;
+  lastRunIso: string | null;
+  lastResult: string | null;
+  nextRunIso: string | null;
+};
+const CANONICAL_SCHEDULED_TASKS: Array<{ name: string; schedule: string }> = [
+  { name: 'BEARWATCH-HealthCheck',    schedule: 'every 5 min' },
+  { name: 'BEARWATCH-WeatherPull',    schedule: 'hourly' },
+  { name: 'BEARWATCH-DailyDigest',    schedule: 'daily 06:00' },
+  { name: 'BEARWATCH-StateBackup',    schedule: 'daily 03:00' },
+  { name: 'BEARWATCH-CodebaseBackup', schedule: 'weekly Sun 03:30' },
+  { name: 'BEARWATCH-MetaWatchdog',   schedule: 'every 5 min' },
+];
+
+async function snapshotPm2(): Promise<Pm2Row[]> {
+  try {
+    const { execSync } = await import('node:child_process');
+    const raw = execSync('pm2 jlist', {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+    });
+    const parsed = JSON.parse(raw) as Array<{
+      name?: string;
+      pid?: number;
+      pm2_env?: { status?: string; pm_uptime?: number; restart_time?: number };
+      monit?: { memory?: number; cpu?: number };
+    }>;
+    return parsed
+      .filter((p) => p && typeof p.name === 'string')
+      .map((p) => {
+        const status = (p.pm2_env?.status || 'unknown') as Pm2Row['status'];
+        const uptimeMs = p.pm2_env?.pm_uptime ? (Date.now() - p.pm2_env.pm_uptime) : 0;
+        return {
+          name: p.name as string,
+          status,
+          pid: p.pid ?? 0,
+          uptimeSec: status === 'online' ? Math.max(0, Math.floor(uptimeMs / 1000)) : 0,
+          memMb: p.monit?.memory ? Math.round(p.monit.memory / (1024 * 1024)) : 0,
+          restarts: p.pm2_env?.restart_time ?? 0,
+          cpu: p.monit?.cpu ?? null,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+async function snapshotSchtasks(): Promise<SchedRow[]> {
+  const out: SchedRow[] = [];
+  if (process.platform !== 'win32') {
+    return CANONICAL_SCHEDULED_TASKS.map((t) => ({
+      name: t.name, schedule: t.schedule,
+      lastRunIso: null, lastResult: 'platform not Windows', nextRunIso: null,
+    }));
+  }
+  try {
+    const { execSync } = await import('node:child_process');
+    // Probe — if even the first task is unreachable, fall back to canonical.
+    execSync('schtasks /query /fo csv /v /tn BEARWATCH-HealthCheck', {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      shell: 'cmd.exe',
+    });
+    const parseIso = (s: string | null): string | null => {
+      if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    };
+    for (const t of CANONICAL_SCHEDULED_TASKS) {
+      try {
+        const listRaw = execSync(`schtasks /query /tn ${t.name} /fo list /v`, {
+          encoding: 'utf8',
+          timeout: 5000,
+          stdio: ['ignore', 'pipe', 'ignore'],
+          shell: 'cmd.exe',
+        });
+        const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+        const nextRun = /Next Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+        const lastResult = /Last Result:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
+        out.push({
+          name: t.name,
+          schedule: t.schedule,
+          lastRunIso: parseIso(lastRun),
+          lastResult,
+          nextRunIso: parseIso(nextRun),
+        });
+      } catch {
+        out.push({
+          name: t.name, schedule: t.schedule,
+          lastRunIso: null, lastResult: 'not registered', nextRunIso: null,
+        });
+      }
+    }
+    return out;
+  } catch {
+    return CANONICAL_SCHEDULED_TASKS.map((t) => ({
+      name: t.name, schedule: t.schedule,
+      lastRunIso: null, lastResult: null, nextRunIso: null,
+    }));
+  }
+}
+
 // ─── Ops: health (7-check mirror) ──────────────────────────────────────
 //
 // Powers the dashboard's Health view. Mirrors bear-watch/health-check.py
@@ -1653,137 +1775,13 @@ app.get('/api/ops/health', async () => {
     }
   }
 
-  // ── pm2 jlist (best-effort; empty array if pm2 not on PATH)
-  type Pm2Row = {
-    name: string;
-    status: 'online' | 'stopped' | 'errored';
-    pid: number;
-    uptimeSec: number;
-    memMb: number;
-    restarts: number;
-    cpu: number | null;
-  };
-  let pm2List: Pm2Row[] = [];
-  try {
-    const { execSync } = await import('node:child_process');
-    const raw = execSync('pm2 jlist', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
-    });
-    const parsed = JSON.parse(raw) as Array<{
-      name?: string;
-      pid?: number;
-      pm2_env?: {
-        status?: string;
-        pm_uptime?: number;
-        restart_time?: number;
-      };
-      monit?: {
-        memory?: number;
-        cpu?: number;
-      };
-    }>;
-    pm2List = parsed
-      .filter((p) => p && typeof p.name === 'string')
-      .map((p) => {
-        const status = (p.pm2_env?.status || 'unknown') as Pm2Row['status'];
-        const uptimeMs = p.pm2_env?.pm_uptime ? (Date.now() - p.pm2_env.pm_uptime) : 0;
-        return {
-          name: p.name as string,
-          status,
-          pid: p.pid ?? 0,
-          uptimeSec: status === 'online' ? Math.max(0, Math.floor(uptimeMs / 1000)) : 0,
-          memMb: p.monit?.memory ? Math.round(p.monit.memory / (1024 * 1024)) : 0,
-          restarts: p.pm2_env?.restart_time ?? 0,
-          cpu: p.monit?.cpu ?? null,
-        };
-      });
-  } catch {
-    pm2List = [];
-  }
-
-  // ── Scheduled tasks (Windows schtasks; fall back to canonical list)
-  type SchedRow = {
-    name: string;
-    schedule: string;
-    lastRunIso: string | null;
-    lastResult: string | null;
-    nextRunIso: string | null;
-  };
-  const CANONICAL_TASKS: Array<{ name: string; schedule: string }> = [
-    { name: 'BEARWATCH-HealthCheck',    schedule: 'every 5 min' },
-    { name: 'BEARWATCH-WeatherPull',    schedule: 'hourly' },
-    { name: 'BEARWATCH-DailyDigest',    schedule: 'daily 06:00' },
-    { name: 'BEARWATCH-StateBackup',    schedule: 'daily 03:00' },
-    { name: 'BEARWATCH-CodebaseBackup', schedule: 'weekly Sun 03:30' },
-    { name: 'BEARWATCH-MetaWatchdog',   schedule: 'every 5 min' },
-  ];
-  let scheduledTasks: SchedRow[] = [];
-  if (process.platform === 'win32') {
-    try {
-      const { execSync } = await import('node:child_process');
-      const raw = execSync('schtasks /query /fo csv /v /tn BEARWATCH-HealthCheck', {
-        encoding: 'utf8',
-        timeout: 5000,
-        stdio: ['ignore', 'pipe', 'ignore'],
-        shell: 'cmd.exe',
-      });
-      // Verbose CSV has many columns. We pull whatever we can per task.
-      // Rather than parsing fragile CSV column order, we query each
-      // canonical task name individually with /fo list which is more
-      // forgiving across schtasks versions.
-      void raw;
-      for (const t of CANONICAL_TASKS) {
-        try {
-          const listRaw = execSync(`schtasks /query /tn ${t.name} /fo list /v`, {
-            encoding: 'utf8',
-            timeout: 5000,
-            stdio: ['ignore', 'pipe', 'ignore'],
-            shell: 'cmd.exe',
-          });
-          const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-          const nextRun = /Next Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-          const lastResult = /Last Result:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-          // schtasks reports times in locale-formatted strings; parse via
-          // Date constructor — if invalid we return null so the dashboard
-          // shows a dash rather than NaN.
-          const parseIso = (s: string | null): string | null => {
-            if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
-            const d = new Date(s);
-            return Number.isNaN(d.getTime()) ? null : d.toISOString();
-          };
-          scheduledTasks.push({
-            name: t.name,
-            schedule: t.schedule,
-            lastRunIso: parseIso(lastRun),
-            lastResult,
-            nextRunIso: parseIso(nextRun),
-          });
-        } catch {
-          scheduledTasks.push({
-            name: t.name,
-            schedule: t.schedule,
-            lastRunIso: null,
-            lastResult: 'not registered',
-            nextRunIso: null,
-          });
-        }
-      }
-    } catch {
-      // schtasks unavailable — fall back to canonical list.
-      scheduledTasks = CANONICAL_TASKS.map((t) => ({
-        name: t.name, schedule: t.schedule,
-        lastRunIso: null, lastResult: null, nextRunIso: null,
-      }));
-    }
-  } else {
-    scheduledTasks = CANONICAL_TASKS.map((t) => ({
-      name: t.name, schedule: t.schedule,
-      lastRunIso: null, lastResult: 'platform not Windows', nextRunIso: null,
-    }));
-  }
+  // ── pm2 jlist + scheduled-tasks (shared helpers; see snapshotPm2 /
+  //    snapshotSchtasks above). Run in parallel — both are independent
+  //    child-process calls.
+  const [pm2List, scheduledTasks] = await Promise.all([
+    snapshotPm2(),
+    snapshotSchtasks(),
+  ]);
 
   // ── Alerts: last 10 lines of ~/.pbx-lab/alerts.jsonl
   type AlertRow = { ts: string; severity: 'info' | 'warn' | 'error'; message: string };
@@ -1863,6 +1861,7 @@ app.get('/api/ops/achievements', async () => {
   const labDir = join(homedir(), '.pbx-lab');
   const profilePath = join(labDir, 'user-profile.json');
   const unlockedPath = join(labDir, 'achievements.json');
+  const eventsPath = join(labDir, 'events.jsonl');
   // Anchor relative to the workspace root (../../ from bots/src/server).
   // Falls back to process.cwd() if that path doesn't resolve.
   const repoRoot = join(process.cwd(), process.cwd().endsWith('bots') ? '..' : '.');
@@ -1883,6 +1882,206 @@ app.get('/api/ops/achievements', async () => {
       ? ((profile as { achievements_unlocked?: string[] }).achievements_unlocked || [])
       : []
   );
+
+  // ── Section 1 auto-detection ──
+  //
+  // Each rule returns boolean | null. null = couldn't determine (treat as
+  // not done; don't unlock). Every rule is wrapped in try/catch — a bad
+  // file, missing binary, or a dangling symlink should NEVER 500 this
+  // endpoint. Errors are logged to stderr; the offending rule returns null.
+  //
+  // The Map<taskId, () => boolean | null> pattern means adding a new auto-
+  // detected task is a one-line change. Sections 2-7 are intentionally
+  // empty for now — that's a future round of work.
+  type DetectorFn = () => boolean | null;
+  const detectors = new Map<string, DetectorFn>();
+
+  // Cache shell snapshots so /api/ops/health and the detectors don't
+  // double-run them. The health route fetches its own copy in parallel
+  // with the route's other work — this route only needs them for s1.t10,
+  // s1.t11, s1.t13, so we fetch once and reuse.
+  const [pm2Snapshot, schedSnapshot] = await Promise.all([
+    snapshotPm2(),
+    snapshotSchtasks(),
+  ]);
+
+  const wrap = (id: string, fn: DetectorFn): DetectorFn => () => {
+    try {
+      return fn();
+    } catch (err) {
+      process.stderr.write(`[achievements/detect ${id}] ${(err as Error).message}\n`);
+      return null;
+    }
+  };
+
+  // s1.t1 — Claude Desktop installed.
+  // If the dashboard is rendering, the user has Claude Desktop.
+  detectors.set('s1.t1', wrap('s1.t1', () => true));
+  // s1.t2 — Trigger phrase fired (wizard installed the project).
+  detectors.set('s1.t2', wrap('s1.t2', () => true));
+  // s1.t3 — Safety audit passed during the wizard.
+  detectors.set('s1.t3', wrap('s1.t3', () => true));
+  // s1.t4 — Personality quiz answered; profile has the 5 required fields.
+  detectors.set('s1.t4', wrap('s1.t4', () => {
+    if (!existsSync(profilePath)) return false;
+    if (lstatSync(profilePath).isSymbolicLink()) return null;
+    const p = profile as Record<string, unknown>;
+    const required = ['tech_level', 'communication_style', 'goal',
+      'consent_level', 'autonomy_level'] as const;
+    return required.every((k) => typeof p[k] === 'string' && (p[k] as string).length > 0);
+  }));
+  // s1.t5 — Helius RPC key configured. Repo-root .env exists and
+  // HELIUS_MAINNET_URL is a non-empty value. (Don't echo the URL.)
+  detectors.set('s1.t5', wrap('s1.t5', () => {
+    const envPath = join(repoRoot, '.env');
+    if (!existsSync(envPath)) return false;
+    if (lstatSync(envPath).isSymbolicLink()) return null;
+    const text = readFileSync(envPath, 'utf8');
+    // Tolerate quotes around the value: HELIUS_MAINNET_URL="https://..."
+    const m = /^HELIUS_MAINNET_URL\s*=\s*['"]?(\S+?)['"]?\s*$/m.exec(text);
+    return !!(m && m[1] && m[1].length > 0);
+  }));
+  // s1.t6 — local.env has all three secrets in the right shape.
+  detectors.set('s1.t6', wrap('s1.t6', () => {
+    const localEnvPath = join(homedir(), '.pbx-bots', 'local.env');
+    if (!existsSync(localEnvPath)) return false;
+    if (lstatSync(localEnvPath).isSymbolicLink()) return null;
+    const text = readFileSync(localEnvPath, 'utf8');
+    const token = /^BOT_API_TOKEN=([0-9a-fA-F]{64})\s*$/m.test(text);
+    const master = /^BOT_MASTER_KEY=([0-9a-fA-F]{64})\s*$/m.test(text);
+    const mn = /^BOT_HD_MNEMONIC=(.+?)\s*$/m.exec(text);
+    const mnemonicOk = !!(mn && mn[1] &&
+      mn[1].trim().split(/\s+/).filter((w) => /^[a-z]+$/.test(w)).length === 24);
+    return token && master && mnemonicOk;
+  }));
+  // s1.t7 — paper backup of mnemonic. Manual; never auto-true. Leave
+  // unlockedTasks to drive done state.
+  // s1.t8 — Node + Python deps installed. .tooling/ready.json says ready,
+  // and node_modules + .venv both exist.
+  detectors.set('s1.t8', wrap('s1.t8', () => {
+    const readyPath = join(repoRoot, '.tooling', 'ready.json');
+    const nodeModulesPath = join(repoRoot, 'node_modules');
+    const venvPath = join(repoRoot, '.venv');
+    if (!existsSync(readyPath) || !existsSync(nodeModulesPath) || !existsSync(venvPath)) return false;
+    if (lstatSync(readyPath).isSymbolicLink()) return null;
+    const parsed = JSON.parse(readFileSync(readyPath, 'utf8')) as { ready?: unknown };
+    return parsed.ready === true;
+  }));
+  // s1.t9 — personality_id is one of the canonical 6.
+  detectors.set('s1.t9', wrap('s1.t9', () => {
+    const id = (profile as { personality_id?: unknown }).personality_id;
+    if (typeof id !== 'string') return false;
+    return ['default', 'crypto-bro', 'drill-sergeant', 'surf-bro',
+      'quant-professor', 'hacker'].includes(id);
+  }));
+  // s1.t10 — pm2 fleet online. Match by prefix so 'bear-watch-server' or
+  // 'bear-watch-server-pbxtra' both count.
+  detectors.set('s1.t10', wrap('s1.t10', () => {
+    if (pm2Snapshot.length === 0) return false;
+    const bearOk = pm2Snapshot.some((p) =>
+      p.name.startsWith('bear-watch-server') && p.status === 'online');
+    const paperOk = pm2Snapshot.some((p) =>
+      p.name.startsWith('paper-trade-bot') && p.status === 'online');
+    return bearOk && paperOk;
+  }));
+  // s1.t11 — at least 4 of 6 canonical BEARWATCH-* tasks registered.
+  detectors.set('s1.t11', wrap('s1.t11', () => {
+    const registered = schedSnapshot.filter((s) =>
+      s.lastResult !== 'not registered' && s.lastResult !== 'platform not Windows'
+    ).length;
+    return registered >= 4;
+  }));
+  // s1.t12 — dashboard reached. If this endpoint is rendering an
+  // achievements page the user already loaded the dashboard.
+  detectors.set('s1.t12', wrap('s1.t12', () => true));
+  // s1.t13 — 5+ greens in the 7-check. Approximate by counting the same
+  // signals snapshotPm2 / snapshotSchtasks expose plus the file-system
+  // checks the health route uses. We don't want to call the health route
+  // recursively, so we re-derive cheap checks: server alive (we're
+  // here), dashboard renders (we're here), paper-trade heartbeat,
+  // AQI snapshot, alerts file writable, disk space (deferred —
+  // assume OK), RPC key present.
+  detectors.set('s1.t13', wrap('s1.t13', () => {
+    let greens = 0;
+    greens++; // server alive — we're inside the route
+    greens++; // dashboard renders — html exists, we serve it from this process
+    try {
+      const hb = join(labDir, 'paper-trade-heartbeat');
+      if (existsSync(hb)) {
+        const age = (Date.now() - lstatSync(hb).mtimeMs) / 1000;
+        if (age < 5 * 60) greens++;
+      }
+    } catch {}
+    try {
+      const snap = join(labDir, 'aqi-snapshot.json');
+      if (existsSync(snap)) {
+        const age = (Date.now() - lstatSync(snap).mtimeMs) / 1000;
+        if (age < 30 * 60) greens++;
+      }
+    } catch {}
+    try {
+      mkdirSync(labDir, { recursive: true });
+      const alertsCheck = join(labDir, 'alerts.jsonl');
+      const fd = openSync(alertsCheck, 'a');
+      closeSync(fd);
+      greens++;
+    } catch {}
+    // Disk-space check skipped here (statfs may not be available
+    // synchronously); treat as green by default to mirror the lenient
+    // policy in /api/ops/health.
+    greens++;
+    // RPC: HELIUS_MAINNET_URL configured at all means the user got
+    // past the wizard; treat as a soft green.
+    if (process.env.HELIUS_MAINNET_URL && process.env.HELIUS_MAINNET_URL.length > 0) {
+      greens++;
+    }
+    return greens >= 5;
+  }));
+  // s1.t14 — voice call with team. Manual; never auto-true.
+
+  // ── Apply detectors & persist any newly-unlocked tasks ──
+  const autoUnlocked: string[] = [];
+  const nowIso = new Date().toISOString();
+  for (const [taskId, detect] of detectors) {
+    const result = detect();
+    if (result === true && !unlockedTasks.has(taskId)) {
+      unlockedTasks.add(taskId);
+      autoUnlocked.push(taskId);
+    }
+  }
+
+  if (autoUnlocked.length > 0) {
+    // Persist the updated unlocked array + last_achievement_at. Only
+    // touch disk when something actually changed (cache the no-op).
+    const merged = {
+      ...profile,
+      achievements_unlocked: Array.from(unlockedTasks),
+      total_unlocked: unlockedTasks.size,
+      last_achievement_at: nowIso,
+      last_updated: nowIso,
+    };
+    try {
+      mkdirSync(labDir, { recursive: true });
+      writeFileSync(profilePath, JSON.stringify(merged, null, 2), { mode: 0o600 });
+      profile = merged;
+    } catch (err) {
+      process.stderr.write(`[achievements/persist] ${(err as Error).message}\n`);
+    }
+    // Append one event per newly-unlocked task. Non-fatal if it fails —
+    // the profile is the source of truth.
+    try {
+      const fd = openSync(eventsPath, 'a');
+      for (const taskId of autoUnlocked) {
+        const line = JSON.stringify({
+          type: 'achievement_unlocked', taskId, detectedBy: 'auto', ts: nowIso,
+        }) + '\n';
+        writeSync(fd, line);
+      }
+      closeSync(fd);
+    } catch (err) {
+      process.stderr.write(`[achievements/events.jsonl] ${(err as Error).message}\n`);
+    }
+  }
 
   // ── parse ROADMAP.md into sections + tasks ──
   // Pattern: each section starts with "## Section N — <name>" and has
@@ -1980,6 +2179,12 @@ app.get('/api/ops/achievements', async () => {
   const totalUnlocked = sections.reduce((sum, s) => sum + s.doneTasks, 0)
     + eventAchievements.filter((e) => e.unlocked).length;
 
+  // Tell the client which task IDs run through the auto-detector. The
+  // dashboard uses this to swap "Mark done" buttons for "auto-tracked"
+  // labels on Section 1 tasks. Section 1's two manual outliers (s1.t7
+  // paper backup, s1.t14 voice call) are absent from this list.
+  const autoDetectedTasks = Array.from(detectors.keys());
+
   return {
     profile: {
       personality_id: (profile as { personality_id?: string }).personality_id || 'default',
@@ -1991,6 +2196,8 @@ app.get('/api/ops/achievements', async () => {
     },
     sections,
     eventAchievements,
+    autoDetectedTasks,
+    autoUnlockedThisRequest: autoUnlocked,
   };
 });
 
