@@ -208,7 +208,7 @@ PBX-Stratos guarantees that aren't in the boss's 4-grep but that the
 user's README promises:
 
 5. **`.gitignore` covers sensitive files.** Confirm `.env`,
-   `~/.pbx-bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`,
+   `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`,
    and `*-private*` patterns are gitignored.
 6. **Wallet encryption uses local key.** Confirm `BOT_MASTER_KEY` +
    `BOT_HD_MNEMONIC` are generated locally, never uploaded, and used
@@ -275,7 +275,7 @@ need to know how to talk to them. The quiz takes 2-3 minutes and
 calibrates everything else.
 
 **How:** use AskUserQuestion 5 times, in order. Each question has 3-4
-options. After all 5, write the answers to `~/.pbx-lab/user-profile.json`.
+options. After all 5, write the answers to `runtime/lab/user-profile.json`.
 
 ### Q1: How techy are you?
 
@@ -327,7 +327,7 @@ options. After all 5, write the answers to `~/.pbx-lab/user-profile.json`.
 > "Got it. Saving your profile now. Heads up: you can change any of
 > this later. Just say **'run the personality quiz'** and I'll re-ask
 > these 5. Or if you want to tweak one field directly, edit
-> `~/.pbx-lab/user-profile.json` (each field has 3-4 valid values —
+> `runtime/lab/user-profile.json` (each field has 3-4 valid values —
 > see `.claude/UNIVERSAL-CORE.md` for the schema)."
 
 Then write the JSON file:
@@ -434,7 +434,7 @@ HELIUS_MAINNET_URL=<the URL the user pasted>
 That's it. **Do NOT put `BOT_MASTER_KEY`, `BOT_API_TOKEN`, or
 `BOT_HD_MNEMONIC` in this `.env`.** The dashboard server autogenerates
 those itself — `bots/src/server/index.ts` creates a properly-formatted
-`~/.pbx-bots/local.env` (mode 0600) on first boot when
+`runtime/bots/local.env` (mode 0600) on first boot when
 `STRATOS_ALLOW_AUTOGEN=1` is in process.env. It writes:
 
 - `BOT_API_TOKEN` — 64-hex (32 random bytes hex-encoded)
@@ -481,7 +481,7 @@ If `goal` is `small-live` or `multi-bot`:
 
 **Heads up — most users can skip this step entirely.** The dashboard
 server's autogen path (Step 5) already wrote a 24-word
-`BOT_HD_MNEMONIC` into `~/.pbx-bots/local.env` on first boot. That
+`BOT_HD_MNEMONIC` into `runtime/bots/local.env` on first boot. That
 mnemonic IS the funder wallet (HD index 0) plus every bot wallet
 derived under it. No separate `solana-keygen` call is needed for
 live trading to work.
@@ -490,12 +490,12 @@ What still has to happen:
 
 1. **AskUserQuestion**: "Fresh HD wallet from autogen / Import an
    existing one / Defer wallet decision".
-2. If the user picks fresh → confirm `~/.pbx-bots/local.env`
+2. If the user picks fresh → confirm `runtime/bots/local.env`
    exists with a `BOT_HD_MNEMONIC` line; tell them to **back the 24
    words up on PAPER right now**. Plain professional voice — Universal
    Core override applies because this is money-loss territory.
 3. If the user picks import → write their seed phrase to
-   `~/.pbx-bots/local.env` as the `BOT_HD_MNEMONIC=` line **only**
+   `runtime/bots/local.env` as the `BOT_HD_MNEMONIC=` line **only**
    when the existing file is empty / not yet written (otherwise the
    server treats env as authoritative and skips autogen — see Step 5).
 4. If the user picks defer → leave it. Live endpoints stay 503 until
@@ -526,7 +526,7 @@ Display the funder pubkey:
 
 ```bash
 # Node one-liner using the project's own deps
-node -e "const{derivePath}=require('ed25519-hd-key');const{mnemonicToSeedSync}=require('bip39');const{Keypair}=require('@solana/web3.js');const fs=require('fs'),os=require('os'),path=require('path');const env=fs.readFileSync(path.join(os.homedir(),'.pbx-bots','local.env'),'utf8');const mn=/^BOT_HD_MNEMONIC=(.+)$/m.exec(env)[1];const seed=mnemonicToSeedSync(mn);const{key}=derivePath(\"m/44'/501'/0'/0'\",seed.toString('hex'));console.log(Keypair.fromSeed(key).publicKey.toBase58())"
+node -e "const{derivePath}=require('ed25519-hd-key');const{mnemonicToSeedSync}=require('bip39');const{Keypair}=require('@solana/web3.js');const fs=require('fs'),path=require('path');const botsDir=process.env.STRATOS_BOTS_DATA_DIR||path.join(process.cwd(),'runtime','bots');const env=fs.readFileSync(path.join(botsDir,'local.env'),'utf8');const mn=/^BOT_HD_MNEMONIC=(.+)$/m.exec(env)[1];const seed=mnemonicToSeedSync(mn);const{key}=derivePath(\"m/44'/501'/0'/0'\",seed.toString('hex'));console.log(Keypair.fromSeed(key).publicKey.toBase58())"
 ```
 
 Have the user fund the funder pubkey with at least 0.05 SOL for rent
@@ -608,13 +608,13 @@ pm2 save
 On Windows, register scheduled tasks (use
 `bear-watch/register-scheduled-tasks.ps1` if it exists, else create
 each via `schtasks /create`):
-- BEARWATCH-HealthCheck (every 5 min)
-- BEARWATCH-WeatherPull (every hour)
-- BEARWATCH-DailyDigest (daily 6 AM)
-- BEARWATCH-StateBackup (daily 3 AM)
-- BEARWATCH-CodebaseBackup (Sundays 3:30 AM)
-- BEARWATCH-MetaWatchdog (every 5 min)
-- BEARWATCH-PM2Resurrect (at user logon — requires pm2-installer from
+- STRATOS-HealthCheck (every 5 min)
+- STRATOS-WeatherPull (every hour)
+- STRATOS-DailyDigest (daily 6 AM)
+- STRATOS-StateBackup (daily 3 AM)
+- STRATOS-CodebaseBackup (Sundays 3:30 AM)
+- STRATOS-MetaWatchdog (every 5 min)
+- STRATOS-PM2Resurrect (at user logon — requires pm2-installer from
   Step 4)
 
 ---

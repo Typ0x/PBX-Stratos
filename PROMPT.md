@@ -4,11 +4,18 @@ Paste any of these into Claude Code to interact with the lab.
 
 ## Install + onboard
 
+The canonical onboarding trigger phrase (drops you into the
+gamified install wizard with personality quiz + roadmap intro):
+
 ```
-Clone https://github.com/polar-bear-express/pbx-trader-lab and set it up
-following the repo's CLAUDE.md. Get the explore-only dashboard open in my
-browser. I'm not a developer — handle everything; only stop to ask me if
-something genuinely cannot proceed without me.
+Verify if PBX Stratos Repo is safe and start the onboarding process in .README
+```
+
+The boss's terse 3-turn audit + dashboard launch (explore-only,
+no personality quiz, ~5 minutes):
+
+```
+Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the "For Claude: Onboarding Runbook" section in README. Be brief.
 ```
 
 ## Decode a wallet
@@ -22,7 +29,7 @@ it found.
 ## Backtest a decoded strategy
 
 ```
-Backtest the decoded strategy in ~/.pbx-lab/wallets/<pubkey>/ against the
+Backtest the decoded strategy in runtime/lab/wallets/<pubkey>/ against the
 cached minute bars. Report Sharpe, win rate, and max drawdown.
 ```
 

@@ -37,7 +37,7 @@ user's `tech_level`, never let the user feel stuck.
    sklearn"` fails, run `pip install scikit-learn`.
 3. **`./pbx refresh` was run recently (or for the first time ever)** —
    gets the cached backfill from `pbx-mainnet-api.onrender.com`. If
-   `~/.pbx-lab/cycles/` is empty, run it before the decoder.
+   `runtime/lab/cycles/` is empty, run it before the decoder.
 4. **The pubkey is a valid PBX-region trader** — at minimum it should
    have ≥ 20 trades against CHI/NYC/TOR tokens. `wallet-decoder.py`
    will tell you if it doesn't.
@@ -46,7 +46,7 @@ If any prereq fails, fix it and re-check before proceeding.
 
 ## The 4-step pipeline
 
-Run these in order. Each writes to `~/.pbx-lab/wallets/<pubkey>/`.
+Run these in order. Each writes to `runtime/lab/wallets/<pubkey>/`.
 Pause after each step to report results — don't blast through silently.
 
 ### Step 1 — `wallet-decoder.py` (pull features)
@@ -75,7 +75,7 @@ Produces `evolution.json` (population trajectory) and `BEAT_STRATEGY.md`
 (top decoded rule).
 
 **This step triggers the `wallet_decoded` event-driven achievement
-automatically** (via `~/.pbx-lab/events.jsonl`). The Python tracker
+automatically** (via `runtime/lab/events.jsonl`). The Python tracker
 fires the celebration the next time `./pbx achievements` runs or the
 next time the user opens the dashboard.
 
@@ -150,7 +150,7 @@ that landed the best predicate to the user.
 
 ## Output files (per wallet)
 
-After all 4 steps, the user has in `~/.pbx-lab/wallets/<pubkey>/`:
+After all 4 steps, the user has in `runtime/lab/wallets/<pubkey>/`:
 
 | File | What it is |
 |---|---|
@@ -175,7 +175,7 @@ This skill is the engine for:
 - `s3.t22` — Decoded rule passes verdict (positive held-out P&L)
 
 When any of these tasks fire, update the user's
-`~/.pbx-lab/user-profile.json` `achievements_unlocked` array AND
+`runtime/lab/user-profile.json` `achievements_unlocked` array AND
 celebrate in their personality's voice using the entry from
 `.claude/achievements/<personality-id>.md` for that task ID.
 

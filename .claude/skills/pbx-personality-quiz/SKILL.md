@@ -1,11 +1,11 @@
 ---
 name: pbx-personality-quiz
-description: Use when the user says ANY of "run the personality quiz", "retake the personality quiz", "redo the quiz", "I want to update my personality settings", "recalibrate my Claude", "change how Claude talks to me", or asks to update any single field in their user profile (tech_level / communication_style / goal / consent_level / autonomy_level). Re-runs the 5-question intake from the original PBX Stratos setup wizard without going through the full install. Writes the updated answers to `~/.pbx-lab/user-profile.json` and confirms what changed.
+description: Use when the user says ANY of "run the personality quiz", "retake the personality quiz", "redo the quiz", "I want to update my personality settings", "recalibrate my Claude", "change how Claude talks to me", or asks to update any single field in their user profile (tech_level / communication_style / goal / consent_level / autonomy_level). Re-runs the 5-question intake from the original PBX Stratos setup wizard without going through the full install. Writes the updated answers to `runtime/lab/user-profile.json` and confirms what changed.
 ---
 
 # PBX Stratos — Personality Quiz (standalone)
 
-You're helping the user update their `~/.pbx-lab/user-profile.json`
+You're helping the user update their `runtime/lab/user-profile.json`
 without re-running the full setup wizard. This is a focused skill — it
 only touches the 5 personality-quiz fields, never the personality_id,
 theme_id, achievements_unlocked, or roadmap_level.
@@ -34,7 +34,7 @@ communication_style to brief"):
 
 1. Confirm what they want via AskUserQuestion with the valid options
    for that field
-2. Update the field in `~/.pbx-lab/user-profile.json`
+2. Update the field in `runtime/lab/user-profile.json`
 3. Update `last_updated` to now
 4. Confirm in your current active personality voice: "Updated. Your
    communication_style is now `brief`. I'll adjust accordingly."
@@ -43,7 +43,7 @@ communication_style to brief"):
 
 If the user wants all 5 questions again:
 
-1. Read current `~/.pbx-lab/user-profile.json` so you can show "your
+1. Read current `runtime/lab/user-profile.json` so you can show "your
    current answer is X" alongside each question
 2. Ask each of the 5 questions via AskUserQuestion, in order. The
    questions + options are documented in
