@@ -292,3 +292,61 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
 .shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(107, 68, 35, 0.25) !important; }
 .shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(107, 68, 35, 0.25) !important; }
 .shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(107, 68, 35, 0.25) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with academia-specific scholarly motifs:
+ * a Sigma (summation) symbol, an integral sign, and a stylized
+ * open-book silhouette. Peak opacity 0.08 — academia is the only
+ * LIGHT theme, so dark-brown ink at low opacity reads well against
+ * cream paper; pushing higher would feel like ink stains. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: Sigma — uppercase summation, serif. */
+.motif-v1 {
+  width: 22px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'><text x='11' y='19' font-family='Georgia,Times,serif' font-size='22' font-weight='600' fill='%236b4423' text-anchor='middle'>Σ</text></svg>");
+}
+
+/* v2: integral — long curved S, the elegant calculus symbol. */
+.motif-v2 {
+  width: 16px;
+  height: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 28'><text x='8' y='24' font-family='Georgia,Times,serif' font-size='28' fill='%236b4423' text-anchor='middle'>∫</text></svg>");
+}
+
+/* v3: open book — two-page silhouette in line-art. */
+.motif-v3 {
+  width: 32px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 22'><path d='M 2 4 L 15 6 L 15 20 L 2 18 Z' fill='none' stroke='%236b4423' stroke-width='1.3' stroke-linejoin='round'/><path d='M 17 6 L 30 4 L 30 18 L 17 20 Z' fill='none' stroke='%236b4423' stroke-width='1.3' stroke-linejoin='round'/><line x1='15' y1='6' x2='17' y2='6' stroke='%236b4423' stroke-width='1.3'/><line x1='15' y1='20' x2='17' y2='20' stroke='%236b4423' stroke-width='1.3'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.08; }
+  78%  { opacity: 0.08; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.04; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

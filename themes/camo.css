@@ -249,3 +249,60 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
 .shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(143, 168, 64, 0.30) !important; }
 .shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(143, 168, 64, 0.30) !important; }
 .shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(143, 168, 64, 0.30) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with camo-specific tactical motifs: a
+ * compass rose, stacked chevron stripes (rank insignia), and a
+ * hexagonal tactical tile with center dot. Peak opacity 0.12 —
+ * camo is restrained by design, no flashy peaks. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: compass rose — vertical + horizontal lines with arrow tip + center dot. */
+.motif-v1 {
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><line x1='12' y1='2' x2='12' y2='22' stroke='%238fa840' stroke-width='1.4'/><line x1='2' y1='12' x2='22' y2='12' stroke='%238fa840' stroke-width='1.4'/><polygon points='12,1 15,8 12,6 9,8' fill='%238fa840'/><circle cx='12' cy='12' r='2' fill='%238fa840'/></svg>");
+}
+
+/* v2: chevron stripes — three stacked Vs, rank-insignia shape. */
+.motif-v2 {
+  width: 26px;
+  height: 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 18'><polyline points='2,5 13,1 24,5' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/><polyline points='2,10 13,6 24,10' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/><polyline points='2,15 13,11 24,15' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/></svg>");
+}
+
+/* v3: hexagonal tactical tile — outlined hex with center dot. */
+.motif-v3 {
+  width: 22px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'><polygon points='11,2 20,7 20,17 11,22 2,17 2,7' fill='none' stroke='%238fa840' stroke-width='1.5'/><circle cx='11' cy='12' r='1.6' fill='%238fa840'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.12; }
+  78%  { opacity: 0.12; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.05; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

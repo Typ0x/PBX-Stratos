@@ -4323,12 +4323,14 @@
     layer.className = 'motif-layer';
     layer.setAttribute('aria-hidden', 'true');
 
-    // 48 elements total (16 of each type) — enough density that
-    // ~12 are visibly peaking at any given moment with the 25%-duty
-    // opacity envelope. With negative-delay seeding (below) the
-    // bottom of the visibility distribution rarely drops under 8,
-    // which is the user-requested minimum.
-    const counts = { bitcoin: 16, chart: 16, lambo: 16 };
+    // 48 elements total — 16 of each VARIANT. The variants are
+    // generic (v1 / v2 / v3) so each theme can define its own three
+    // motif shapes via .motif-v1, .motif-v2, .motif-v3 selectors
+    // without the JS needing per-theme knowledge. With the 25%-duty
+    // opacity envelope, ~12 are visibly peaking at any given moment.
+    // Negative-delay seeding (below) keeps the visibility floor
+    // around 8 — the user-requested minimum.
+    const counts = { v1: 16, v2: 16, v3: 16 };
     for (const type in counts) {
       for (let i = 0; i < counts[type]; i++) {
         const span = document.createElement('span');

@@ -288,3 +288,61 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
 .shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(0, 255, 102, 0.35) !important; }
 .shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(0, 255, 102, 0.35) !important; }
 .shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(0, 255, 102, 0.35) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with matrix-specific shapes: a single
+ * katakana glyph (Matrix-rain style), a tight binary digit pair,
+ * and a terminal block-cursor. Peak opacity is 0.12 — slightly
+ * below lambo's 0.14 because phosphor-on-pure-black has more
+ * inherent contrast than gold-on-matte. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: katakana glyph — single half-width kana, classic Matrix rain. */
+.motif-v1 {
+  width: 18px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 22'><text x='9' y='17' font-family='Consolas,Menlo,monospace' font-size='18' font-weight='700' fill='%2300ff66' text-anchor='middle'>タ</text></svg>");
+}
+
+/* v2: binary pair — tight "01" cluster, mono font. */
+.motif-v2 {
+  width: 28px;
+  height: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 16'><text x='0' y='13' font-family='Consolas,Menlo,monospace' font-size='13' font-weight='700' fill='%2300ff66'>01</text></svg>");
+}
+
+/* v3: terminal block-cursor — solid phosphor rectangle. */
+.motif-v3 {
+  width: 12px;
+  height: 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'><rect x='1' y='1' width='10' height='16' fill='%2300ff66'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.12; }
+  78%  { opacity: 0.12; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.05; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

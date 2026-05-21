@@ -335,7 +335,7 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   left: var(--mx, 50vw);
   top:  var(--my, 50vh);
   opacity: 0;
-  animation: lambo-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
   /* Both opacity and transform animate per-element, so hint the
    * compositor on both. Each motif is small + fixed-positioned, so
    * promoting them to their own layers is cheap. */
@@ -344,45 +344,46 @@ span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
   background-position: center;
 }
 
-/* ── Bitcoin coin — gold circle with ₿ glyph inside ──────────────── */
-/* Gold disc + dark ₿ symbol = recognizable bitcoin badge at small
- * sizes. Outer circle stays solid gold; inner ₿ uses near-black so
- * the symbol reads against the gold even at 7% opacity. */
-.motif-bitcoin {
+/* ── v1: Bitcoin coin — gold disc with ₿ glyph inside ────────────── *
+ * Gold disc + dark ₿ symbol = recognizable bitcoin badge at small
+ * sizes. Outer circle solid gold; inner ₿ uses near-black so the
+ * symbol reads against the gold even at the peak opacity. */
+.motif-v1 {
   width: 22px;
   height: 22px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='%23d4af37'/><text x='11' y='16.5' font-family='Arial,system-ui,sans-serif' font-size='15' font-weight='900' fill='%231a1a1a' text-anchor='middle'>₿</text></svg>");
 }
 
-/* ── Chart-up — small upward polyline with terminus dot ──────────── */
-.motif-chart {
+/* ── v2: Chart-up — small upward polyline with terminus dot ──────── */
+.motif-v2 {
   width: 64px;
   height: 28px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'><polyline points='2,24 16,20 30,14 46,7 60,2' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='60' cy='2' r='2' fill='%23d4af37'/></svg>");
 }
 
-/* ── Lambo — low-slung supercar silhouette in gold ───────────────── *
+/* ── v3: Lambo — low-slung supercar silhouette ───────────────────── *
  * Profile of an Aventador-style supercar: pointed nose, steep
  * windshield rake, compact cockpit (darker gold), two visible
  * wheels. Solid gold body so it reads even at the 14%-peak opacity
  * the twinkle keyframe enforces. */
-.motif-lambo {
+.motif-v3 {
   width: 56px;
   height: 22px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 22'><path d='M 3 17 L 6 12 L 13 11 L 18 7 L 36 7 L 43 11 L 52 12 L 54 17 Z' fill='%23d4af37'/><path d='M 19 8 L 23 5 L 33 5 L 37 8 Z' fill='%23a08828'/><circle cx='13' cy='18' r='3' fill='%231a1a1a'/><circle cx='13' cy='18' r='1.2' fill='%23d4af37'/><circle cx='43' cy='18' r='3' fill='%231a1a1a'/><circle cx='43' cy='18' r='1.2' fill='%23d4af37'/></svg>");
 }
 
-/* ── Twinkle keyframes ────────────────────────────────────────────── *
+/* ── Twinkle keyframes (shared selector — each theme defines its own
+ *    motif-twinkle with its own peak opacity). ────────────────────── *
  * Opacity drives the visibility envelope (invisible 60% of cycle,
  * sharp rise, brief peak, slow decay). Transform drifts continuously
  * from translate(0,0) at cycle start to translate(--dx, --dy) at
  * cycle end — set per element by the JS injector with a random
- * direction + 18-38px magnitude. Because the visible window is only
- * 25% of the cycle (60%-95%), the user only sees ~5-10px of motion
- * per element while it's lit. The loop restart's jump back to (0,0)
- * happens while opacity is 0 → invisible to the eye.
+ * direction + 18-38px magnitude. Visible window is only 25% of the
+ * cycle (60%-95%), so the user sees ~5-10px of motion per element
+ * while it's lit. The loop restart's jump back to (0,0) happens
+ * while opacity is 0 → invisible to the eye.
  */
-@keyframes lambo-twinkle {
+@keyframes motif-twinkle {
   0%   { opacity: 0; transform: translate(0, 0); }
   60%  { opacity: 0; }
   70%  { opacity: 0.14; }
