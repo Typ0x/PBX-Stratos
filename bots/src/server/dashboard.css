@@ -408,3 +408,80 @@
     padding: 2px 6px; border-radius: 5px;
   }
   .evo-drawer-close:hover { color: #f1f5f9; background: #27272a; }
+
+  /* ── First-time onboarding overlay ─────────────────────────────────── */
+  /* Custom backdrop — lighter than .modal-bg's 85%/blur-8 because the
+     whole point of the panel-tour steps is to SEE the panel being
+     highlighted through the dim. 55% dim + 2px blur is enough to push
+     focus to the modal card while still showing the highlighted panel
+     glowing emerald underneath. */
+  .onboard-backdrop {
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+  }
+  /* Pulse highlight on a panel the current tour step is pointing at.
+     The backdrop sits at z-50; the highlight needs z-index ABOVE that
+     (z-55) AND its own stacking context (position: relative + the
+     z-index) so the outline + glow punch through the dim. The modal
+     card sits at z-60 so it always reads as foremost. The pulse
+     animates the outer box-shadow only — leaves the panel's own
+     internal styles untouched. */
+  @keyframes onboard-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(16,185,129,0.35), 0 0 32px 4px rgba(16,185,129,0.20); }
+    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0.60), 0 0 48px 8px rgba(16,185,129,0.35); }
+  }
+  .onboard-highlight {
+    position: relative;
+    z-index: 55 !important;
+    border-radius: 8px;
+    outline: 2px solid rgba(52,211,153,0.95);
+    outline-offset: 2px;
+    animation: onboard-pulse 1.8s ease-in-out infinite;
+    transition: outline 0.2s ease;
+    /* Punch above the dim backdrop so highlighted panels actually show. */
+    isolation: isolate;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .onboard-highlight { animation: none; }
+  }
+
+  /* Step dots in the modal header. */
+  .onboard-dot {
+    width: 8px; height: 8px; border-radius: 9999px;
+    background: #3f3f46;
+    transition: background 120ms, transform 120ms;
+  }
+  .onboard-dot.done    { background: #a1a1aa; }
+  .onboard-dot.current { background: #10b981; transform: scale(1.35); }
+
+  /* Amber warning block — matches the mnemonic-step risk callout
+     pattern used elsewhere in the dashboard. */
+  .onboard-warn {
+    border: 1px solid rgba(245, 158, 11, 0.30);
+    background: rgba(245, 158, 11, 0.05);
+    color: #fde68a;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .onboard-warn strong { color: #fef3c7; }
+
+  /* Live-data inline pill, e.g. health-check rows rendered into the
+     modal body. */
+  .onboard-livecheck {
+    background: #0a0d13;
+    border: 1px solid #232a36;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 11.5px;
+  }
+  .onboard-livecheck .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 3px 0;
+  }
+  .onboard-livecheck .row + .row { border-top: 1px solid rgba(35,42,54,0.5); }
+  .onboard-livecheck .ok  { color: #34d399; }
+  .onboard-livecheck .bad { color: #fb7185; }
+  .onboard-livecheck .pending { color: #94a3b8; }

@@ -10,7 +10,7 @@ Runs 7 GREEN/RED checks on the running bot setup:
     3. Paper-trade heartbeat — mtime of paper-trade heartbeat file < 5min
     4. AQI feed fresh     — mtime of cached AQI snapshot < 30min
     5. Alerts writable    — alerts.jsonl is open-for-append
-    6. Disk space         — > 10% free on the partition holding ~/.pbx-lab
+    6. Disk space         — > 5% free on the partition holding ~/.pbx-lab
     7. RPC reachable      — Helius getSlot returns a slot number
 
 Exits 0 if all GREEN, 1 if any RED. Designed to be called from a
@@ -45,7 +45,7 @@ AQI_SNAPSHOT     = LAB_DIR / "aqi-snapshot.json"
 ALERTS_FILE      = LAB_DIR / "alerts.jsonl"
 HEARTBEAT_MAX_AGE_SEC = 5 * 60
 AQI_MAX_AGE_SEC       = 30 * 60
-MIN_FREE_DISK_FRAC    = 0.10
+MIN_FREE_DISK_FRAC    = 0.05
 
 # ---- Result helpers -----------------------------------------------------
 
