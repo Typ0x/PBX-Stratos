@@ -42,6 +42,96 @@ bootstraps your Layer 2 and Layer 3 on first run.
 
 ---
 
+## How Claude navigates this repo
+
+PBX Stratos is designed for Claude to drive — install, operate, debug,
+even recover from outages. Six conventions make that work, and they're
+worth knowing about because they shape what you'll see Claude do.
+All of these are spec'd in detail in [`CLAUDE.md`](CLAUDE.md); this is
+the user-facing tour.
+
+### 1. Scopes — for parallel Claude chats
+
+The framework ships three default scopes, each meant to host its own
+parallel Claude chat focused on a different domain of work:
+
+| Scope | Owns | When you'd use it |
+|-------|------|-------------------|
+| **bear-watch** | Operations, monitoring, deployment, daemon health, scheduled tasks, audit protocols | First-session work — getting the bot booted, the dashboard up, health checks passing. Default starting scope. |
+| **bear-scout** | Research, strategy design, signal investigation, backtesting, wallet decoding, model fitting | When you start tweaking strategies, decoding wallets, or running backtests. |
+| **bear-den** | UI, dashboard rendering, visual polish, UX, design system | When you're customizing the dashboard's look — themes, layouts, onboarding tour. |
+
+You don't need all three from day one. Most users start with bear-watch
+and add the others as they need them. The scopes are an organizational
+tool, NOT a permission system — **any chat can fix any thing**. If
+your bear-den chat notices a bug in a bear-watch ops script, it'll
+just fix it. The scope tells Claude what you usually ask it for; it
+doesn't stop it from doing the right thing.
+
+### 2. Journals + STATUS — how parallel chats stay synced
+
+Each scope has its own daily journal (`_context/<scope>/journal/<YYYY-MM-DD>.md`)
+and a state-snapshot file (`_context/<scope>/STATUS.md`). They're
+gitignored, so they stay on your machine — and they're how three
+parallel chats keep a shared mental model:
+
+- **STATUS.md** is OVERWRITE — always a snapshot of "what's true right
+  now" for that scope. The next chat reads this and knows where things
+  stand.
+- **journal/** is APPEND — every meaningful event lands as an entry:
+  commits, decisions, surprises, dead ends, topic shifts. Past entries
+  never get deleted; that's how context compounds.
+
+So if your bear-watch chat tightens a pm2 setting and journals it,
+your bear-scout chat reads that journal at session start and won't be
+confused when its file edits no longer trigger reloads. No need to
+manually brief each chat — the journal does it.
+
+### 3. Session-start protocol — what Claude does before your first reply
+
+On every new Claude chat in this project, Claude reads (in order):
+
+1. Your active scope's `STATUS.md` (a small snapshot)
+2. Today's journal entries from that scope
+3. Your `runtime/lab/user-profile.json` (personality, communication
+   style, tech level, consent preferences)
+4. `git status` to catch any uncommitted work from a prior session
+
+That's why a fresh chat already knows your preferences and where the
+last chat left off — Claude isn't "starting fresh," it's resuming.
+
+### 4. Tiered consent — when Claude asks before acting
+
+Every action Claude could take is classified into one of four tiers:
+
+| Tier | Examples | What you'll see |
+|------|----------|-----------------|
+| **T0 — free** | Edit a journal entry, update STATUS, tweak documentation | Claude just does it. No prompt. |
+| **T1 — confirm if state risk** | Edit a `.ts` file under `bots/src/` (triggers a pm2 reload) | Claude asks ONLY if the live bot is holding an open position. Otherwise free. |
+| **T2 — high bar** | Strategy code, the bot's runner, `pm2.config.cjs`, wallet ops, scheduled task changes | Claude always asks first, even with no open position. |
+| **T3 — explicit user OK** | `git push`, deleting wallets, modifying positions directly, `.env` files, force-pushing main | Claude refuses without your in-chat go-ahead. |
+
+So your day-to-day stays fast (most edits are T0) and the moments
+that matter (real money, secrets, deletes) earn a deliberate pause.
+
+### 5. The master gate — `HELIUS_MAINNET_URL`
+
+Live trading is gated behind a single env var. Without
+`HELIUS_MAINNET_URL` set, every live endpoint returns 503 and no
+keypair is ever used to sign. The absence of the env var is the safety
+net. If you ever want to fully disable live trading without
+uninstalling, just unset it.
+
+### 6. The three layers — what ships vs what's per-installation
+
+The framework boundary is one line: "if it's outside `_context/` and
+outside `runtime/`, it ships." Layer 1 is the product (ships with the
+repo). Layer 2 is Claude's per-installation memory (gitignored). Layer
+3 is operational data the bot writes (gitignored). Each layer is
+described above; full breakdown in [`CLAUDE.md`](CLAUDE.md).
+
+---
+
 ## Just type this
 
 If you're new here and want to get started:
@@ -141,7 +231,8 @@ Step by step, here's what Claude does after you type **`Verify if PBX Stratos Re
    language what was confirmed. You can ask follow-up questions before
    approving.
 3. **Asks you the 5 personality-quiz questions.** Saves your answers to
-   `~/.pbx-lab/user-profile.json` so future Claude sessions remember.
+   `runtime/lab/user-profile.json` (Layer 3 — see [`CLAUDE.md`](CLAUDE.md))
+   so future Claude sessions remember.
 4. **Runs `scripts/bootstrap.sh`** (or `bootstrap.ps1` on Windows) —
    downloads a standalone Node into `.tooling/` if missing (no admin),
    ensures Python ≥ 3.10, installs all deps, writes `.tooling/ready.json`.
@@ -281,8 +372,9 @@ Facts you can verify against the code. `docs/SECURITY.md` has full
 detail.
 
 - `pbx wallet new` derives a 24-word BIP39 mnemonic locally and
-  writes the encrypted keypair to `~/.pbx-lab/` at chmod 600. The
-  mnemonic is printed to your terminal ONCE for paper backup. The
+  writes the encrypted keypair to `runtime/bots/` at chmod 600 (Layer 3,
+  gitignored — see [`CLAUDE.md`](CLAUDE.md) for the three-layer model).
+  The mnemonic is printed to your terminal ONCE for paper backup. The
   keypair flow makes no network calls.
 - `pbx wallet import` accepts either a seed phrase or a JSON keypair
   and stores it the same way.
@@ -333,9 +425,10 @@ to re-take it, or edit `~/.pbx-lab/user-profile.json` directly.
 | **How much do you want me to check in before doing things?** | Very cautious · cautious · balanced · hands-off |
 | **How much should I do vs. you do?** | Claude does everything · Claude does most · we do it together · you do it, Claude coaches |
 
-The answers get saved to your profile. Every future Claude session in
-this project reads the profile so Claude already knows how to work with
-you. No re-introducing yourself every time.
+The answers get saved to your profile at `runtime/lab/user-profile.json`
+(Layer 3, gitignored — see [`CLAUDE.md`](CLAUDE.md)). Every future Claude
+session in this project reads the profile on startup so Claude already
+knows how to work with you. No re-introducing yourself every time.
 
 ---
 
@@ -383,7 +476,7 @@ PBX Stratos has **two achievement systems** that complement each other:
    backtests). Auto-unlock via
    [`src/pbx_trader_lab/achievements.py`](src/pbx_trader_lab/achievements.py)
    when the runner writes the corresponding event to
-   `~/.pbx-lab/events.jsonl`. No manual marking needed.
+   `runtime/lab/events.jsonl`. No manual marking needed.
 
 Run `pbx achievements` to see both tracks at any time. Or ask Claude
 *"show me my achievement progress"* for a personality-voiced summary.
@@ -482,7 +575,7 @@ Anything you pick during setup can be changed later, no reinstall needed:
 - **Re-take the 5 personality-quiz questions:** say *"run the personality quiz"*
 - **Switch personality without re-quizzing:** say *"switch to surf-bro"* (or any other ID)
 - **Switch theme without changing personality:** say *"switch theme to matrix"*
-- **Tweak one specific profile field:** edit `~/.pbx-lab/user-profile.json` directly
+- **Tweak one specific profile field:** edit `runtime/lab/user-profile.json` directly
 
 Every Claude session in this project reads your profile on startup and
 adjusts accordingly.
@@ -568,40 +661,43 @@ up strategies marked `live` once `HELIUS_MAINNET_URL` is set.
 ## Architecture (high level)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   pm2 supervisor (always-on)                     │
-├─────────────────────────────────────────────────────────────────┤
-│  bear-watch-server                  paper-trade-bot              │
-│  ─ Node + tsx                       ─ Python paper trader        │
-│  ─ Live bot runner (bots/src/)      ─ 11+ paper strategies       │
-│  ─ Dashboard (port 8787)            ─ 60s tick loop, 240s budget │
-│  ─ HTTP /health + /debug/health     ─ Independent of dashboard   │
-│  ─ Swap router (Meteora/Orca/Jup)   ─ Reads strategy-registry    │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    pm2 supervisor (always-on)                         │
+├──────────────────────────────────────────────────────────────────────┤
+│  bear-watch-server-stratos          paper-trade-bot-stratos           │
+│  ─ Node + tsx                       ─ Python paper trader             │
+│  ─ Live bot runner (bots/src/)      ─ 11+ paper strategies            │
+│  ─ Dashboard (port 8787)            ─ 60s tick loop, 240s budget      │
+│  ─ HTTP /health + /debug/health     ─ Independent of dashboard        │
+│  ─ Swap router (Meteora/Orca/Jup)   ─ Reads strategy-registry         │
+└──────────────────────────────────────────────────────────────────────┘
                           │
                           │ writes / reads
                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ~/.pbx-lab/      ~/.pbx-bots/      Solana mainnet               │
-│  ─ paper trades   ─ live HD wallets ─ Meteora cp-AMM pools       │
-│  ─ AQI feed       ─ live state      ─ Orca pools                 │
-│  ─ alerts.jsonl   ─ nav-history     ─ Jupiter aggregator         │
-│  ─ events.jsonl   ─ daily backups   ─ Helius RPC (read+sign)     │
-│  ─ achievements   ─ wallet .enc     (LIVE TRADING MODE ONLY,     │
-│  ─ wallets/       (AES-256-GCM)      gated on HELIUS_MAINNET_URL) │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  runtime/lab/         runtime/bots/         Solana mainnet            │
+│  (Layer 3,            (Layer 3,                                       │
+│   gitignored)          gitignored)                                    │
+│  ─ paper trades       ─ live HD wallets    ─ Meteora cp-AMM pools     │
+│  ─ AQI feed           ─ live state         ─ Orca pools               │
+│  ─ alerts.jsonl       ─ nav-history        ─ Jupiter aggregator       │
+│  ─ events.jsonl       ─ daily backups      ─ Helius RPC (read+sign)   │
+│  ─ achievements       ─ wallet .enc        (LIVE MODE ONLY,           │
+│  ─ wallets/           (AES-256-GCM)         gated on HELIUS_MAINNET_URL)│
+│  ─ user-profile.json                                                  │
+└──────────────────────────────────────────────────────────────────────┘
                           │
                           │ alert on failure
                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Scheduled tasks (Windows Task Scheduler)                        │
-│  ─ BEARWATCH-HealthCheck  every 5 min                            │
-│  ─ BEARWATCH-WeatherPull  every hour                             │
-│  ─ BEARWATCH-DailyDigest  6 AM EDT                               │
-│  ─ BEARWATCH-StateBackup  3 AM EDT                               │
-│  ─ BEARWATCH-CodebaseBackup  Sundays 3:30 AM EDT                 │
-│  ─ BEARWATCH-MetaWatchdog  every 5 min (HTTP-based detection)    │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Scheduled tasks (Windows Task Scheduler)                             │
+│  ─ STRATOS-HealthCheck      every 5 min                               │
+│  ─ STRATOS-WeatherPull      every hour                                │
+│  ─ STRATOS-DailyDigest      6 AM EDT                                  │
+│  ─ STRATOS-StateBackup      3 AM EDT                                  │
+│  ─ STRATOS-CodebaseBackup   Sundays 3:30 AM EDT                       │
+│  ─ STRATOS-MetaWatchdog     every 5 min (HTTP-based detection)        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 Five layers of safety on the live trader:
@@ -636,7 +732,8 @@ goes wrong, you'll see one of:
 **For most failures, do nothing.** The system has multiple recovery layers.
 A stale paper-trade tick respawns within 5 minutes. A crashed dashboard
 respawns within seconds. A Windows reboot can be handled by [pm2-installer](https://github.com/jessety/pm2-installer)
-which you set up during install.
+which you set up during install. Most alerts land in
+`runtime/lab/alerts.jsonl` and surface as Windows toast notifications.
 
 **First check on any "system not doing the thing":** hit the single-curl
 health endpoint before deeper debugging:
@@ -657,7 +754,10 @@ curl localhost:8787/debug/health | jq
   cap). Look at `/debug/bot-stats`.
 
 **For real incidents** (suspected key compromise, runaway live bot, market
-shock), open [`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md).
+shock), open [`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md)
+— and Claude will automatically drop the personality voice and use plain
+professional voice for the duration of the emergency
+(see [`CLAUDE.md`](CLAUDE.md) — Universal Core override).
 It has a four-level escalation ladder from "pause new ticks" to
 "physical disconnect + funds to safe wallet" with exact commands at
 each level.
@@ -830,9 +930,11 @@ the easiest contribution paths:
   keep those yours.
 
 Pull requests welcome on GitHub. **Never include your `.env`, your
-wallet files, your `~/.pbx-lab/`, your `~/.pbx-bots/`, or your
-live trading history in a PR.** The secret-scrub pre-commit hook
-exists for exactly this — install it before your first commit.
+wallet files, your `runtime/` directory (Layer 3 — local-only state),
+your `_context/` directory (Layer 2 — Claude's per-installation memory),
+or your live trading history in a PR.** Both `runtime/` and `_context/`
+are gitignored by default. The secret-scrub pre-commit hook exists
+for exactly this — install it before your first commit.
 
 ---
 
@@ -857,21 +959,26 @@ or regulatory issues arising from your use of this code.
 | File | When to read |
 |------|-------------|
 | **README.md** (this file) | First. Overview + quickstart. Also: what Claude reads when you type the trigger phrase. |
+| **`CLAUDE.md`** | The comprehensive Claude-facing master spec: three-layer architecture, session-start protocol, Layer 2/3 bootstrapping, journaling discipline, the three default scopes, personality system, trigger phrases + skills, T0-T3 consent tiers, live trading safety, operational wisdom (`/debug/health` first-check, pricing-vs-quote, PR-only worktree flow), efficient reading patterns, canonical layer-to-path map. Auto-loaded by every Claude Code session in this repo. |
 | **ROADMAP.md** | After install. The 7-section / 131-task journey. The source-of-truth for what your roadmap-track achievements track. |
-| **ARCHITECTURE.md** | The three principles every contribution follows + where each kind of file lives + the layered safety stack. |
+| **ARCHITECTURE.md** | The three principles every contribution follows + where each kind of file lives + the layered safety stack + the three-layer model. |
 | **INSTALL.md** | If you're doing manual setup (skipping Claude). |
 | **PROMPT.md** | Copy-paste prompts for Claude Code: install, decode a wallet, backtest, status check. |
 | **docs/SECURITY.md** | The full security model: key handling, network policy, encryption details. Read before going live. |
-| **bear-watch/EMERGENCY-STOP.md** | When something is on fire. |
+| **bear-watch/EMERGENCY-STOP.md** | When something is on fire. Four-level escalation ladder. |
+| **bear-watch/audit-brief.md** | The terse audit-brief template for handing off codebase audits to other agents. |
+| **bear-watch/audit-professional.md** | The professional audit protocol for full codebase reviews. |
 | **lab/README.md** | The wallet decoder framework — what each runner does, what outputs land where. |
 | **bots/README.md** | The live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep. |
 | **achievements/definitions.json** | Event-driven achievement spec (auto-tracked, complements personality packs). |
-| **`.claude/UNIVERSAL-CORE.md`** | The behavior rules every Claude session in this project follows (under your chosen personality). |
+| **`.claude/UNIVERSAL-CORE.md`** | The behavior rules every Claude session in this project follows (under your chosen personality) — mission, voice, Recap/Summary/Next-Steps response shape, AskUserQuestion discipline. |
 | **`.claude/personalities/README.md`** | Writing a custom personality. |
 | **`.claude/achievements/README.md`** | Writing a custom achievement pack (paired with a personality). |
 | **themes/README.md** | Writing a custom theme. |
-| **`CLAUDE.md`** | The multi-scope architecture + journaling + reading discipline rules every chat follows. Now also includes the boss's operational wisdom: reuse-before-build, `/debug/health` first-check, pricing-vs-quote distinction, PR-only worktree flow. |
-| **`_context/<scope>/MANIFEST.md`** | Per-scope definition (bear-watch / bear-den / bear-scout). |
+| **`_context/<scope>/MANIFEST.md`** | Per-scope definition (bear-watch / bear-den / bear-scout). Created by Claude on first session for that scope. Layer 2 — gitignored. |
+| **`_context/<scope>/STATUS.md`** | Per-scope "what's true right now" snapshot. Updated by Claude as state changes. Layer 2 — gitignored. |
+| **`_context/<scope>/journal/<YYYY-MM-DD>.md`** | Per-scope append-only daily journal. Layer 2 — gitignored. |
+| **`_context/CLAUDE.md`** | OPTIONAL per-machine notes file. If you maintain a sibling install on the same machine and need iron-rule notes about not touching it, put them here. Layer 2 — gitignored. |
 
 ---
 

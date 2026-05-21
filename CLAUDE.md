@@ -77,6 +77,187 @@ state for this user.
 
 ---
 
+## The product domain (what users are actually doing here)
+
+PBX Stratos is the operator-friendly wrapper around the boss's
+[`pbx-trader-lab`](https://github.com/polar-bear-express/pbx-trader-lab-public)
+research framework. The lab gives users a wallet decoder, a strategy
+evolver, a multi-venue swap router, and an opt-in live bot fleet. This
+repo adds the operator shell on top: install wizard, personalities,
+themes, achievements, ops infra, consent system.
+
+When users ask "what does this do," the chain is:
+
+> Public air-quality sensors in CHI / NYC / TOR → PBX mainnet API's
+> rebalance engine swaps between three city-themed Solana tokens
+> based on which city has the lowest PM2.5 (target weight
+> ≈ `1 / (PM2.5 × current_price)`) → predictable, mechanically-driven
+> price moves on Meteora DEX pools → users can position ahead of the
+> swap if they read sensors faster than the engine acts.
+
+The "alpha" lives in sensor-read speed, entry/exit rule design,
+position sizing vs slippage, and DEX-venue selection. The signal is
+**physics-grounded** (regulatory-grade sensors) and the engine math is
+on-chain deterministic — not narrative-driven.
+
+### The decoder pipeline
+
+Two decoders ship in `bear-scout/runners/`:
+
+- **`wallet-evolve.py`** — systematic search. Pulls a wallet's PBX
+  trades, joins them to market state at trade-time, evolves a
+  hand-crafted hypothesis space, ranks rules by out-of-sample F1 / lift.
+  Pure ML, no LLM. Pairs with `wallet-ml.py` (sklearn random forest)
+  for a final classifier.
+- **`agentic-decode.py`** — Claude in a loop. Reads labeled snapshots
+  from `wallet-evolve.py`, then iteratively refines an entry/exit rule
+  pair with Claude. Each round: Claude proposes a predicate pair in a
+  hand-written DSL (`bots/src/strategies/dsl/interpreter.ts`), local
+  evaluator scores precision/recall/lift, round-trip simulator walks
+  chronologically with 30 bps fees, Claude sees metrics + samples +
+  refines.
+
+Walk-forward split (70/30 default) holds out a slice for honest
+scoring. Final verdict requires positive round-trip P&L AND entry-fit
+AND exit-fit on held-out test data. Both decoders run locally against
+the public PBX API — no credentials needed, no pre-decoded results
+ship.
+
+### The 7-section / 131-task roadmap
+
+Users journey through 7 sections in [`ROADMAP.md`](ROADMAP.md):
+
+| # | Section | Domain | Tasks |
+|---|---------|--------|-------|
+| 1 | Genesis | Install + verify safety + get oriented | 14 |
+| 2 | Pulse | Watch the bot run, learn the rhythm | 19 |
+| 3 | Forge | Tweak strategies + run first wallet decode | 22 |
+| 4 | Architect | Build own strategy via agentic-decode loop | 22 |
+| 5 | Mainnet | Go live with real money | 28 |
+| 6 | Vanguard | **Claim $100 reward + customize everything** | 12 |
+| 7 | Mastery | Beyond the author's current level | 14 |
+
+Tasks 1-100 (sections 1-5) put the user where the project author is
+today. Section 6 starts with a $100 reward (earned by completing 100
+tasks). Sections 6-7 go past the author's level — customizing,
+contributing back, multi-bot operation.
+
+### The two achievement systems (run in parallel)
+
+1. **Roadmap-track** (story-driven, manual or Claude-detected): the
+   131 task IDs in `ROADMAP.md`. Each task has a baseline description
+   AND a personality-voiced name in
+   `.claude/achievements/<personality-id>.md`. Personality celebrates
+   each unlock in voice — Crypto Bro: *"Drip Check — your dashboard
+   looking clean fam"*; Drill Sergeant: *"DRIP CHECK COMPLETE.
+   DISMISSED."*
+2. **Event-driven** (auto-tracked): the achievements in
+   `achievements/definitions.json` — `First Light`, `Reverse Engineer`,
+   `First Backtest`, `Sharper Than Most` (Sharpe > 5), `Sharpe 20`,
+   `Wallet Bound`, `Lab Rat` (10k backtests). Auto-unlock via
+   `src/pbx_trader_lab/achievements.py` when the runner writes the
+   corresponding event to `runtime/lab/events.jsonl`.
+
+When the user asks "how am I doing," surface BOTH tracks. The roadmap
+gives narrative; the event-driven gives proof-of-work.
+
+### The six personalities + matching themes
+
+Voice and visuals are independent. Theme = dashboard CSS only;
+personality = Claude voice only. Default pairings:
+
+| ID | Voice | Default theme |
+|----|-------|---------------|
+| `default` | Neutral, balanced, professional | Clean dark (slate + indigo) |
+| `crypto-bro` | Degen KOL who's "made it" — "ser", "ngmi", "alpha" | Lambo (gold + black) |
+| `drill-sergeant` | Strict, terse, military — ALL-CAPS callouts | Camo green + amber |
+| `surf-bro` | Chill, encouraging, upbeat — "yo", "dude" | Beach pastels (coral + teal) |
+| `quant-professor` | Formal, academic, hedged language | Academia (cream + serif) |
+| `hacker` | 1337, dark, lowercase, abbreviated | Matrix (green-on-black mono) |
+
+All personalities inherit `.claude/UNIVERSAL-CORE.md`. All can be
+remixed with any theme (e.g. drill-sergeant voice + hacker theme).
+
+### The `pbx` CLI (commands users may invoke)
+
+| Cmd | What it does |
+|---|---|
+| `./pbx` | Interactive menu (onboards on first run) |
+| `./pbx status` | Show decoded-wallet count + backfill state + bot health |
+| `./pbx wallet new` | Generate HD Solana keypair; prints 24-word mnemonic ONCE |
+| `./pbx wallet import` | Import seed phrase or JSON keypair |
+| `./pbx wallet show` | Show pubkey only (never private key) |
+| `./pbx achievements` | Show both achievement tracks |
+| `./pbx refresh` | Re-fetch backfill from public PBX API |
+| `./pbx config` | Reconfigure keys (Helius, PurpleAir) |
+
+`pbx-bots` (in `bots/scripts/`) is the live-fleet CLI for stop / drain /
+sweep operations once the user has opted into live trading.
+
+### The 4-stage safety audit (run on every install)
+
+When the user types the gamified trigger phrase (see "Trigger phrases +
+skills" below), Claude runs a four-stage audit BEFORE installing
+anything:
+
+| Stage | What it checks |
+|-------|---------------|
+| **A. Host audit** | OS version, available disk, free RAM, existing Node/Python/pm2 |
+| **B. Claude CLI check** | Verify `@anthropic-ai/claude-code` is installed globally; install if missing (asks first) |
+| **C. Clone integrity** | git fsck, signed commit verification, dirty-tree warnings |
+| **D. 4 parallel security greps** | Search for hidden network calls, secret writes, eval/exec patterns, suspicious imports |
+
+The audit results are shown to the user in plain language before
+approval. The user can ask follow-up questions before accepting. The
+full audit logic lives in `.claude/skills/pbx-stratos-setup/SKILL.md`.
+
+### Architecture topology
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    pm2 supervisor (always-on)                         │
+├──────────────────────────────────────────────────────────────────────┤
+│  bear-watch-server-stratos          paper-trade-bot-stratos           │
+│  ─ Node + tsx                       ─ Python paper trader             │
+│  ─ Live bot runner (bots/src/)      ─ 11+ paper strategies            │
+│  ─ Dashboard (port 8787)            ─ 60s tick, 240s budget           │
+│  ─ /health + /debug/health          ─ Reads strategy-registry         │
+│  ─ Swap router (Meteora/Orca/Jup)                                     │
+└──────────────────────────────────────────────────────────────────────┘
+                          │ writes / reads
+                          ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  runtime/lab/         runtime/bots/         Solana mainnet            │
+│  (Layer 3)            (Layer 3)             (LIVE MODE ONLY, gated    │
+│                                              on HELIUS_MAINNET_URL)   │
+└──────────────────────────────────────────────────────────────────────┘
+                          │ alert on failure
+                          ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Windows Task Scheduler (STRATOS-* tasks)                             │
+│  ─ HealthCheck (5min) · WeatherPull (1h) · DailyDigest (6am EDT)      │
+│  ─ StateBackup (3am EDT) · CodebaseBackup (Sun 3:30am EDT)            │
+│  ─ MetaWatchdog (5min — HTTP-based detection)                         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+Five safety layers on the live trader:
+
+1. **Per-tick 240s budget** in `paper-trade.py` — bounds stalls.
+2. **pm2 max_restarts: 9999** — supervisor never gives up.
+3. **HTTP-based meta-watchdog** — detects outages independent of pm2
+   PATH issues (`STRATOS-MetaWatchdog`).
+4. **Scheduled health-check** — fires Windows toast on any failed
+   check (`STRATOS-HealthCheck`).
+5. **EMERGENCY-STOP runbook** — 4-level escalation ladder
+   ([`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md)).
+
+Plus the **master gate**: `HELIUS_MAINNET_URL` must be set to arm live
+trading. Without it, every live endpoint returns 503 and no keypair
+signs. Absence-of-env-var IS the safety net.
+
+---
+
 ## Session-start protocol
 
 Before the first user-facing reply in any session, do these checks in
@@ -407,7 +588,8 @@ that cause Claude to invoke the skill flow rather than improvise.
 
 | Skill | Trigger phrases | What it does |
 |-------|-----------------|--------------|
-| `pbx-stratos-setup` | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "let's start predicting air quality" | The 13-step install wizard: safety audit → personality quiz → dependency install → optional live-trading setup → dashboard launch → health-check verification. |
+| `pbx-stratos-setup` (gamified path) | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "let's start predicting air quality" | The install wizard. Two views of the same flow: **(a) internal — 13 steps (Step 0 Safety verification through Step 12 Verify + celebrate + roadmap intro) defined in [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md)**, which is what Claude actually executes. **(b) user-facing — 11 numbered points in [`README.md`](README.md) "What happens when you type the trigger phrase"**, which is the condensed presentation. The user-facing 11 collapses internal sub-steps (e.g. SKILL Steps 6+7 Helius+Wallet → README Step 5 "live trading"; SKILL Steps 9+10 Personality+Theme → README Step 7). Both are accurate; use whichever fits the audience. |
+| `pbx-stratos-setup` (boss's terse path) | "Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the 'For Claude: Onboarding Runbook' section in README. Be brief." | The explore-only path: clone-audit → bootstrap → launch browser at the local dashboard → hand off. ~5 minutes on a healthy laptop. No personality quiz, no roadmap intro. User can flip into the gamified mode any time later. |
 | `pbx-personality-quiz` | "retake the personality quiz", "redo the quiz", "recalibrate my Claude", "change how Claude talks to me" | Re-runs the 5-question intake and writes the answers back to the profile. |
 | `pbx-set-personality` | "switch to <id>", "try the <X> personality", "swap personality" | Validates the requested personality exists, updates `personality_id`, optionally previews the voice before committing. |
 | `pbx-set-theme` | "switch theme to <id>", "change my theme", "match my theme to my personality" | Applies a theme by copying `themes/<id>.css` to the active-theme slot and updating `theme_id`. |
@@ -708,6 +890,68 @@ works.
 The framework boundary is "if it's outside `_context/` and outside
 `runtime/`, it ships." Use that as the quick test: if you're editing
 anything outside those two trees, you're cutting a release.
+
+---
+
+## Project philosophy
+
+Three principles drive how this project is built. They're not
+aspirational — they're load-bearing rules every contribution follows.
+
+1. **Boring infrastructure, interesting strategy.** The pm2 setup,
+   the health checks, the backup system, the audit framework — these
+   should be SO mundane and well-tested that the user never thinks
+   about them. The only interesting decisions are the strategy
+   parameters the user chooses. If you find yourself writing
+   user-facing copy about infrastructure, you're probably building
+   the wrong thing.
+2. **Consent at every risk boundary.** No automation touches the
+   user's money, their keys, or their live bot without explicit
+   per-action consent. The T0-T3 tier system classifies every action.
+   The setup wizard inherits this discipline — every potentially
+   irreversible step earns its own prompt.
+3. **Failure is the default; success is engineered.** Every component
+   assumes its peers will eventually fail. The dashboard server can
+   crash without affecting the paper trader. The paper trader can
+   hang without affecting the live bot. The Windows machine can
+   reboot without losing trading state. The `HELIUS_MAINNET_URL`-or-503
+   gate means even a compromised dashboard can't move funds without
+   the env var being set. The whole point of the layered architecture
+   is graceful degradation, not perfection. When you're tempted to
+   "just trust this will work" — engineer the failure mode instead.
+
+When making design choices, run them through these three filters. A
+proposal that fails any one of them is the wrong proposal.
+
+---
+
+## Doc map (which file when)
+
+Lightweight cross-reference of where to read for what. The README has
+the human-facing version; this is the Claude-facing operational version.
+
+| Need | File |
+|------|------|
+| Architecture + protocols (this file) | [`CLAUDE.md`](CLAUDE.md) |
+| Universal Core behavior (mission, voice, response shape, AskUserQuestion discipline) | [`.claude/UNIVERSAL-CORE.md`](.claude/UNIVERSAL-CORE.md) |
+| Active personality voice + vocabulary | `.claude/personalities/<id>.md` (id from `runtime/lab/user-profile.json`) |
+| The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims | [`README.md`](README.md) |
+| The 7-section / 131-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
+| Three principles + file-locations table | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Manual install path (skipping Claude) | [`INSTALL.md`](INSTALL.md) |
+| Copy-paste prompts for common tasks | [`PROMPT.md`](PROMPT.md) |
+| Key handling + network policy + encryption | [`docs/SECURITY.md`](docs/SECURITY.md) |
+| Emergency-stop escalation ladder | [`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md) |
+| Codebase audit protocols (handoff templates) | [`bear-watch/audit-brief.md`](bear-watch/audit-brief.md), [`bear-watch/audit-professional.md`](bear-watch/audit-professional.md) |
+| Decoder framework (runners, outputs) | `lab/README.md` |
+| Live bot fleet CLI + multi-bot ops | `bots/README.md` |
+| Event-driven achievement spec | `achievements/definitions.json` |
+| Per-scope state (read on session start) | `_context/<scope>/STATUS.md` + today's `journal/<YYYY-MM-DD>.md` |
+| Per-machine notes (optional, for sibling-install isolation) | `_context/CLAUDE.md` |
+
+When the user asks "where do I look for X," cross-reference against
+this map first. Most questions have a canonical doc; if you can't find
+one, that's a gap worth flagging.
 
 ---
 
