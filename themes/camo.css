@@ -18,6 +18,10 @@
   --border-color:  #3a4530;
   --camo-green:    #8fa840;
   --camo-bright:   #a8c259;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Olive-camo to match the military
+   * aesthetic, not the default emerald. */
+  --theme-hero-glow: #8fa840;
 }
 
 /* Body — deep forest-dark, parchment text. */

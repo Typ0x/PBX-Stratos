@@ -391,8 +391,14 @@
        renderWelcomeHero() hides it the moment a bot exists. This is the
        single clear "what do I do" entry point for a fresh dashboard. -->
   <section id="welcome-hero" class="hidden px-10 py-12 min-h-[82vh] flex items-center justify-center text-center relative overflow-hidden">
+    <!-- The radial halo behind the welcome hero. Color comes from a
+         theme CSS var so the green default → gold (lambo) / coral
+         (beach) / olive (camo) / brown (academia) / neon green
+         (matrix) per active theme. Default falls back to emerald
+         when no theme is active. Inline style is intentional —
+         opacity is set on the wrapper, COLOR is var-driven. -->
     <div class="absolute inset-0 opacity-[0.10] pointer-events-none"
-         style="background: radial-gradient(640px circle at 50% 38%, #10b981, transparent 70%);"></div>
+         style="background: radial-gradient(640px circle at 50% 38%, var(--theme-hero-glow, #10b981), transparent 70%);"></div>
     <div class="relative z-10 max-w-2xl mx-auto space-y-10">
       <div class="space-y-3">
         <h1 class="text-3xl font-semibold text-zinc-50 tracking-tight">Welcome to PBX Trader Lab</h1>

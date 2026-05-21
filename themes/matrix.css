@@ -22,6 +22,10 @@
   --phosphor-bright: #66ff99;
   --warn-green:    #ccff66;
   --bad-green:     #ff6633;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Matrix already runs phosphor green,
+   * so the halo stays cohesive at the brightest shade. */
+  --theme-hero-glow: #00ff66;
 }
 
 /* Body — pure black, phosphor green, mono everywhere. */

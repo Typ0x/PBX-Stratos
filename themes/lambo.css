@@ -25,6 +25,11 @@
   --gold:          #d4af37;
   --gold-bright:   #e6c560;
   --gold-dim:      rgba(212, 175, 55, 0.5);
+  /* Solid color (no alpha) used by inline-style radial gradients that
+   * can't be reached by .bg-emerald-500 overrides — the welcome hero
+   * halo + the gauge entry-zone fill. Opacity is applied at the
+   * wrapper level (e.g. opacity-[0.10] on the hero halo div). */
+  --theme-hero-glow: #d4af37;
 }
 
 /* Body — matte black, warm off-white text. */

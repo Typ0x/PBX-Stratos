@@ -728,8 +728,12 @@
     if (b.gauge) {
       const g = b.gauge;
       const gaugeChildren = [];
+      // gauge zones — entry-zone color comes from the active theme via
+      // --theme-hero-glow (default falls back to emerald). Exit zone
+      // stays semantic red across all themes since it signals "exit"
+      // regardless of palette.
       if (g.exitZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.exitZone[0]}%; right:${100-g.exitZone[1]}%; background:#ef4444` }));
-      if (g.entryZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.entryZone[0]}%; right:${100-g.entryZone[1]}%; background:#10b981` }));
+      if (g.entryZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.entryZone[0]}%; right:${100-g.entryZone[1]}%; background:var(--theme-hero-glow, #10b981)` }));
       for (const tk of g.ticks || []) {
         gaugeChildren.push(el('div', { class: 'gauge-tick', style: 'left:' + tk.pos + '%' }));
         gaugeChildren.push(el('div', { class: 'gauge-tick-label', style: 'left:' + tk.pos + '%' }, tk.label));

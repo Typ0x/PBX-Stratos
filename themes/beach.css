@@ -17,6 +17,10 @@
   --coral:         #ff7f6b;
   --coral-soft:    #ffa190;
   --teal:          #5eead4;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Coral sunset to match the
+   * subverted-green-is-up beach palette. */
+  --theme-hero-glow: #ff7f6b;
 }
 
 /* Body — deep teal-dark, breezy off-white text. */

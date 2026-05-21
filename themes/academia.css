@@ -25,6 +25,10 @@
   --paper-dark:    #efe3c4;
   --rule:          #d4c89a;
   --accent:        #6b4423;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Warm brown ink to match the working-
+   * paper aesthetic, not the default emerald. */
+  --theme-hero-glow: #6b4423;
 }
 
 /* Body — cream canvas, dark-brown serif ink. */
