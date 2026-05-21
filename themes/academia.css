@@ -165,7 +165,20 @@ input[type="checkbox"].accent-rose-500    { accent-color: #991b1b !important; }
 .setup-guide-mark { color: #6b5a3f !important; border-color: #d4c89a !important; }
 
 /* Modal backdrop dim — cream-toned not black. */
-.modal-bg { background: rgba(74, 58, 34, 0.55) !important; backdrop-filter: blur(8px) !important; }
+/* Academia is the only LIGHT theme — the cream-on-cream `.card`
+ * disappeared into the previous backdrop (rgba(74,58,34,0.55) with
+ * 8px blur). Darkened the dim to a deep ink-brown at 0.78 alpha and
+ * dropped the blur to 3px so the cream Recalibrate modal lifts off
+ * the dim with clear contrast. The card itself gets an explicit
+ * box-shadow below for further lift. (Caught in commit 71bc05d audit.) */
+.modal-bg { background: rgba(42, 31, 15, 0.78) !important; backdrop-filter: blur(3px) !important; }
+
+/* Extra lift on modal panels under academia — without it, the
+ * cream card against the brown wash still looks "stuck to the
+ * background" rather than floating. */
+#recalibrate-card, #onboard-card, #deploy-card {
+  box-shadow: 0 12px 40px rgba(42, 31, 15, 0.35), 0 0 0 1px rgba(212, 180, 100, 0.4) !important;
+}
 
 /* Onboarding tour backdrop — cream-tinted. */
 .onboard-backdrop { background: rgba(74, 58, 34, 0.45) !important; }

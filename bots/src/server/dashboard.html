@@ -559,7 +559,39 @@
        rendered into by id/selector and must exist exactly ONCE. -->
   <main id="view-paper" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
 
+  <!-- Always-visible header. Mirrors the Live trading view's header so
+       the Paper view is never blank — the previous version hid every
+       data-analytics section when no bots existed and there was nothing
+       outside them, producing an empty page. (Caught in commit 71bc05d
+       theme audit.) -->
+  <header class="space-y-1">
+    <div class="text-sm font-semibold text-zinc-50">Paper trading</div>
+    <div class="text-[12px] muted">Run strategies against live market prices without real funds. Decode a strategy from a top trader's wallet in the Strategies tab — once you do, it'll spawn as a paper bot here.</div>
+  </header>
+
   <section id="bot-cards" class="grid grid-cols-3 gap-4"></section>
+
+  <!-- Empty state. Visible when no bots exist (mirror of data-analytics —
+       see updatePristine() in dashboard.js). Once a bot lands, this hides
+       and the Performance / Trade history / Tick log analytics surface. -->
+  <section id="paper-empty" class="card rounded-xl p-10 text-center space-y-4">
+    <div class="text-[15px] font-medium text-zinc-100">No paper bots yet</div>
+    <div class="text-[12px] muted max-w-md mx-auto leading-relaxed">
+      Once you decode a strategy from a top trader's wallet, it spawns as a paper bot here.
+      The bot ticks every 60 seconds against real market prices but moves zero real funds —
+      a clean way to watch a strategy without risking capital.
+    </div>
+    <div class="flex items-center justify-center gap-2 pt-2">
+      <button id="paper-empty-cta-strategies" type="button"
+              class="bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 hover:bg-emerald-400 transition text-[12px]">
+        → Strategies
+      </button>
+      <button id="paper-empty-cta-discover" type="button"
+              class="border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded px-4 py-1.5 transition text-[12px]">
+        ↻ Discover top traders
+      </button>
+    </div>
+  </section>
 
   <section data-analytics class="grid grid-cols-3 gap-4">
     <div class="card rounded-xl p-5 col-span-2">

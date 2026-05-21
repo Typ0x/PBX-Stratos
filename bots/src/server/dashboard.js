@@ -327,6 +327,12 @@
     document.querySelectorAll('[data-analytics]').forEach((el) => {
       el.classList.toggle('hidden', !hasBots);
     });
+    // Paper view empty-state — inverse of data-analytics. When there
+    // are no bots, the analytics blocks are hidden AND #paper-empty is
+    // shown so the user sees a "what is paper trading + how do I get a
+    // bot" card instead of a totally blank screen. Once a bot lands,
+    // the analytics surface and this empty card hides.
+    document.getElementById('paper-empty')?.classList.toggle('hidden', hasBots);
     // Header: the Capital/NAV/PnL/Volume KPIs and the "show stopped"
     // toggle are a row of dead $0.00s for a user with no bots. Hide
     // them until there's a bot, so the header stays clean on first run.
@@ -1354,6 +1360,13 @@
     if (setupGuideBtn && typeof openOnboardOverlay === 'function') {
       setupGuideBtn.addEventListener('click', () => openOnboardOverlay());
     }
+    // Paper trading empty-state CTAs — clicking either jumps to the
+    // relevant view so the user has a clear path forward when no
+    // paper bots exist yet.
+    const paperEmptyStrats = document.getElementById('paper-empty-cta-strategies');
+    if (paperEmptyStrats) paperEmptyStrats.addEventListener('click', () => showView('strategies'));
+    const paperEmptyDiscover = document.getElementById('paper-empty-cta-discover');
+    if (paperEmptyDiscover) paperEmptyDiscover.addEventListener('click', () => showView('discover'));
     setNavCollapsed(localStorage.getItem(NAV_COLLAPSED_KEY) === '1');
     showView(localStorage.getItem(NAV_VIEW_KEY) || 'discover');
   }
@@ -1424,7 +1437,21 @@
     const host = document.getElementById('market-leaderboard');
     if (!host) return;
     if (lbState.loading && !lbState.traders) {
-      replace(host, el('div', { class: 'py-16 text-center text-[13px] muted' }, 'Loading top traders…'));
+      // Animated three-dot spinner so the user sees motion on slow
+      // first fetches instead of a frozen "Loading top traders…"
+      // string. Each dot scales independently via the .pulse-dot
+      // keyframe already defined in dashboard.css; staggered delays
+      // create a wave effect. (Caught in commit 71bc05d audit.)
+      replace(host, el('div', { class: 'py-16 text-center text-[13px] muted flex flex-col items-center gap-3' },
+        el('div', null, 'Loading top traders…'),
+        el('div', { class: 'flex items-center gap-1.5' },
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot' }),
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot',
+                       style: 'animation-delay: 0.2s' }),
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot',
+                       style: 'animation-delay: 0.4s' }),
+        ),
+      ));
       return;
     }
     if (lbState.error && !lbState.traders) {

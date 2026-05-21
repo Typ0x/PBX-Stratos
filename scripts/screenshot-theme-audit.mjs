@@ -116,16 +116,28 @@ async function shootTheme(browser, theme, token) {
   await screenshotView(page, 'health',       join(OUT_DIR, `${theme}-06-health.png`));
   await screenshotView(page, 'achievements', join(OUT_DIR, `${theme}-07-achievements.png`));
 
-  // Onboarding tour, step 1. Clear the done flag and reload, then wait
-  // for the modal to materialize.
-  await ctx.clearCookies();
+  // Onboarding tour, step 1. The "clear localStorage + reload" trick
+  // by itself doesn't re-fire the tour because the first-visit gate
+  // runs on initial app boot and caches the decision in memory. Use
+  // the dashboard's existing manual-replay path instead: click the
+  // Setup Guide sidebar button which calls openOnboardOverlay()
+  // unconditionally. (Caught in commit 71bc05d audit — previous
+  // version always captured Achievements view here.)
   await page.evaluate(() => {
     try { localStorage.removeItem('pbx_onboarding_v1_done'); } catch {}
   });
+  // First clear cookies + soft-reload so we start clean.
+  await ctx.clearCookies();
   await page.goto(`${DASH_URL}/dashboard?_t=${Date.now()}_${theme}_onb`, {
     waitUntil: 'networkidle', timeout: 30000,
   });
-  await sleep(2000); // tour fires on a small delay after auth
+  await sleep(1500);
+  // Now click the Setup Guide button — the canonical replay path.
+  const setupGuideBtn = page.locator('#setup-guide-btn');
+  if (await setupGuideBtn.count() > 0) {
+    try { await setupGuideBtn.first().click({ timeout: 2000 }); } catch {}
+    await sleep(1200); // tour modal mounts + step-1 highlight renders
+  }
   // Best-effort: take the screenshot whether or not the modal shows.
   const onbFile = join(OUT_DIR, `${theme}-08-onboard.png`);
   await page.screenshot({ path: onbFile, fullPage: false });
