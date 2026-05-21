@@ -80,10 +80,47 @@ function npmInstall() {
   if (r.status !== 0) throw new Error('npm install failed — see output above');
 }
 
+/**
+ * The dashboard's wallet-decode workflow shells out to the `claude` CLI
+ * to run its DSL refinement loop. Without it, /api/workflow/preflight
+ * fails with `claudeCli.ok: false`, the "Find top traders & decode"
+ * button stays disabled, and the decode hangs at 0% if the user clicks
+ * it. Install the CLI globally as part of bootstrap so first-run users
+ * never see that error. Best-effort — surface a clear note on failure
+ * but don't abort the whole setup.
+ */
+function ensureClaudeCli() {
+  const probe = spawnSync('claude', ['--version'], {
+    encoding: 'utf8', shell: process.platform === 'win32',
+  });
+  if (probe.status === 0 && /\d+\.\d+/.test(probe.stdout || '')) {
+    console.log(`[setup] claude CLI present: ${probe.stdout.trim()}`);
+    return;
+  }
+  console.log('[setup] installing @anthropic-ai/claude-code globally (for the decode workflow)...');
+  const install = spawnSync('npm', ['install', '-g', '@anthropic-ai/claude-code',
+    '--no-audit', '--no-fund', '--loglevel=error'], {
+    cwd: repoRoot, stdio: 'inherit', shell: process.platform === 'win32',
+  });
+  if (install.status !== 0) {
+    console.warn('[setup] WARN: could not install @anthropic-ai/claude-code globally.');
+    console.warn('[setup]       The decode workflow will fail preflight until you run:');
+    console.warn('[setup]         npm install -g @anthropic-ai/claude-code');
+    return;
+  }
+  const verify = spawnSync('claude', ['--version'], {
+    encoding: 'utf8', shell: process.platform === 'win32',
+  });
+  if (verify.status === 0) {
+    console.log(`[setup] claude CLI installed: ${(verify.stdout || '').trim()}`);
+  }
+}
+
 async function main() {
   mkdirSync(toolingDir, { recursive: true });
   const python = await ensurePython();
   npmInstall();
+  ensureClaudeCli();
   const marker = {
     ready: true,
     python,

@@ -3048,7 +3048,7 @@
   function buildOnboardSteps() {
     const steps = [];
 
-    // 1 — Welcome / congrats
+    // 1 — Welcome / congrats (with confetti)
     steps.push({
       title: "You're set up",
       body: () => [
@@ -3057,6 +3057,7 @@
           "This tour shows you how to actually use what you've got."),
         el('p', { class: 'muted' }, 'Nine short steps follow — most just take a click. You can skip anytime.'),
       ],
+      onEnter: () => onboardConfetti(),
     });
 
     // 2 — Discover: click Find top traders
@@ -3376,7 +3377,41 @@
     document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
     if (!selector) return;
     const target = document.querySelector(selector);
-    if (target) target.classList.add('onboard-highlight');
+    if (target) {
+      target.classList.add('onboard-highlight');
+      // Scroll the highlighted target into the top half of the
+      // viewport so the bottom-anchored modal doesn't cover it.
+      // Brief delay so the .onboard-highlight class is painted
+      // before the scroll animation starts.
+      setTimeout(() => {
+        try {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Add a little headroom above so the sticky header doesn't clip it.
+          window.scrollBy({ top: -80, behavior: 'smooth' });
+        } catch { /* old browser, no smooth-scroll — non-fatal */ }
+      }, 80);
+    }
+  }
+
+  // ── Confetti (step 1 celebration) ────────────────────────────────────
+  // Uses canvas-confetti loaded via CDN in dashboard.html. Fires from
+  // both sides + a top burst, runs ~2.5s, then stops. No-op if the
+  // library failed to load (offline / CDN block).
+  function onboardConfetti() {
+    if (typeof window.confetti !== 'function') return;
+    const c = window.confetti;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999, gravity: 0.8 };
+    const colors = ['#10b981', '#34d399', '#6ee7b7', '#fbbf24', '#a78bfa', '#38bdf8'];
+    // Top burst
+    c({ ...defaults, particleCount: 80, origin: { x: 0.5, y: 0.15 }, colors });
+    // Side cannons every 250ms for ~2.5s
+    let bursts = 0;
+    const interval = setInterval(() => {
+      bursts += 1;
+      if (bursts > 10) { clearInterval(interval); return; }
+      c({ ...defaults, particleCount: 35, angle: 60,  spread: 65, origin: { x: 0,    y: 0.7 }, colors });
+      c({ ...defaults, particleCount: 35, angle: 120, spread: 65, origin: { x: 1,    y: 0.7 }, colors });
+    }, 250);
   }
 
   function renderOnboardDots() {
@@ -3503,6 +3538,11 @@
     onboardCurrent = 0;
     document.getElementById('onboard-backdrop').classList.remove('hidden');
     document.getElementById('onboard-modal').classList.remove('hidden');
+    // Toggle a body class so CSS can shrink the giant 82vh welcome
+    // hero (and any other normally-full-height landing elements) into
+    // a compact form that doesn't collide with the bottom-anchored
+    // modal. Removed on close.
+    document.body.classList.add('onboard-active');
     renderOnboardStep();
   }
 
@@ -3511,6 +3551,7 @@
     removeSampleNodes();
     document.getElementById('onboard-backdrop').classList.add('hidden');
     document.getElementById('onboard-modal').classList.add('hidden');
+    document.body.classList.remove('onboard-active');
     onboardHighlight(null);
     if (showToast) {
       const toast = document.getElementById('onboard-toast');

@@ -409,6 +409,20 @@
   }
   .evo-drawer-close:hover { color: #f1f5f9; background: #27272a; }
 
+  /* ── Onboarding-active body modifications ──────────────────────────── */
+  /* When the tour is open, the modal is bottom-anchored. Full-viewport
+     landing sections (welcome-hero is min-h-[82vh]) would push their
+     CTAs into the modal zone. Shrink them to natural height during the
+     tour so highlighted CTAs sit comfortably above the modal. */
+  body.onboard-active #welcome-hero {
+    min-height: auto !important;
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+  body.onboard-active #welcome-hero > div > .space-y-10 {
+    gap: 1.25rem;
+  }
+
   /* ── First-time onboarding overlay ─────────────────────────────────── */
   /* Custom backdrop — a flat dim (no blur). The panel-tour steps need
      un-highlighted panels to read as fuzzy/dim while the HIGHLIGHTED
