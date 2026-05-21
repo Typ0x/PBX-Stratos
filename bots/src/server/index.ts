@@ -1974,14 +1974,15 @@ app.get('/api/ops/achievements', async () => {
     return ['default', 'crypto-bro', 'drill-sergeant', 'surf-bro',
       'quant-professor', 'hacker'].includes(id);
   }));
-  // s1.t10 — pm2 fleet online. Match by prefix so 'bear-watch-server' or
-  // 'bear-watch-server-pbxtra' both count.
+  // s1.t10 — pm2 fleet online. Match by exact stratos name only so
+  // we don't accidentally count another installation's pm2 apps
+  // running on the same machine.
   detectors.set('s1.t10', wrap('s1.t10', () => {
     if (pm2Snapshot.length === 0) return false;
     const bearOk = pm2Snapshot.some((p) =>
-      p.name.startsWith('bear-watch-server') && p.status === 'online');
+      p.name === 'bear-watch-server' && p.status === 'online');
     const paperOk = pm2Snapshot.some((p) =>
-      p.name.startsWith('paper-trade-bot') && p.status === 'online');
+      p.name === 'paper-trade-bot' && p.status === 'online');
     return bearOk && paperOk;
   }));
   // s1.t11 — at least 4 of 6 canonical BEARWATCH-* tasks registered.

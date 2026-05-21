@@ -20,7 +20,7 @@
  * etc.) AND redirects to /dashboard so the tour fires from scratch.
  * Keeps your BOT_API_TOKEN so you don't have to re-paste it.
  *
- * Safe to run while pm2 is up. Restarts the bear-watch-server-pbxtra
+ * Safe to run while pm2 is up. Restarts the bear-watch-server
  * process at the end so any in-memory caches drop.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync,
@@ -204,17 +204,15 @@ function main() {
   resetProfileFields();
 
   logHeader('5. Restarting pm2 server (drops in-memory caches)');
+  // Stratos-only restart. Prior version of this block also tried a
+  // suffixed app name as a fallback, which could touch another
+  // installation's process on a shared machine. Only restart the
+  // stratos app by exact name now.
   try {
-    execSync('pm2 restart bear-watch-server-pbxtra', { stdio: 'ignore' });
-    logOk('bear-watch-server-pbxtra restarted');
-  } catch (e) {
-    // Try the unsuffixed name as fallback
-    try {
-      execSync('pm2 restart bear-watch-server', { stdio: 'ignore' });
-      logOk('bear-watch-server restarted');
-    } catch {
-      logWarn('could not restart pm2 (server may not be managed by pm2 — that\'s fine)');
-    }
+    execSync('pm2 restart bear-watch-server', { stdio: 'ignore' });
+    logOk('bear-watch-server restarted');
+  } catch {
+    logWarn('could not restart pm2 (server may not be managed by pm2 — that\'s fine)');
   }
 
   logHeader('Done.');
