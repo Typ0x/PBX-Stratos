@@ -21,6 +21,27 @@ explains everything else.
 
 ---
 
+## Architecture at a glance
+
+PBX Stratos uses a three-layer model so the public product can ship
+cleanly without leaking any user-specific state:
+
+- **Framework** (everything outside `_context/` and `runtime/`):
+  the shipping product — identical for every user. Edit only as
+  framework releases.
+- **Context** (`_context/`): per-installation adaptive memory —
+  where each user's Claude builds up its understanding of their
+  setup over time. Entirely local, never committed.
+- **Runtime** (`runtime/`): operational data the bot writes —
+  wallets, position state, paper-trade history, alerts.
+  Entirely local, never committed.
+
+See [`CLAUDE.md`](CLAUDE.md) for the full breakdown — session
+protocols, journaling discipline, tiered consent, and how Claude
+bootstraps your Layer 2 and Layer 3 on first run.
+
+---
+
 ## Just type this
 
 If you're new here and want to get started:
@@ -206,7 +227,7 @@ returns 503 and no keypair is ever used to sign.
   HTTP-based meta-watchdog (`bear-watch/`)
 - Four-level emergency-stop runbook
   (`bear-watch/EMERGENCY-STOP.md`)
-- Four-tier consent system documented in `_context/CLAUDE.md` — every
+- Four-tier consent system documented in `CLAUDE.md` — every
   file edit, restart, and money-moving action is categorized
 
 The lab and the live bot fleet are the boss's deliverable
@@ -849,7 +870,7 @@ or regulatory issues arising from your use of this code.
 | **`.claude/personalities/README.md`** | Writing a custom personality. |
 | **`.claude/achievements/README.md`** | Writing a custom achievement pack (paired with a personality). |
 | **themes/README.md** | Writing a custom theme. |
-| **`_context/CLAUDE.md`** | The multi-scope architecture + journaling + reading discipline rules every chat follows. Now also includes the boss's operational wisdom: reuse-before-build, `/debug/health` first-check, pricing-vs-quote distinction, PR-only worktree flow. |
+| **`CLAUDE.md`** | The multi-scope architecture + journaling + reading discipline rules every chat follows. Now also includes the boss's operational wisdom: reuse-before-build, `/debug/health` first-check, pricing-vs-quote distinction, PR-only worktree flow. |
 | **`_context/<scope>/MANIFEST.md`** | Per-scope definition (bear-watch / bear-den / bear-scout). |
 
 ---

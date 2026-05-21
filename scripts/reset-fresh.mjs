@@ -30,9 +30,15 @@ import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 
 const HOME       = homedir();
-const PBX_LAB    = join(HOME, '.pbx-lab');
-const PBX_BOTS   = join(HOME, '.pbx-bots');
+// Three-layer architecture (see CLAUDE.md):
+//   Layer 1 (FRAMEWORK) — code under repo root, NEVER wiped here
+//   Layer 2 (CONTEXT)   — _context/ user adaptive memory, NEVER wiped here
+//   Layer 3 (RUNTIME)   — runtime/{lab,bots,...} operational data, WIPED
+// This script targets Layer 3 only. STRATOS_LAB_HOME / STRATOS_BOTS_DATA_DIR
+// env vars win when set; otherwise fall back to in-repo runtime/{lab,bots}.
 const REPO_ROOT  = join(import.meta.dirname || new URL('.', import.meta.url).pathname, '..');
+const PBX_LAB    = process.env.STRATOS_LAB_HOME      ?? join(REPO_ROOT, 'runtime', 'lab');
+const PBX_BOTS   = process.env.STRATOS_BOTS_DATA_DIR ?? join(REPO_ROOT, 'runtime', 'bots');
 const NO_BACKUP  = process.argv.includes('--no-backup');
 const TIMESTAMP  = new Date().toISOString().replace(/[:.]/g, '-');
 const BACKUP_DIR = join(PBX_LAB, `_reset-backup-${TIMESTAMP}`);

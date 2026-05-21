@@ -1,8 +1,29 @@
 # PBX Stratos — Architecture
 
 This is a project, not a slop dump. Three principles shape how every
-file is built and where it lives. Anyone contributing — including
-Claude when it writes new code — follows them.
+file is built and where it lives, plus a three-layer model that
+separates the shipping product from per-user state. Anyone
+contributing — including Claude when it writes new code — follows
+them.
+
+## The three-layer model
+
+The repository splits into three layers so the public product can
+ship cleanly without leaking any user-specific data:
+
+- **Layer 1 — Framework**: everything outside `_context/` and
+  `runtime/`. The product itself. Identical for every user. Edits
+  here are framework releases.
+- **Layer 2 — Context** (`_context/`): per-installation adaptive
+  memory. Each user's Claude builds it up over time. Entirely
+  gitignored, never committed.
+- **Layer 3 — Runtime** (`runtime/`): operational data the bot
+  writes (wallets, alerts, position state, paper-trade history).
+  Entirely gitignored, never committed.
+
+Full breakdown — session protocols, journaling discipline, how Claude
+bootstraps Layers 2 and 3 on first run — lives in
+[`CLAUDE.md`](CLAUDE.md).
 
 ## The three principles
 
@@ -10,16 +31,17 @@ Claude when it writes new code — follows them.
 
 Every action that touches money, keys, or system services is gated.
 Every gate is documented. Every documented gate has a corresponding
-test or check. The audit protocols at `_context/protocols/audit-brief.md`
-and `_context/protocols/audit-professional.md` describe how to verify
-the gates are holding.
+test or check. The audit protocols at
+[`bear-watch/audit-brief.md`](bear-watch/audit-brief.md) and
+[`bear-watch/audit-professional.md`](bear-watch/audit-professional.md)
+describe how to verify the gates are holding.
 
 What "audit-safe" means in practice:
 
 - **Four-tier consent system** (Tier 0 freely / Tier 1 confirm if live
   position / Tier 2 high bar / Tier 3 off-limits) — applied to every
   file edit, restart, and money-moving action. Documented in
-  `_context/CLAUDE.md` (the multi-scope policy doc).
+  [`CLAUDE.md`](CLAUDE.md) (the master project doc).
 - **No secrets in code, no secrets in chat.** API keys live in `.env`
   (gitignored). Wallet keypairs live encrypted in `~/.pbx-bots/wallets/`.
   Claude never echoes either.
@@ -168,7 +190,7 @@ the box.
 | **2** | `bots/src/strategies/`, `runner.ts`, `regions.ts`, `perf.ts`, `bots/src/server/workflow/agentic_decode.ts`, `bots/src/server/workflow/claude_decode.ts` (live-bot logic + decode workflow that touches keys) | Yes, EVEN with no open position |
 | **3** | `.env`, `pm2.config.cjs`, `bots/src/server/hd.ts`, `bots/src/server/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
 
-Documented authoritatively in `_context/CLAUDE.md` (the multi-scope
+Documented authoritatively in `CLAUDE.md` (the multi-scope
 policy doc). Personalities can never override these tiers.
 
 The lab decoders (`bear-scout/runners/wallet-evolve.py`, `agentic-decode.py`)

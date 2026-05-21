@@ -1869,25 +1869,35 @@ app.get('/api/ops/achievements', async () => {
   const definitionsPath = join(repoRoot, 'achievements', 'definitions.json');
 
   // ── profile ──
-  // A failed parse used to silently fall back to `profile = {}`, which
-  // then made the auto-detect persist block below write a 4-field
-  // truncated profile back to disk (achievements only — wiping the
-  // user's personality, tech_level, quiz answers, etc). Track the
-  // parse failure separately so we can skip the write below if the
-  // file existed but was unreadable.
-  let profile: Record<string, unknown> = {};
-  let profileCorrupted = false;
-  try {
-    if (existsSync(profilePath)) {
+  // Strict read: if the file exists but parses as garbage, REFUSE
+  // to proceed. The previous version of this block silently fell
+  // back to `profile = {}` which made the persist block below write
+  // a 4-field truncated profile back to disk — silently wiping the
+  // user's personality, theme_id, tech_level, and 5 quiz answers
+  // every time the achievements page loaded.
+  //
+  // Null-vs-empty contract: `null` means file doesn't exist (fresh
+  // install — creating from scratch is fine). An object means the
+  // file parsed successfully (spread-merge preserves all fields).
+  // Throwing means file exists but is unreadable — never overwrite.
+  let profile: Record<string, unknown> | null = null;
+  if (existsSync(profilePath)) {
+    try {
       profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+    } catch (err) {
+      throw new Error(
+        `user-profile.json exists but is unreadable — refusing to write ` +
+        `(would truncate other fields). Repair the file and retry. ` +
+        `Underlying error: ${(err as Error).message}`
+      );
     }
-  } catch (err) {
-    profileCorrupted = true;
-    process.stderr.write(
-      `[achievements/read] user-profile.json unreadable, skipping auto-mark this request: ` +
-        `${(err as Error).message}\n`
-    );
   }
+  // Cast back to the loose record type the downstream code expects.
+  // `profile ?? {}` is safe here because null means the file
+  // genuinely doesn't exist, so an empty base IS the correct fresh
+  // state for the first write.
+  const profileExisted = profile !== null;
+  if (profile === null) profile = {};
   const unlockedTasks: Set<string> = new Set(
     Array.isArray((profile as { achievements_unlocked?: unknown }).achievements_unlocked)
       ? ((profile as { achievements_unlocked?: string[] }).achievements_unlocked || [])
@@ -2062,7 +2072,11 @@ app.get('/api/ops/achievements', async () => {
     }
   }
 
-  if (autoUnlocked.length > 0 && !profileCorrupted) {
+  if (autoUnlocked.length > 0) {
+    // profileExisted gate kept conceptually: the strict read above
+    // guarantees `profile` is either the real on-disk object OR an
+    // explicitly-fresh empty record (file genuinely missing). Either
+    // way the spread-merge below preserves whatever existed.
     // Persist the updated unlocked array + last_achievement_at. Only
     // touch disk when something actually changed (cache the no-op).
     // Skipped entirely if the read failed earlier — better to lose

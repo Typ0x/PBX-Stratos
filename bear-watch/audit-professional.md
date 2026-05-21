@@ -203,7 +203,7 @@ Same as audit-brief.md Phase 10.
 A professional audit is still bound by the same safety rules as any
 other work in the project — live-position consent, no secrets in
 commits, no remote push, no direct writes to runtime state
-directories. See `_context/CLAUDE.md` for the full list.
+directories. See `CLAUDE.md` for the full list.
 
 ---
 

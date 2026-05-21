@@ -14,8 +14,12 @@
 # Why source instead of run: `.ps1` invoked normally spawns a child
 # shell and the env vars die when it exits. The leading `.` (dot-
 # source) loads it into the current session so the vars persist.
+#
+# RepoRoot resolves dynamically from this script's path so the
+# same file works on any user's machine — no hardcoded paths.
 
-$RepoRoot              = Join-Path $HOME 'PBX-Stratos'
+$ScriptDir             = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot              = (Resolve-Path (Join-Path $ScriptDir '..')).Path
 $env:STRATOS_PROFILE   = 'stratos'
 $env:STRATOS_REPO_ROOT = $RepoRoot
 $env:STRATOS_BOTS_DATA_DIR = Join-Path $RepoRoot 'runtime\bots'

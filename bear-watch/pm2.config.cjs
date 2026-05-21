@@ -12,7 +12,7 @@
 //
 // File-watch is OFF by default. Turn it on per-environment if you want
 // auto-reload on .ts edits, but be aware: a pm2 reload during an open
-// live position drops a tick or two. See _context/CLAUDE.md for the
+// live position drops a tick or two. See CLAUDE.md for the
 // tiered consent rule on .ts edits during open positions.
 
 // â”€â”€â”€ load .env from repo root â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -84,7 +84,7 @@ module.exports = {
     {
       name: "paper-trade-bot-stratos",
       // Research code now lives under bear-scout/ (matches the scope
-      // taxonomy in _context/CLAUDE.md). Previously: ./lab/runners.
+      // taxonomy in CLAUDE.md). Previously: ./lab/runners.
       cwd: "./bear-scout/runners",
       script: "python",
       args: "paper-trade.py",

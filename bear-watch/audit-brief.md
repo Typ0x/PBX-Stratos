@@ -84,7 +84,7 @@ reload risk is back on the table").
 
 ### Phase 0.5 — Cross-scope context refresh (REQUIRED — do BEFORE Phase 1)
 
-Per `_context/CLAUDE.md` EFFICIENT READING discipline, refresh from
+Per `CLAUDE.md` EFFICIENT READING discipline, refresh from
 all relevant context sources so the audit isn't operating on stale
 assumptions:
 
@@ -301,7 +301,7 @@ Every brief includes this exact text:
 SAFETY RULES
 ------------
 1. Before any file edit, check: is the live bot holding a position?
-   If yes AND the file is Tier 1+ (see _context/CLAUDE.md), STOP and
+   If yes AND the file is Tier 1+ (see CLAUDE.md), STOP and
    get explicit user OK in this chat before editing.
 2. Never commit secrets. Verify .env, wallet files, and any
    *-private* patterns are gitignored before staging.

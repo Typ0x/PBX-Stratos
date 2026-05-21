@@ -1,55 +1,59 @@
 # PBX Stratos — .gitignore
 #
-# Defensive: even though PBX-Stratos as shipped contains no secrets,
-# this file ensures that if a user (or the framework itself in the
-# future) ever creates these files, they don't accidentally land in
-# a public commit.
+# Per the three-layer architecture (see CLAUDE.md):
+#   Layer 1 (FRAMEWORK)  → committed; this file shapes what's NOT in it
+#   Layer 2 (CONTEXT)    → per-user; never committed
+#   Layer 3 (RUNTIME)    → operational data; never committed
+
+# === Layer 2 — per-user adaptive memory (never ships) ===
+_context/
+
+# === Layer 3 — operational data (never ships) ===
+runtime/
+
+# Legacy home-dir paths (pre-migration; only included so a stray
+# write to ~/.pbx-lab or ~/.pbx-bots inside the repo can't sneak in)
+.pbx-bots/
+.pbx-lab/
 
 # === Secrets — NEVER commit these ===
 .env
 .env.*
+.env.local
+.env.*.local
 *.key
 *.pem
 *-private*
 *credentials*
 gemini-key
 helius-key
+
 # Wallet files
 *.enc
 wallets/
 *.keypair.json
+bot-keypair.json
 
-# === Runtime state (lives outside the repo by convention) ===
-# These paths are normally under ~/.pbx-bots/ and ~/.pbx-lab/ —
-# included here in case anyone ever puts them in the repo by mistake.
-.pbx-bots/
-.pbx-lab/
-state/
-alerts.jsonl
-nav-history.jsonl
-paper-trades.jsonl
-paper-trade-heartbeat
-aqi-snapshot.json
-daily-digest-*.md
-backups/
-
-# === Node / npm ===
+# === Build / dev artifacts ===
 node_modules/
+.npm/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json.bak
-.npm/
 
-# === Python ===
+# TypeScript
+*.tsbuildinfo
+dist/
+build/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -68,14 +72,29 @@ env/
 .pytest_cache/
 .mypy_cache/
 
-# === Editor / IDE ===
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
+# === Bootstrap / setup runtime artifacts ===
+.tooling/
+_bootstrap_log.txt
+_srvr_test.txt
+_test_server.txt
+
+# === Stray runtime files (defensive — should live under runtime/) ===
+state/
+alerts.jsonl
+nav-history.jsonl
+paper-trades.jsonl
+paper-trade-heartbeat
+aqi-snapshot.json
+daily-digest-*.md
+backups/
+
+# === Generated dashboard artifacts ===
+active-theme.css
+ecosystem.config.js.lock
+.pm2/
+
+# === Screenshot output (regenerable) ===
+screenshots/
 
 # === Logs + scratch ===
 *.log
@@ -87,31 +106,16 @@ Thumbs.db
 _server.pid
 _server_log.txt
 _paper_trade_log.txt
+.git-commit-msg.tmp
 
-# === pm2 ===
-.pm2/
-
-# === bootstrap / setup runtime artifacts ===
-.tooling/
-_bootstrap_log.txt
-_srvr_test.txt
-_test_server.txt
-
-# === Generated artifacts ===
-active-theme.css
-ecosystem.config.js.lock
+# === Editor / IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # === OS junk ===
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Screenshot output (regenerable via scripts/screenshot-onboarding.mjs)
-screenshots/
-
-
-# Self-contained runtime state (per migration)
-runtime/
-.env
-.env.local
-
