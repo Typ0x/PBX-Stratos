@@ -3850,11 +3850,16 @@
     );
 
     // ── pm2 process supervisor card ──
-    const pm2List = Array.isArray(data.pm2) ? data.pm2 : [];
+    // Filter to only `-stratos`-suffixed apps so the panel never
+    // displays processes from a sibling install (pbxtra etc) sharing
+    // the same pm2 daemon, or the shared pm2-logrotate module. The
+    // user explicitly wants the dashboard to feel "this install only."
+    const allPm2 = Array.isArray(data.pm2) ? data.pm2 : [];
+    const pm2List = allPm2.filter((p) => (p && typeof p.name === 'string' && p.name.endsWith('-stratos')));
     const pm2Header = el('header', { class: 'mb-3' },
       el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'pm2 process supervisor'),
       el('div', { class: 'text-[12px] muted mt-0.5' },
-        pm2List.length + ' process' + (pm2List.length === 1 ? '' : 'es') + ' tracked'),
+        pm2List.length + ' stratos process' + (pm2List.length === 1 ? '' : 'es') + ' tracked'),
     );
 
     let pm2Body;
@@ -3930,12 +3935,16 @@
       tasksHeader, tasksBody);
 
     // ── Recent alerts card ──
+    // Caption now shows the canonical Layer-3 runtime path (the
+    // server reads STRATOS_LAB_HOME ?? ~/.pbx-lab — see index.ts —
+    // and writes there). The legacy ~/.pbx-lab/ caption was stale
+    // after the three-layer architecture migration.
     const alerts = Array.isArray(data.alerts) ? data.alerts : [];
     const alertsHeader = el('header', { class: 'mb-3 flex items-center justify-between gap-3' },
       el('div', null,
         el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Recent alerts'),
         el('div', { class: 'text-[12px] muted mt-0.5' },
-          'Tail of ~/.pbx-lab/alerts.jsonl (last 10)'),
+          'Tail of runtime/lab/alerts.jsonl (last 10)'),
       ),
       alerts.length === 0 ? statusDot('ok') : null,
     );
@@ -4365,4 +4374,222 @@
     }
 
     document.body.appendChild(layer);
+  })();
+
+  // ============ Recalibrate walkthrough ============
+  // Modal flow that re-runs the 5 personality-quiz questions, then
+  // personality + theme picks, then POSTs the answers to
+  // /api/profile/recalibrate. The endpoint writes user-profile.json
+  // (hardened — see index.ts) and copies the chosen theme CSS to
+  // active-theme.css so the new look applies on the next reload.
+  //
+  // Each step is a single question with 3-7 button options. Selecting
+  // an option auto-advances to the next step. Previous + Skip nav
+  // keeps the user in control. The "Save" CTA on the final step is
+  // the only place that hits the network.
+  (function initRecalibrate() {
+    const btn = document.getElementById('recalibrate-btn');
+    const overlay = document.getElementById('recalibrate-overlay');
+    if (!btn || !overlay) return;
+
+    const closeBtn = document.getElementById('recalibrate-close');
+    const prevBtn  = document.getElementById('recalibrate-prev');
+    const nextBtn  = document.getElementById('recalibrate-next');
+    const skipBtn  = document.getElementById('recalibrate-skip');
+    const doneBtn  = document.getElementById('recalibrate-done');
+    const qEl      = document.getElementById('recalibrate-question');
+    const hintEl   = document.getElementById('recalibrate-hint');
+    const optsEl   = document.getElementById('recalibrate-options');
+    const progEl   = document.getElementById('recalibrate-progress');
+    const stepCurEl = document.getElementById('recalibrate-step-current');
+    const stepTotEl = document.getElementById('recalibrate-step-total');
+    const errEl    = document.getElementById('recalibrate-err');
+
+    // Questions match Step 1 of .claude/skills/pbx-stratos-setup/SKILL.md.
+    // Order + option values are the canonical schema; changing them
+    // would desync with the profile fields the server expects.
+    const STEPS = [
+      { field: 'tech_level', q: 'How techy are you?',
+        hint: 'Controls whether Claude explains jargon or skips the basics.',
+        opts: [
+          { v: 'not-technical',         l: 'Not technical at all',                  d: 'Avoid jargon. Explain every term.' },
+          { v: 'comfortable-not-coder', l: 'Comfortable with computers, not a coder', d: 'Brief explanations when terms come up.' },
+          { v: 'casual-coder',          l: "I've coded before, casually",          d: 'Skip basics. Explain specialized stuff.' },
+          { v: 'developer',             l: "I'm a developer",                       d: 'Lean technical. Reference functions + files directly.' },
+        ] },
+      { field: 'communication_style', q: 'How should I talk to you?',
+        hint: 'Controls response length + density.',
+        opts: [
+          { v: 'brief',              l: 'Brief — get to the point',         d: 'Short answers. Lists. Lead with the answer.' },
+          { v: 'balanced',           l: 'Balanced — answer plus context',   d: 'Answer first, then a sentence or two of why/how.' },
+          { v: 'thorough',           l: 'Thorough — teach me as we go',     d: 'Explain reasoning. Mini-tutorial mode.' },
+          { v: 'match-personality',  l: 'Match the personality I pick',     d: 'Whatever vibe my personality has.' },
+        ] },
+      { field: 'goal', q: 'What do you want to do with this bot?',
+        hint: 'Sets how deep the live-trading setup goes.',
+        opts: [
+          { v: 'explore',    l: 'Just curious — exploring',                d: 'Skip live-trading setup. Focus on understanding.' },
+          { v: 'paper',      l: 'Paper trade and learn',                   d: 'Install paper trader, skip live wallet.' },
+          { v: 'small-live', l: 'Run a small live bot (~$100)',            d: 'Full install including live wallet + Helius key.' },
+          { v: 'multi-bot',  l: '$500-$1000 to deploy multiple bots',      d: 'Full install + multi-bot scaffolding + scheduled monitoring.' },
+        ] },
+      { field: 'consent_level', q: 'How much should I check in before doing things?',
+        hint: 'Controls the consent-gate cadence.',
+        opts: [
+          { v: 'very-cautious', l: 'Very cautious — check everything',                d: 'Pause for confirm on every action.' },
+          { v: 'cautious',      l: 'Cautious — check the big stuff',                  d: 'Confirm money moves + bot-behavior changes. Routine stuff is fine.' },
+          { v: 'balanced',      l: 'Balanced — tell me, then do it',                  d: 'Announce, then act. Stop only for major calls.' },
+          { v: 'hands-off',     l: 'Hands-off — do the right thing, tell me after',   d: 'Just handle it. Summarize after. Stop only for real decisions.' },
+        ] },
+      { field: 'autonomy_level', q: 'How much should I do vs. you do?',
+        hint: 'Who drives the keyboard.',
+        opts: [
+          { v: 'claude-everything',  l: 'You do everything — I\'ll review',         d: 'Claude runs every command. User reviews output.' },
+          { v: 'show-cool-parts',    l: 'You do most of it — show me the cool parts', d: 'Claude handles boring setup; pauses for interesting moments.' },
+          { v: 'together',           l: 'We do it together — teach me as we go',     d: 'Claude explains as it goes. User learns enough to do it later.' },
+          { v: 'user-driven',        l: 'I do it, you guide me',                     d: 'User types commands. Claude coaches.' },
+        ] },
+      { field: 'personality_id', q: 'Pick a personality',
+        hint: 'Changes Claude\'s voice. Doesn\'t affect bot behavior.',
+        opts: [
+          { v: 'default',         l: 'Default',          d: 'Neutral, balanced, professional.' },
+          { v: 'crypto-bro',      l: 'Crypto Bro',       d: 'Degen KOL who\'s "made it" — ser, ngmi, alpha, printing.' },
+          { v: 'drill-sergeant',  l: 'Drill Sergeant',   d: 'Strict, terse, military — ALL-CAPS callouts.' },
+          { v: 'surf-bro',        l: 'Surf Bro',         d: 'Chill, encouraging, upbeat — yo, dude, totally.' },
+          { v: 'quant-professor', l: 'Quant Professor',  d: 'Formal, academic, hedged language.' },
+          { v: 'hacker',          l: 'Hacker',           d: '1337, dark, lowercase, abbreviated.' },
+        ] },
+      { field: 'theme_id', q: 'Pick a theme',
+        hint: 'Changes dashboard CSS only. Independent of personality.',
+        opts: [
+          { v: 'auto',     l: 'Match my personality (recommended)',   d: 'Use whatever theme the picked personality pairs with by default.' },
+          { v: 'default',  l: 'Default — slate + indigo + emerald',  d: 'The reference look. Get-out-of-the-way baseline.' },
+          { v: 'lambo',    l: 'Lambo — gold on matte black',          d: 'Crypto-bro luxury terminal.' },
+          { v: 'matrix',   l: 'Matrix — phosphor green on black',    d: 'CRT terminal, all mono.' },
+          { v: 'camo',     l: 'Camo — olive + amber military',       d: 'Disciplined, functional.' },
+          { v: 'beach',    l: 'Beach — coral + teal pastels',        d: 'Chill, low-stakes vibe.' },
+          { v: 'academia', l: 'Academia — cream + serif',            d: 'Working paper aesthetic. Light theme.' },
+        ] },
+    ];
+
+    let stepIdx = 0;
+    const answers = {};
+    let currentProfile = null;
+
+    // ── Render helpers ──
+    function renderStep() {
+      const step = STEPS[stepIdx];
+      stepCurEl.textContent = String(stepIdx + 1);
+      stepTotEl.textContent = String(STEPS.length);
+      qEl.textContent = step.q;
+      hintEl.textContent = step.hint || '';
+      errEl.classList.add('hidden');
+
+      // Progress dots.
+      progEl.replaceChildren();
+      for (let i = 0; i < STEPS.length; i++) {
+        const dot = document.createElement('span');
+        const isActive = i === stepIdx;
+        const isDone = i < stepIdx;
+        dot.className = 'inline-block w-1.5 h-1.5 rounded-full transition '
+          + (isActive ? 'bg-emerald-400' : (isDone ? 'bg-emerald-500/60' : 'bg-zinc-700'));
+        progEl.appendChild(dot);
+      }
+
+      // Option cards. Selecting one auto-advances (except on the
+      // final step — Save button submits).
+      const selected = answers[step.field] != null ? answers[step.field]
+                       : (currentProfile && currentProfile[step.field]) || null;
+      optsEl.replaceChildren();
+      for (const opt of step.opts) {
+        const isSelected = opt.v === selected;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'w-full text-left border rounded p-3 transition '
+          + (isSelected
+              ? 'border-emerald-500/60 bg-emerald-500/10'
+              : 'border-zinc-700/60 hover:border-zinc-500 hover:bg-zinc-800/40');
+        const label = document.createElement('div');
+        label.className = 'text-[13px] font-medium text-zinc-100';
+        label.textContent = opt.l;
+        const desc = document.createElement('div');
+        desc.className = 'text-[11px] muted mt-0.5';
+        desc.textContent = opt.d || '';
+        card.appendChild(label);
+        if (opt.d) card.appendChild(desc);
+        card.addEventListener('click', () => {
+          answers[step.field] = opt.v;
+          if (stepIdx < STEPS.length - 1) {
+            stepIdx += 1;
+            renderStep();
+          } else {
+            renderStep();  // refresh selection highlight
+          }
+        });
+        optsEl.appendChild(card);
+      }
+
+      // Nav state.
+      prevBtn.disabled = stepIdx === 0;
+      const isFinal = stepIdx === STEPS.length - 1;
+      nextBtn.classList.toggle('hidden', isFinal);
+      doneBtn.classList.toggle('hidden', !isFinal);
+    }
+
+    function open() {
+      stepIdx = 0;
+      for (const k in answers) delete answers[k];
+      // Pre-fill from current profile (best effort, no token required
+      // since /api/profile is local-only safe).
+      fetch('/api/profile', { credentials: 'same-origin' })
+        .then((r) => r.ok ? r.json() : null)
+        .then((p) => { currentProfile = p && typeof p === 'object' ? p : {}; renderStep(); })
+        .catch(() => { currentProfile = {}; renderStep(); });
+      overlay.classList.remove('hidden');
+    }
+
+    function close() {
+      overlay.classList.add('hidden');
+    }
+
+    async function submit() {
+      doneBtn.disabled = true;
+      doneBtn.textContent = 'Saving…';
+      errEl.classList.add('hidden');
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+        const resp = await fetch('/api/profile/recalibrate', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(answers),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          throw new Error(body.error || ('HTTP ' + resp.status));
+        }
+        // Force a hard reload so the new theme CSS and any restart-
+        // sensitive UI bits pick up the change cleanly.
+        location.reload();
+      } catch (e) {
+        errEl.textContent = 'Save failed: ' + (e && e.message ? e.message : String(e));
+        errEl.classList.remove('hidden');
+        doneBtn.disabled = false;
+        doneBtn.textContent = 'Save';
+      }
+    }
+
+    // Wire up.
+    btn.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    prevBtn.addEventListener('click', () => { if (stepIdx > 0) { stepIdx -= 1; renderStep(); } });
+    nextBtn.addEventListener('click', () => { if (stepIdx < STEPS.length - 1) { stepIdx += 1; renderStep(); } });
+    skipBtn.addEventListener('click', () => {
+      if (stepIdx < STEPS.length - 1) { stepIdx += 1; renderStep(); }
+      else { close(); }
+    });
+    doneBtn.addEventListener('click', submit);
+    // Click on the dim backdrop to close (but not when clicking the card).
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   })();

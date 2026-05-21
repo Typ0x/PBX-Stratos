@@ -40,7 +40,7 @@ import {
   TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token';
-import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { BotOrchestrator } from './orchestrator.js';
@@ -2294,6 +2294,156 @@ app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req
     // Non-fatal — the profile update is the source of truth.
   }
   return { ok: true, taskId, achievements_unlocked: existing, last_updated: nowIso };
+});
+
+// ─── Profile read + recalibrate endpoints ─────────────────────────────────
+//
+// Powers the dashboard's "↻ Recalibrate" button in the header. The
+// GET hands current profile data back so the modal can pre-fill the
+// user's existing answers; the POST accepts the 7-field walkthrough
+// payload, validates each value against an allow-list, writes
+// user-profile.json (hardened — same throw-on-parse-fail pattern as
+// /api/ops/achievements), and copies the chosen theme CSS into
+// active-theme.css so the next page load picks up the new look.
+
+// GET /api/profile — current user-profile.json, or {} if not yet created.
+// No bearer-auth gating beyond the global server-side check (this is
+// read-only adaptive-memory metadata, not secrets).
+app.get('/api/profile', async (_req, reply) => {
+  const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
+  const profilePath = join(labDir, 'user-profile.json');
+  if (!existsSync(profilePath)) return {};
+  try {
+    return JSON.parse(readFileSync(profilePath, 'utf8'));
+  } catch (err) {
+    return reply.code(500).send({
+      error: 'user-profile.json exists but is unreadable. Repair the file first. ' +
+        'Underlying error: ' + (err as Error).message,
+    });
+  }
+});
+
+// POST /api/profile/recalibrate — apply a 7-field walkthrough payload
+// (5 personality-quiz answers + personality_id + theme_id) to the
+// existing user-profile.json. Validates each value against the
+// allowed enum and refuses unknown values. If theme_id === 'auto',
+// resolves to the personality's default theme. After the write, the
+// chosen theme CSS is copied to bots/src/server/active-theme.css so
+// the new look applies on the next page load.
+//
+// Body shape (every field optional — only provided ones get written):
+//   {
+//     tech_level: 'not-technical' | 'comfortable-not-coder' | 'casual-coder' | 'developer',
+//     communication_style: 'brief' | 'balanced' | 'thorough' | 'match-personality',
+//     goal: 'explore' | 'paper' | 'small-live' | 'multi-bot',
+//     consent_level: 'very-cautious' | 'cautious' | 'balanced' | 'hands-off',
+//     autonomy_level: 'claude-everything' | 'show-cool-parts' | 'together' | 'user-driven',
+//     personality_id: 'default' | 'crypto-bro' | 'drill-sergeant' | 'surf-bro' | 'quant-professor' | 'hacker',
+//     theme_id: 'auto' | 'default' | 'lambo' | 'matrix' | 'camo' | 'beach' | 'academia',
+//   }
+app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (req, reply) => {
+  const body = (req.body && typeof req.body === 'object') ? req.body : {};
+
+  // Allowed values per field. Anything not in here gets rejected so a
+  // bad client can't poison the profile with arbitrary strings.
+  const ALLOWED: Record<string, string[]> = {
+    tech_level:          ['not-technical', 'comfortable-not-coder', 'casual-coder', 'developer'],
+    communication_style: ['brief', 'balanced', 'thorough', 'match-personality'],
+    goal:                ['explore', 'paper', 'small-live', 'multi-bot'],
+    consent_level:       ['very-cautious', 'cautious', 'balanced', 'hands-off'],
+    autonomy_level:      ['claude-everything', 'show-cool-parts', 'together', 'user-driven'],
+    personality_id:      ['default', 'crypto-bro', 'drill-sergeant', 'surf-bro', 'quant-professor', 'hacker'],
+    theme_id:            ['auto', 'default', 'lambo', 'matrix', 'camo', 'beach', 'academia'],
+  };
+
+  // Personality → default-theme map. Used when the user picks
+  // theme_id: 'auto' so the theme follows the personality.
+  const PERSONALITY_DEFAULT_THEME: Record<string, string> = {
+    'default':         'default',
+    'crypto-bro':      'lambo',
+    'drill-sergeant':  'camo',
+    'surf-bro':        'beach',
+    'quant-professor': 'academia',
+    'hacker':          'matrix',
+  };
+
+  // Collect + validate.
+  const updates: Record<string, string> = {};
+  for (const field of Object.keys(ALLOWED)) {
+    const raw = body[field];
+    if (raw == null) continue;  // field omitted → don't change it
+    if (typeof raw !== 'string' || !ALLOWED[field]!.includes(raw)) {
+      return reply.code(400).send({
+        error: `invalid value for ${field}: ${JSON.stringify(raw)}. ` +
+          `Allowed: ${ALLOWED[field]!.join(', ')}.`,
+      });
+    }
+    updates[field] = raw;
+  }
+  if (Object.keys(updates).length === 0) {
+    return reply.code(400).send({ error: 'no recognized fields in body' });
+  }
+
+  // Hardened profile read — refuse to clobber on parse fail.
+  const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
+  mkdirSync(labDir, { recursive: true });
+  const profilePath = join(labDir, 'user-profile.json');
+  let profile: Record<string, unknown> = {};
+  if (existsSync(profilePath)) {
+    try {
+      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+    } catch (err) {
+      return reply.code(500).send({
+        error: 'user-profile.json exists but is unreadable; refusing to overwrite. ' +
+          'Repair the file and retry. Underlying error: ' + (err as Error).message,
+      });
+    }
+  }
+
+  // Resolve theme_id: 'auto' → personality default. Uses the
+  // POST'd personality_id if present, else the existing one.
+  if (updates.theme_id === 'auto') {
+    const personality = updates.personality_id
+      || (typeof profile.personality_id === 'string' ? profile.personality_id : 'default');
+    updates.theme_id = PERSONALITY_DEFAULT_THEME[personality] ?? 'default';
+  }
+
+  // Write profile.
+  const nowIso = new Date().toISOString();
+  const merged = { ...profile, ...updates, last_updated: nowIso };
+  try {
+    writeFileSync(profilePath, JSON.stringify(merged, null, 2), { mode: 0o600 });
+  } catch (err) {
+    return reply.code(500).send({ error: 'could not write profile: ' + (err as Error).message });
+  }
+
+  // Copy theme CSS to active-theme.css so the new look applies on
+  // next page load. The themes dir is under <repo>/themes/, computed
+  // from STRATOS_REPO_ROOT first (set by pm2.config.cjs / profile
+  // scripts) with a derived fallback from this file's own path.
+  let themeApplied = false;
+  if (updates.theme_id) {
+    const repoRoot = process.env.STRATOS_REPO_ROOT
+      ?? join(homedir(), 'PBX-Stratos');  // best-effort fallback
+    const srcCss = join(repoRoot, 'themes', `${updates.theme_id}.css`);
+    const dstCss = join(repoRoot, 'bots', 'src', 'server', 'active-theme.css');
+    try {
+      if (existsSync(srcCss)) {
+        copyFileSync(srcCss, dstCss);
+        themeApplied = true;
+      }
+    } catch {
+      // Non-fatal — profile updated, just couldn't swap the theme CSS.
+      // Caller can re-try or manually copy.
+    }
+  }
+
+  return {
+    ok: true,
+    updated_fields: Object.keys(updates),
+    theme_applied: themeApplied,
+    last_updated: nowIso,
+  };
 });
 
 // Diagnostic: per-bot strategy snapshot. Returns whatever the strategy
