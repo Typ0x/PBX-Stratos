@@ -4503,6 +4503,30 @@
     const answers = {};
     let currentProfile = null;
 
+    // Swatch colors for the personality + theme picker steps. Each
+    // option gets a small colored circle so the user can preview the
+    // accent at a glance without committing — no hover state, no
+    // network, just an inline visual hint. Personality values map to
+    // their paired-theme accent; theme values map to themselves;
+    // 'auto' renders as a rainbow gradient to signal "follow your
+    // personality."
+    const SWATCH_BY_PERSONALITY = {
+      'default':         '#34d399',
+      'crypto-bro':      '#d4af37',
+      'drill-sergeant':  '#8fa840',
+      'surf-bro':        '#ff7f6b',
+      'quant-professor': '#6b4423',
+      'hacker':          '#00ff66',
+    };
+    const SWATCH_BY_THEME = {
+      'default':  '#34d399',
+      'lambo':    '#d4af37',
+      'matrix':   '#00ff66',
+      'camo':     '#8fa840',
+      'beach':    '#ff7f6b',
+      'academia': '#6b4423',
+    };
+
     // ── Render helpers ──
     function renderStep() {
       const step = STEPS[stepIdx];
@@ -4528,6 +4552,12 @@
       const selected = answers[step.field] != null ? answers[step.field]
                        : (currentProfile && currentProfile[step.field]) || null;
       optsEl.replaceChildren();
+      // Swatch lookup applies only on personality + theme picker steps;
+      // everything else (the 5 quiz steps) just gets the bare label
+      // + description card.
+      const swatchMap = step.field === 'personality_id' ? SWATCH_BY_PERSONALITY
+                       : step.field === 'theme_id' ? SWATCH_BY_THEME
+                       : null;
       for (const opt of step.opts) {
         const isSelected = opt.v === selected;
         const card = document.createElement('button');
@@ -4542,8 +4572,34 @@
         const desc = document.createElement('div');
         desc.className = 'text-[11px] muted mt-0.5';
         desc.textContent = opt.d || '';
-        card.appendChild(label);
-        if (opt.d) card.appendChild(desc);
+        // Build the card. If a swatch applies, wrap the label/desc
+        // in a flex row with a 14px colored circle on the left so
+        // the user sees the theme's accent before committing.
+        if (swatchMap) {
+          const swatchColor = swatchMap[opt.v];
+          const swatchStyle = swatchColor
+            ? `background: ${swatchColor};`
+            // 'auto' = follow your personality. Show a gradient of all
+            // 6 accents to telegraph "pick from any of these."
+            : 'background: linear-gradient(135deg, '
+              + '#34d399 0%, #d4af37 20%, #00ff66 40%, '
+              + '#8fa840 60%, #ff7f6b 80%, #6b4423 100%);';
+          const row = el('div', { class: 'flex items-center gap-3' },
+            el('span', {
+              class: 'inline-block w-3.5 h-3.5 rounded-full border border-zinc-600/50 shrink-0 shadow-sm',
+              style: swatchStyle,
+              'aria-hidden': 'true',
+            }),
+            el('div', { class: 'flex-1 min-w-0' },
+              label,
+              opt.d ? desc : null,
+            ),
+          );
+          card.appendChild(row);
+        } else {
+          card.appendChild(label);
+          if (opt.d) card.appendChild(desc);
+        }
         card.addEventListener('click', () => {
           answers[step.field] = opt.v;
           if (stepIdx < STEPS.length - 1) {
@@ -4596,6 +4652,32 @@
           const body = await resp.json().catch(() => ({}));
           throw new Error(body.error || ('HTTP ' + resp.status));
         }
+        // Show a confirmation state in the modal before the reload —
+        // jumping straight to location.reload() reads as if the click
+        // was ignored. ~900ms is enough to register the success
+        // without making the user wait perceptibly. Modal nav and
+        // content collapse into a centered "Saved" message.
+        const updated = Object.keys(answers);
+        qEl.textContent = '✓ Saved';
+        hintEl.textContent = 'Applying your new ' +
+          (updated.length === 1 ? 'preference' : 'preferences') +
+          ' (' + updated.length + ' field' + (updated.length === 1 ? '' : 's') +
+          ' updated). Reloading…';
+        optsEl.replaceChildren();
+        progEl.replaceChildren();
+        prevBtn.classList.add('hidden');
+        skipBtn.classList.add('hidden');
+        nextBtn.classList.add('hidden');
+        doneBtn.classList.add('hidden');
+        // Add a single confirmation tick so the user sees the success
+        // beat even on a fast network. Themed via existing emerald
+        // utilities → reskins per theme automatically.
+        optsEl.replaceChildren(el('div', {
+          class: 'text-center py-6',
+        },
+          el('div', { class: 'text-5xl text-emerald-400' }, '✓'),
+        ));
+        await new Promise((r) => setTimeout(r, 900));
         // Force a hard reload so the new theme CSS and any restart-
         // sensitive UI bits pick up the change cleanly.
         location.reload();
