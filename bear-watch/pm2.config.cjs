@@ -49,7 +49,14 @@ module.exports = {
       // any other installation on the same machine sees an obviously
       // different name in `pm2 list`.
       name: "bear-watch-server-stratos",
-      cwd: "./bots",
+      // ABSOLUTE cwd via resolve(__dirname, ...). Relative paths
+      // here resolve against pm2's daemon working dir which on
+      // Windows tends to be $HOME — that produced ENOENT for
+      // 'paper-trade.py' inside paper-trade-bot-stratos earlier.
+      // Absolute paths via __dirname make the config location-
+      // independent: pm2 can be started from anywhere and the
+      // apps still find their source.
+      cwd: resolve(__dirname, '..', 'bots'),
       // Avoid `npx tsx ...` on Windows: pm2 invokes node on npx.cmd
       // (treating the .cmd file as JS) and dies with `Unexpected token ':'`.
       // Use tsx via node's --import hook instead. tsx v4+ ships an
@@ -85,7 +92,9 @@ module.exports = {
       name: "paper-trade-bot-stratos",
       // Research code now lives under bear-scout/ (matches the scope
       // taxonomy in CLAUDE.md). Previously: ./lab/runners.
-      cwd: "./bear-scout/runners",
+      // ABSOLUTE cwd — see comment on bear-watch-server-stratos above
+      // for the rationale.
+      cwd: resolve(__dirname, '..', 'bear-scout', 'runners'),
       script: "python",
       args: "paper-trade.py",
       max_restarts: 9999,

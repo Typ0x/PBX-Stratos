@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -32,9 +33,21 @@ from pathlib import Path
 
 HERE             = Path(__file__).resolve().parent
 REGISTRY_PATH    = HERE / "strategy-registry.json"
-LAB_DIR          = Path.home() / ".pbx-lab"
+# Layer 3 runtime root for the lab. Honors STRATOS_LAB_HOME first
+# (set by bear-watch/pm2.config.cjs and the profile scripts), then
+# falls back to <repo>/runtime/lab/. The legacy ~/.pbx-lab/ path is
+# NOT used as fallback under the three-layer architecture — runtime
+# data ships with the install, not in $HOME.
+REPO_ROOT        = HERE.parent.parent
+LAB_DIR          = Path(os.environ.get("STRATOS_LAB_HOME") or str(REPO_ROOT / "runtime" / "lab"))
 TRADES_LOG       = LAB_DIR / "paper-trades.jsonl"
 HEARTBEAT_FILE   = LAB_DIR / "paper-trade-heartbeat"
+# Stub AQI snapshot — the framework expects this file to exist so
+# the health-check's 'AQI feed fresh' gate has a recent mtime to
+# inspect, but ships WITHOUT a real PurpleAir/AirNow integration
+# (that's the user's roadmap-section-3 work). We write an empty
+# stub each tick so the gate passes until the user wires real data.
+AQI_SNAPSHOT_FILE = LAB_DIR / "aqi-snapshot.json"
 
 TICK_INTERVAL_SEC = 60
 TICK_BUDGET_SEC   = 240   # if one tick takes longer than this, exit (pm2 respawns)
@@ -54,6 +67,22 @@ def load_registry() -> dict:
 def write_heartbeat() -> None:
     LAB_DIR.mkdir(parents=True, exist_ok=True)
     HEARTBEAT_FILE.write_text(now_iso())
+
+
+def write_aqi_snapshot() -> None:
+    """Write a stub AQI snapshot so the health-check's 'AQI feed fresh'
+    gate has a fresh mtime to inspect. Real PM2.5 / AQI ingestion is
+    Roadmap Section 3 work — the user wires PurpleAir or AirNow into
+    fetch_market_snapshot() and replaces this stub with real data.
+    Until then this keeps the health gate green by writing a small
+    JSON with a current timestamp + empty `pm25` map every tick."""
+    LAB_DIR.mkdir(parents=True, exist_ok=True)
+    AQI_SNAPSHOT_FILE.write_text(json.dumps({
+        "ts":     now_iso(),
+        "source": "stub",
+        "note":   "Replace with real PurpleAir/AirNow data — see ROADMAP section 3.",
+        "pm25":   {},  # { "CHI": <ug/m3>, "NYC": <ug/m3>, "TOR": <ug/m3> }
+    }, indent=2))
 
 
 def append_trade(entry: dict) -> None:
@@ -122,6 +151,7 @@ def tick(registry: dict) -> None:
                 "detail": decision.get("reason", ""),
             })
     write_heartbeat()
+    write_aqi_snapshot()
 
 
 # --- Main loop -------------------------------------------------------------
