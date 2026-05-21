@@ -65,6 +65,18 @@
   #sidebar.nav-collapsed .nav-label { display: none; }
   #sidebar.nav-collapsed .nav-btn { justify-content: center; padding-left: 0; padding-right: 0; }
 
+  /* Setup Guide button — emerald glow on hover, ring around the "?"
+     mark gets a soft outer shadow so the icon visibly lights up
+     (matches the dashboard's "highlight = emerald" pattern). */
+  .setup-guide-btn { color: #94a3b8; }
+  .setup-guide-btn:hover { color: #34d399; background: rgba(16,185,129,0.08); }
+  .setup-guide-btn:hover .setup-guide-mark {
+    border-color: #34d399;
+    color: #34d399;
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.20), 0 0 14px rgba(16,185,129,0.50);
+  }
+  .setup-guide-mark { transition: box-shadow 160ms, border-color 160ms, color 160ms; }
+
   /* ── Evolution live view ───────────────────────────────────────────── */
   /* Locked config inputs while a run is in flight */
   #evolve-card input:disabled { opacity: 0.5; cursor: not-allowed; }

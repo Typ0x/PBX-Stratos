@@ -1338,6 +1338,13 @@
         setNavCollapsed(collapsed);
       });
     }
+    // Setup Guide replays the onboarding tour. Doesn't touch the
+    // `pbx_onboarding_v1_done` flag — that flag still gates the
+    // FIRST-VISIT auto-open. This is the manual replay path.
+    const setupGuideBtn = document.getElementById('setup-guide-btn');
+    if (setupGuideBtn && typeof openOnboardOverlay === 'function') {
+      setupGuideBtn.addEventListener('click', () => openOnboardOverlay());
+    }
     setNavCollapsed(localStorage.getItem(NAV_COLLAPSED_KEY) === '1');
     showView(localStorage.getItem(NAV_VIEW_KEY) || 'discover');
   }
@@ -3293,7 +3300,7 @@
           }, 'Open Telegram invite ↗'),
         ),
         el('p', { class: 'muted text-[12px] mt-2' },
-          "Refresh the tour anytime by clearing your browser's site data for this dashboard."),
+          'Replay this tour anytime — click the "?" Setup Guide icon at the top of the sidebar.'),
       ],
     });
 
@@ -3611,7 +3618,7 @@
       }
     });
     document.getElementById('onboard-skip').addEventListener('click', () => {
-      const ok = window.confirm('Skip the tour? You can replay it anytime by clearing site data.');
+      const ok = window.confirm('Skip the tour? You can replay it anytime via the "?" Setup Guide icon at the top of the sidebar.');
       if (ok) finishOnboarding(true);
     });
   }
