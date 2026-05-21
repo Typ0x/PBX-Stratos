@@ -12,7 +12,7 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260521-7">
+<link rel="stylesheet" href="/dashboard.css?v=20260521-8">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 
@@ -466,10 +466,6 @@
 
   </section>
 
-  <!-- Funder card lives at the BOTTOM of the Discover view (below the
-       discovery controls) — explore-first, fund-later ordering. -->
-  <section id="funder-card"></section>
-
   </main>
 
   <!-- ===== Leaderboard view ===== -->
@@ -618,12 +614,17 @@
   </main>
 
   <!-- ===== Live trading view ===== -->
-  <!-- Placeholder stub for now — live bots + analytics live under Paper.
-       The user can grow this view into a real live-only fleet later. -->
+  <!-- The funder wallet IS the live-trading entry point: until the
+       funder is funded with USDC + SOL, no live bot can spawn. Used
+       to live at the bottom of Discover (explore-first ordering);
+       moved here so its semantics match its location — funding the
+       funder happens on the Live tab. Populated by renderFunder(). -->
   <main id="view-live" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
-    <div class="card rounded-xl py-16 px-6 text-center">
-      <div class="text-[13px] muted">Live trading — fund the funder wallet and deploy a live bot to see it here.</div>
-    </div>
+    <header class="space-y-1">
+      <div class="text-sm font-semibold text-zinc-50">Live trading</div>
+      <div class="text-[12px] muted">Real-money mode on Solana mainnet. Fund the funder wallet below, then spawn bots from a paper-tested strategy.</div>
+    </header>
+    <section id="funder-card"></section>
   </main>
 
   <!-- ===== Health view (bear-watch ops) ===== -->

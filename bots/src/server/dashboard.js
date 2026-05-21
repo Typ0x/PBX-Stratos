@@ -315,7 +315,12 @@
     const pristine = !hasBots && !workflowStarted && !heroEngaged;
 
     hero.classList.toggle('hidden', hasBots);
-    document.getElementById('funder-card').classList.toggle('hidden', pristine);
+    // Funder card moved to the Live trading view — visibility is now
+    // governed by which sidebar tab is active (showView), not by the
+    // pristine flag. The pristine hide only applies to Discover-view
+    // siblings (workflow-card). The funder element is left out of
+    // this toggle so it doesn't end up double-hidden when the user
+    // clicks into Live trading.
     document.getElementById('workflow-card').classList.toggle('hidden', pristine);
     // Performance / Trade history / Tick log / Backtest — only meaningful
     // once at least one bot exists.
@@ -3211,33 +3216,37 @@
       ],
     });
 
-    // 8 — Wallet setup reminder (while discovery finishes in background)
+    // 8 — Wallet setup reminder, anchored on the Live trading view
+    //     so the funder-card is right there as the user reads it.
     //
     // Skip-able by design: the user might be exploring with no
     // intent to trade live. Live-trading endpoints stay 503 until
-    // BOT_HD_MNEMONIC is set up + funded, so deferring is safe.
+    // BOT_HD_MNEMONIC is set up + the funder is funded, so deferring
+    // is safe.
     steps.push({
       title: 'Step 7: Set up your wallet (optional)',
-      view: 'discover',
+      view: 'live',
+      highlight: '#funder-card',
       body: () => [
         el('p', null,
-          "Discovery's still running in the background. While you wait, ",
-          "lock down your wallet so you're ready if you decide to trade live later."),
+          "Discovery's still running in the background. While you wait, lock down your wallet so you're ready if you decide to trade live later. ",
+          "The card highlighted above is your ",
+          el('strong', null, 'funder wallet'),
+          ' — every live bot derives from it.'),
         el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
           el('div', { class: 'text-amber-200 font-medium' }, '⚠ Recommended (skippable):'),
           el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
             el('li', null,
-              'Open ',
+              'Back up the 24-word recovery phrase: open ',
               el('code', { class: 'mono text-amber-200' }, '~/.pbx-bots/local.env'),
-              ' and copy the 24 words after ',
+              ' and copy the words after ',
               el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
               ' onto paper. Fireproof storage. ',
               el('strong', null, 'Do not screenshot, do not paste into a cloud sync.'),
             ),
             el('li', null,
-              "If you want to actually trade live later, send a small amount of USDC + SOL ",
-              "to your funder wallet pubkey. ",
-              el('span', { class: 'muted' }, "(Skip this if you're just paper-trading — costs nothing.)"),
+              "If you want to actually trade live later, send USDC + SOL to the address shown on the funder card above (~$50 USDC + ~0.05 SOL covers one bot). ",
+              el('span', { class: 'muted' }, "Skip this if you're just paper-trading — costs nothing."),
             ),
           ),
         ),
