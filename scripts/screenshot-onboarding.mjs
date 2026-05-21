@@ -78,7 +78,7 @@ async function main() {
 
   // Step through the tutorial. The onboarding controller exposes
   // either a button#onboard-next or step dots — try the Next button.
-  const TOTAL_STEPS = 10;
+  const TOTAL_STEPS = 12;
   for (let step = 1; step <= TOTAL_STEPS; step++) {
     const file = join(OUT_DIR, `onboard-step-${String(step).padStart(2, '0')}.png`);
     await page.screenshot({ path: file, fullPage: false });

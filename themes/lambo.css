@@ -1,46 +1,91 @@
-/* PBX Stratos — Lambo theme (gold + black, paired with Crypto Bro)
+/* PBX Stratos — Lambo theme (gold on matte black, paired with Crypto Bro)
  *
  * The "won early, sharing alpha" aesthetic. Matte black panels, gold
  * accents on PnL + key callouts, no neon, no gradients. Looks like a
  * trading terminal a real degen would actually run, not the Robinhood
- * confetti screen.
+ * confetti screen. Sharp 4px corners — feels harder-edged than default.
  *
- * Calibrated for long sessions: gold reserved for the things that
- * matter (PnL, alpha events), everything else stays neutral.
+ * Gold replaces emerald as the primary accent: buttons, PnL, links.
+ * Every Tailwind emerald-* utility on the page gets remapped to gold.
  */
 
 :root {
-  /* Color palette — matte black base + lambo gold accents */
-  --bg-primary:    #0a0a0a; /* near-black, not pure #000 (reduces glare) */
-  --bg-secondary:  #141414; /* panel background */
-  --bg-tertiary:   #1f1f1f; /* nested panel / input */
-  --text-primary:  #f5e6c8; /* warm off-white — pairs with gold */
-  --text-muted:    #8a7a5c; /* muted gold-tan */
-  --text-accent:   #d4af37; /* lambo gold — for links, key values */
-  --border-color:  #2a2620; /* subtle dark warm border */
-  --success:       #d4af37; /* PnL up = gold (this IS the theme) */
-  --warning:       #c08020; /* darker amber — pre-rekt warning */
-  --error:         #c02020; /* dark red — rekt territory */
-  --info:          #a08850; /* muted gold-tan for info */
-
-  /* Typography — bias toward something that feels like a trading desk */
-  --font-body:     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono:     "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-  --font-display:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-
-  /* Spacing + density */
-  --density:       comfortable;
-  --radius:        4px; /* sharper corners than default — feels harder-edged */
+  --bg-primary:    #0a0a0a;
+  --bg-secondary:  #141414;
+  --bg-tertiary:   #1f1f1f;
+  --text-primary:  #f5e6c8;
+  --text-muted:    #8a7a5c;
+  --text-accent:   #d4af37;
+  --border-color:  #2a2620;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
+/* Body — matte black, warm off-white text. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #0a0a0a !important;
+  color: #f5e6c8 !important;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
-/* Subtle gold highlight on hover for actionable elements — without this
- * the theme reads as "just dark" instead of "lambo dark". */
-a:hover, button:hover, [role="button"]:hover {
-  color: var(--text-accent);
+/* Kill the indigo grid backdrop — pure matte. */
+.bg-grid { background-image: none !important; }
+
+/* Header + sidebar — same matte base, slightly lifted panels. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 10, 10, 0.95) !important; border-color: #2a2620 !important; }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #0d0d0d !important; border-color: #2a2620 !important; }
+
+/* Card panels — flat dark, no gradient, sharp 4px corners. */
+.card {
+  background: #141414 !important;
+  border: 1px solid #2a2620 !important;
+  border-radius: 4px !important;
+}
+
+/* Accent: emerald → lambo gold (#d4af37). The dashboard uses
+ * bg-emerald-500 for primary CTAs (Save, Confirm, Decode, Deploy).
+ * Gold buttons on black text reads as exchange-terminal premium. */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #d4af37 !important;
+  color: #0a0a0a !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #e6c560 !important;
+}
+.text-emerald-300, .text-emerald-400 { color: #d4af37 !important; }
+.border-emerald-500\/40, .border-emerald-500\/30 { border-color: rgba(212, 175, 55, 0.4) !important; }
+.bg-emerald-500\/10, .bg-emerald-500\/5 { background-color: rgba(212, 175, 55, 0.08) !important; }
+
+/* Health/status emerald pulse dot → gold pulse. */
+.bg-emerald-400 { background-color: #d4af37 !important; }
+
+/* Muted text → muted gold-tan. */
+.muted { color: #8a7a5c !important; }
+.value { color: #f5e6c8 !important; }
+.label { color: #8a7a5c !important; }
+
+/* Text utility overrides — zinc → warm cream tones. */
+.text-zinc-50, .text-zinc-100 { color: #f5e6c8 !important; }
+.text-zinc-200 { color: #ddc99f !important; }
+.text-zinc-300 { color: #b8a474 !important; }
+.text-zinc-400, .text-zinc-500 { color: #8a7a5c !important; }
+
+/* Inputs/dark surfaces — push to the matte-black baseline. */
+.bg-\[\#0a0d13\] { background-color: #0a0a0a !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(10, 10, 10, 0.6) !important; }
+.border-zinc-700, .border-zinc-800\/60 { border-color: #2a2620 !important; }
+.focus\:border-emerald-500:focus { border-color: #d4af37 !important; }
+
+/* Mono font — JetBrains, like a real desk. */
+.mono { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important; }
+
+/* Sidebar active nav item — gold, not emerald. */
+.nav-btn[aria-current="true"] {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.10) !important;
+  border-left-color: #d4af37 !important;
+}
+.nav-btn:hover { color: #f5e6c8 !important; background: #1a1a1a !important; }
+.setup-guide-btn:hover { color: #d4af37 !important; background: rgba(212, 175, 55, 0.08) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #d4af37 !important; color: #d4af37 !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25), 0 0 14px rgba(212, 175, 55, 0.5) !important;
 }

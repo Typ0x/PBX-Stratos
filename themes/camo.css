@@ -1,40 +1,95 @@
 /* PBX Stratos — Camo theme (military green + amber alerts, paired with Drill Sergeant)
  *
- * Functional. Disciplined. No frills. Sage green canvas, amber for
- * anything that needs your attention, red only for ACTUAL emergencies.
- * Built to be readable under fluorescent lights.
+ * Functional. Disciplined. No frills. Forest-green canvas, olive panels,
+ * camo-green accents instead of emerald. Amber for alerts is intensified
+ * (drill-sergeant likes urgent callouts). Headings shift to UPPERCASE
+ * with letter-spacing — feels regulation.
+ *
+ * Built to be readable under fluorescent lights, no glare.
  */
 
 :root {
-  --bg-primary:    #2b3a2f; /* deep sage */
-  --bg-secondary:  #3a4a3e; /* panel olive */
-  --bg-tertiary:   #4a5b4e; /* lighter olive for inputs */
-  --text-primary:  #e8eadf; /* off-white parchment */
-  --text-muted:    #9aa48f; /* muted khaki */
-  --text-accent:   #f59e0b; /* amber — callouts, links */
-  --border-color:  #4a5b4e;
-  --success:       #84cc16; /* lime-500 — mission accomplished */
-  --warning:       #f59e0b; /* amber — standard alert */
-  --error:         #dc2626; /* red — ACTUAL emergency */
-  --info:          #a3a3a3; /* neutral gray — informational */
-
-  --font-body:     "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono:     "Roboto Mono", "SF Mono", Consolas, monospace;
-  --font-display:  "Roboto Condensed", "Roboto", -apple-system, sans-serif;
-
-  --density:       compact;
-  --radius:        2px; /* very sharp corners — feels regulation */
+  --bg-primary:    #1c2218;
+  --bg-secondary:  #232a1f;
+  --bg-tertiary:   #2d3526;
+  --text-primary:  #e8eadf;
+  --text-muted:    #9aa48f;
+  --text-accent:   #8fa840;
+  --border-color:  #3a4530;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
+/* Body — deep forest-dark, parchment text. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #1c2218 !important;
+  color: #e8eadf !important;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
 }
 
-/* Caps treatment for headings — drill sergeant likes ALL CAPS for callouts */
+/* Faint camo-green grid backdrop. */
+.bg-grid { background-image: radial-gradient(rgba(143, 168, 64, 0.10) 1px, transparent 1px) !important; }
+
+/* Header + sidebar — slightly lighter olive. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(28, 34, 24, 0.95) !important; border-color: #3a4530 !important; }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #1e2419 !important; border-color: #3a4530 !important; }
+
+/* Card panels — olive surface, sharp 2px corners. */
+.card {
+  background: #232a1f !important;
+  border: 1px solid #3a4530 !important;
+  border-radius: 2px !important;
+}
+
+/* Accent: emerald → camo green (#8fa840). */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #8fa840 !important;
+  color: #1c2218 !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #a8c259 !important;
+}
+.text-emerald-300, .text-emerald-400 { color: #a8c259 !important; }
+.border-emerald-500\/40, .border-emerald-500\/30 { border-color: rgba(143, 168, 64, 0.5) !important; }
+.bg-emerald-500\/10, .bg-emerald-500\/5 { background-color: rgba(143, 168, 64, 0.10) !important; }
+
+/* Amber alerts intensified — sergeants notice these. */
+.text-amber-200, .text-amber-300, .text-amber-200\/90, .text-amber-300\/90 { color: #fbbf24 !important; }
+.bg-amber-500\/15 { background-color: rgba(245, 158, 11, 0.25) !important; }
+.bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.15) !important; }
+.bg-amber-500\/5 { background-color: rgba(245, 158, 11, 0.10) !important; }
+.border-amber-500\/40, .border-amber-500\/30 { border-color: rgba(245, 158, 11, 0.6) !important; }
+
+/* Muted + value text. */
+.muted { color: #9aa48f !important; }
+.value { color: #e8eadf !important; }
+.label { color: #9aa48f !important; }
+
+/* Zinc text scale → khaki/parchment family. */
+.text-zinc-50, .text-zinc-100 { color: #f0f1e8 !important; }
+.text-zinc-200 { color: #e8eadf !important; }
+.text-zinc-300 { color: #ccd1bf !important; }
+.text-zinc-400, .text-zinc-500 { color: #9aa48f !important; }
+
+/* Inputs — match the olive panel tone. */
+.bg-\[\#0a0d13\] { background-color: #1c2218 !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(28, 34, 24, 0.6) !important; }
+.border-zinc-700, .border-zinc-800\/60 { border-color: #3a4530 !important; }
+.focus\:border-emerald-500:focus { border-color: #8fa840 !important; }
+
+/* Headings — REGULATION UPPERCASE. */
 h1, h2, h3, h4 {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: var(--font-display);
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Sidebar active nav item — camo green, not default emerald. */
+.nav-btn[aria-current="true"] {
+  color: #a8c259 !important;
+  background: rgba(143, 168, 64, 0.12) !important;
+  border-left-color: #8fa840 !important;
+}
+.nav-btn:hover { color: #e8eadf !important; background: #2d3526 !important; }
+.setup-guide-btn:hover { color: #a8c259 !important; background: rgba(143, 168, 64, 0.10) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #8fa840 !important; color: #a8c259 !important;
+  box-shadow: 0 0 0 2px rgba(143, 168, 64, 0.25), 0 0 14px rgba(143, 168, 64, 0.5) !important;
 }

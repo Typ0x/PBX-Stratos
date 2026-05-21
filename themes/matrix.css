@@ -1,36 +1,99 @@
 /* PBX Stratos — Matrix theme (green-on-black mono, paired with Hacker)
  *
- * Phosphor green on pure black. Everything mono. Sharp corners. Built
- * to feel like a CRT terminal. Reduces ambient color enough that the
- * dashboard reads like log output rather than a marketing landing page.
+ * Phosphor green on pure black. ALL text monospace. Sharp corners
+ * (radius: 0). Faint scanline-glow text-shadow on key values. Built
+ * to feel like a CRT terminal — log output, not a marketing landing.
  */
 
 :root {
   --bg-primary:    #000000;
-  --bg-secondary:  #0a0a0a;
-  --bg-tertiary:   #141414;
-  --text-primary:  #00ff66; /* terminal green */
-  --text-muted:    #008833; /* dimmer green */
-  --text-accent:   #66ff99; /* brighter green for accents */
-  --border-color:  #003311; /* very dark green border */
-  --success:       #00ff66;
-  --warning:       #ffaa00; /* amber — old-school terminal warning */
-  --error:         #ff3030; /* bright red — only the truly bad */
-  --info:          #00aaff; /* electric blue — borrowed from sysadmin tools */
-
-  /* Everything mono — no sans, no serif */
-  --font-body:     "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
-  --font-mono:     "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
-  --font-display:  "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SF Mono", "Consolas", monospace;
-
-  --density:       compact;
-  --radius:        0; /* sharp corners only */
+  --bg-secondary:  #001100;
+  --bg-tertiary:   #002200;
+  --text-primary:  #00ff66;
+  --text-muted:    #008833;
+  --text-accent:   #66ff99;
+  --border-color:  #003311;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  /* faint CRT-like scanline feel via text-shadow */
-  text-shadow: 0 0 1px rgba(0, 255, 102, 0.3);
+/* Body — pure black, phosphor green, mono everywhere. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #000000 !important;
+  color: #00ff66 !important;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", "SF Mono", Menlo, monospace !important;
+  text-shadow: 0 0 1px rgba(0, 255, 102, 0.3) !important;
+}
+
+/* Kill the indigo grid — replace with a phosphor green dot grid. */
+.bg-grid { background-image: radial-gradient(rgba(0, 255, 102, 0.10) 1px, transparent 1px) !important; }
+
+/* Header + sidebar — pure black with very dark green borders. */
+header.bg-\[\#0a0d13\]\/95 {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  border-color: #003311 !important;
+}
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #000a00 !important; border-color: #003311 !important; }
+
+/* Card panels — dark green-tinted on black, sharp corners. */
+.card {
+  background: #001100 !important;
+  border: 1px solid #003311 !important;
+  border-radius: 0 !important;
+}
+
+/* Accent: emerald → phosphor green. Glowing terminal CTAs. */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #00ff66 !important;
+  color: #000000 !important;
+  text-shadow: none !important;
+  box-shadow: 0 0 12px rgba(0, 255, 102, 0.6) !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #66ff99 !important;
+  box-shadow: 0 0 18px rgba(0, 255, 102, 0.8) !important;
+}
+.text-emerald-300, .text-emerald-400 {
+  color: #66ff99 !important;
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.7) !important;
+}
+.border-emerald-500\/40, .border-emerald-500\/30 { border-color: rgba(0, 255, 102, 0.5) !important; }
+.bg-emerald-500\/10, .bg-emerald-500\/5 { background-color: rgba(0, 255, 102, 0.10) !important; }
+
+/* Muted + value text — dimmer green, brighter green for values. */
+.muted { color: #008833 !important; text-shadow: none !important; }
+.value {
+  color: #66ff99 !important;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.6) !important;
+}
+.label { color: #008833 !important; }
+
+/* Zinc text scale → green scale. */
+.text-zinc-50, .text-zinc-100 { color: #66ff99 !important; }
+.text-zinc-200 { color: #00ff66 !important; }
+.text-zinc-300 { color: #00cc55 !important; }
+.text-zinc-400, .text-zinc-500 { color: #008833 !important; }
+
+/* Inputs — pure black, green border, mono. */
+.bg-\[\#0a0d13\] { background-color: #000000 !important; color: #00ff66 !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
+.border-zinc-700, .border-zinc-800\/60 { border-color: #003311 !important; }
+.focus\:border-emerald-500:focus { border-color: #00ff66 !important; box-shadow: 0 0 8px rgba(0, 255, 102, 0.6) !important; }
+
+/* EVERYTHING mono — even the body text classes. */
+.mono, body, h1, h2, h3, h4, p, span, div, button, input, select, textarea {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", "SF Mono", Menlo, monospace !important;
+}
+
+/* Sidebar active nav item — phosphor green glow. */
+.nav-btn[aria-current="true"] {
+  color: #66ff99 !important;
+  background: rgba(0, 255, 102, 0.10) !important;
+  border-left-color: #00ff66 !important;
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.7) !important;
+}
+.nav-btn { color: #008833 !important; }
+.nav-btn:hover { color: #00ff66 !important; background: #001a0a !important; }
+.setup-guide-btn:hover { color: #66ff99 !important; background: rgba(0, 255, 102, 0.10) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #00ff66 !important; color: #00ff66 !important;
+  box-shadow: 0 0 0 2px rgba(0, 255, 102, 0.30), 0 0 14px rgba(0, 255, 102, 0.6) !important;
 }

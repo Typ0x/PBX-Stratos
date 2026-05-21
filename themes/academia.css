@@ -1,40 +1,108 @@
 /* PBX Stratos — Academia theme (cream + serif, paired with Quant Professor)
  *
- * Reads like a working paper. Cream canvas (avoids the stark-white glare
- * of a fresh LaTeX render), serif body for prose, mono for numbers.
- * Restrained palette — color is reserved for the things that actually
- * carry information.
+ * Inverted to a LIGHT theme — reads like a working paper rather than a
+ * cockpit. Cream canvas avoids the stark-white glare of fresh LaTeX;
+ * dark-brown ink for body text; serif everywhere except mono for
+ * numbers. Restrained palette — color reserved for things that carry
+ * information.
+ *
+ * The only theme that flips bg/text away from dark mode. All zinc
+ * utility classes are remapped to dark-brown variants so on-cream
+ * text stays readable.
  */
 
 :root {
-  --bg-primary:    #f8f5ed; /* old-paper cream */
-  --bg-secondary:  #fffdf6; /* lighter cream */
-  --bg-tertiary:   #efeadc; /* slightly darker cream */
-  --text-primary:  #1a1a1a; /* near-black ink */
-  --text-muted:    #6b6760; /* muted slate */
-  --text-accent:   #7f1d1d; /* dark academic red */
-  --border-color:  #d4cfc0; /* faded cream border */
-  --success:       #166534; /* forest green */
-  --warning:       #b45309; /* burnt amber */
-  --error:         #991b1b; /* darker red */
-  --info:          #1e40af; /* deep blue — like a footnote */
-
-  --font-body:     "Lora", "Charter", "Georgia", "Times New Roman", serif;
-  --font-mono:     "JetBrains Mono", "Computer Modern Typewriter", "Courier New", monospace;
-  --font-display:  "Lora", "Charter", "Georgia", serif;
-
-  --density:       comfortable;
-  --radius:        2px; /* very subtle rounding — feels printed */
+  --bg-primary:    #f4ecd8;
+  --bg-secondary:  #fff8e7;
+  --bg-tertiary:   #efe3c4;
+  --text-primary:  #2a1f0f;
+  --text-muted:    #6b5a3f;
+  --text-accent:   #6b4423;
+  --border-color:  #d4c89a;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-feature-settings: "kern", "liga"; /* let the serif font breathe */
+/* Body — cream canvas, dark-brown serif ink. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #f4ecd8 !important;
+  color: #2a1f0f !important;
+  font-family: Georgia, "Crimson Text", "Times New Roman", serif !important;
 }
 
-/* Italicize emphasis the way a paper would */
-em, i {
-  font-style: italic;
+/* Kill the dark indigo grid — academia is paper-textured, not high-tech. */
+.bg-grid { background-image: radial-gradient(rgba(107, 68, 35, 0.06) 1px, transparent 1px) !important; }
+
+/* Header + sidebar — slightly darker cream so they delineate. */
+header.bg-\[\#0a0d13\]\/95 {
+  background-color: rgba(239, 227, 196, 0.95) !important;
+  border-color: #d4c89a !important;
 }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #efe3c4 !important; border-color: #d4c89a !important; }
+
+/* Card panels — paper white with cream border, 2px corners. */
+.card {
+  background: #fff8e7 !important;
+  border: 1px solid #d4c89a !important;
+  border-radius: 2px !important;
+  color: #2a1f0f !important;
+}
+
+/* Accent: emerald → academic brown (#6b4423). */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #6b4423 !important;
+  color: #fff8e7 !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #8a5a30 !important;
+}
+.text-emerald-300, .text-emerald-400 { color: #6b4423 !important; }
+.border-emerald-500\/40, .border-emerald-500\/30 { border-color: rgba(107, 68, 35, 0.4) !important; }
+.bg-emerald-500\/10, .bg-emerald-500\/5 { background-color: rgba(107, 68, 35, 0.06) !important; }
+
+/* Pulse-dot health indicator — academic forest green. */
+.bg-emerald-400 { background-color: #166534 !important; }
+
+/* Muted + value text. */
+.muted { color: #6b5a3f !important; }
+.value { color: #2a1f0f !important; }
+.label { color: #6b5a3f !important; }
+
+/* Zinc text scale — INVERTED. Everything dark-brown on cream. */
+.text-zinc-50, .text-zinc-100 { color: #1a1206 !important; }
+.text-zinc-200 { color: #2a1f0f !important; }
+.text-zinc-300 { color: #4a3a22 !important; }
+.text-zinc-400, .text-zinc-500 { color: #6b5a3f !important; }
+
+/* Amber alerts — burnt orange that reads on cream. */
+.text-amber-200, .text-amber-300 { color: #b45309 !important; }
+.bg-amber-500\/15, .bg-amber-500\/10, .bg-amber-500\/5 { background-color: rgba(180, 83, 9, 0.10) !important; }
+.border-amber-500\/40, .border-amber-500\/30 { border-color: rgba(180, 83, 9, 0.4) !important; }
+
+/* Inputs — slightly darker cream so they read as fields. */
+.bg-\[\#0a0d13\] { background-color: #efe3c4 !important; color: #2a1f0f !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(239, 227, 196, 0.6) !important; }
+.border-zinc-700, .border-zinc-800\/60 { border-color: #d4c89a !important; }
+.focus\:border-emerald-500:focus { border-color: #6b4423 !important; }
+
+/* Mono — keep for numbers but mute it. */
+.mono { font-family: "JetBrains Mono", "Courier New", Courier, monospace !important; }
+
+/* Body emphasis — italicize the way a paper would. */
+em, i { font-style: italic !important; }
+
+/* Sidebar active nav item — academic brown, on a cream sidebar.
+ * The default theme's emerald active state would clash with the
+ * inverted light-mode aesthetic, so we override it explicitly. */
+.nav-btn[aria-current="true"] {
+  color: #6b4423 !important;
+  background: rgba(107, 68, 35, 0.08) !important;
+  border-left-color: #6b4423 !important;
+}
+.nav-btn { color: #6b5a3f !important; }
+.nav-btn:hover { color: #2a1f0f !important; background: #e8dcb8 !important; }
+.setup-guide-btn { color: #6b5a3f !important; }
+.setup-guide-btn:hover { color: #6b4423 !important; background: rgba(107, 68, 35, 0.08) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #6b4423 !important; color: #6b4423 !important;
+  box-shadow: 0 0 0 2px rgba(107, 68, 35, 0.25) !important;
+}
+.setup-guide-mark { color: #6b5a3f !important; border-color: #d4c89a !important; }

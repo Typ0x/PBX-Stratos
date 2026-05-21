@@ -2793,6 +2793,20 @@ app.get('/dashboard/fresh', async (_req, reply) => {
 app.get('/dashboard.css', async (_req, reply) => {
   reply.type('text/css').send(readDashboardAsset('dashboard.css'));
 });
+// /active-theme.css — the currently-applied personality theme. The
+// pbx-set-theme skill copies the chosen themes/<id>.css here on
+// switch (e.g. themes/lambo.css → active-theme.css for crypto-bro).
+// We serve it lazily from disk so swapping themes only needs a
+// file replace + a browser refresh, no pm2 restart. If the file
+// is missing (fresh clone with no theme picked yet), serve an
+// empty stylesheet so the page still renders cleanly.
+app.get('/active-theme.css', async (_req, reply) => {
+  try {
+    reply.type('text/css').send(readDashboardAsset('active-theme.css'));
+  } catch {
+    reply.type('text/css').send('/* no active theme — using dashboard.css defaults */');
+  }
+});
 app.get('/dashboard.js', async (_req, reply) => {
   reply.type('application/javascript').send(readDashboardAsset('dashboard.js'));
 });

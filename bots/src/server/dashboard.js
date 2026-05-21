@@ -3080,7 +3080,7 @@
         el('p', null,
           "Claude just audited the code, installed dependencies, generated your wallet keys, started the dashboard server and paper-trade bot, and registered six background watchdogs. ",
           "This tour shows you how to actually use what you've got."),
-        el('p', { class: 'muted' }, 'Nine short steps follow — most just take a click. You can skip anytime.'),
+        el('p', { class: 'muted' }, 'Eleven short steps follow — most just take a click. You can skip anytime, or replay later with the "?" Setup Guide icon top-left.'),
       ],
       onEnter: () => onboardConfetti(),
     });
@@ -3276,15 +3276,73 @@
       ],
     });
 
-    // 10 — You're ready
+    // 10 — Health page (system at a glance)
+    //
+    // Navigate to /view-health + pulse-highlight the 7-check card so
+    // the user sees the live system status. Reassuring "we're watching
+    // everything for you" beat right before the final achievements
+    // step — they should leave the tour feeling supervised, not alone.
     steps.push({
-      title: "You're ready to start",
-      view: 'discover',
+      title: 'Step 9: Your system, at a glance',
+      view: 'health',
+      highlight: '#view-health',
       body: () => [
         el('p', null,
-          'You now know every page. From here, talk to Claude for what to do next — pick a strategy, deploy it to paper, watch how it performs.'),
+          'The Health page is your one-screen ops view. The 7-check above tracks server uptime, ',
+          'paper-trade heartbeat freshness, AQI feed, disk space, and the Solana RPC connection — all live.'),
         el('p', null,
-          'The achievements track will celebrate as you progress through the roadmap.'),
+          'Six background watchdogs (BEARWATCH-* scheduled tasks) also run on their own cadence ',
+          'every 5 min / hourly / daily — they handle health checks, weather pulls, daily digests, ',
+          'state + codebase backups, and outage recovery without you ever clicking anything.'),
+        el('p', { class: 'muted text-[12px]' },
+          'Green dots = humming. Red = something needs attention. Hit "Re-check" up top to refresh.'),
+      ],
+    });
+
+    // 11 — Achievements page (the final step before handoff)
+    //
+    // Navigate to /view-achievements and highlight the Section 1
+    // section card so the user sees their auto-tracked progress.
+    // This is also where the tour lands — the final Ready step
+    // stays on this view.
+    steps.push({
+      title: 'Step 10: Your roadmap + achievements',
+      view: 'achievements',
+      highlight: '#view-achievements',
+      body: () => [
+        el('p', null,
+          'Every install gets a 7-section, 131-task roadmap. Section 1 (Genesis) is mostly auto-tracked ',
+          'already — Claude detects what you\'ve done from your install state and marks it complete.'),
+        el('p', null,
+          'Sections 2 through 7 unlock as you ',
+          el('strong', null, 'trade, decode wallets, and explore the dashboard'),
+          '. Tasks in those sections need a real action to fire — Claude celebrates each one in your chosen personality voice.'),
+        el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5 text-[12px]' },
+          el('div', { class: 'text-zinc-100 font-medium mb-1' }, '💡 How to actually complete the rest'),
+          el('p', { class: 'text-zinc-300' },
+            'Just talk to Claude in chat. Say things like ',
+            el('em', { class: 'text-emerald-300' }, '"help me decode a wallet"'),
+            ', ',
+            el('em', { class: 'text-emerald-300' }, '"show me my next achievement"'),
+            ', or ',
+            el('em', { class: 'text-emerald-300' }, '"deploy a paper bot"'),
+            ' — Claude knows the roadmap and will guide you through each milestone, then mark them done automatically when conditions are met.'),
+        ),
+      ],
+    });
+
+    // 12 — You're ready (final handoff, lands on Achievements view)
+    //
+    // Stay on the Achievements view from step 11 — gives the user a
+    // visual anchor (their progress card) while they read the
+    // Telegram CTA + handoff line. No highlight; the modal IS the
+    // focal point here.
+    steps.push({
+      title: "You're ready to start",
+      view: 'achievements',
+      body: () => [
+        el('p', null,
+          "That's the whole site. The roadmap is now your map — work through it with Claude one chat at a time, and the achievements page tracks every milestone in real time."),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5' },
           el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the PBX Stratos operator community'),
           el('p', { class: 'text-[12px] text-zinc-300 mb-2' },
