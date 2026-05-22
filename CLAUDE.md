@@ -884,7 +884,7 @@ works.
 
 | Layer | Path | Edit policy |
 |-------|------|-------------|
-| L1 | `CLAUDE.md`, `.claude/`, `themes/`, `bots/`, `bear-watch/`, `bear-scout/`, `bear-den/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `ROADMAP.md`, `INSTALL.md`, `README.md`, `package.json`, `pyproject.toml`, `LICENSE` | Framework — edit only as releases |
+| L1 | `CLAUDE.md`, `.claude/`, `themes/`, `bots/`, `bear-watch/`, `bear-scout/`, `bear-den/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `ROADMAP.md`, `INSTALL.md`, `README.md`, `README.ai.md`, `package.json`, `pyproject.toml`, `LICENSE` | Framework — edit only as releases |
 | L2 | `_context/CLAUDE.md`, `_context/MANIFEST.md`, `_context/<scope>/STATUS.md`, `_context/<scope>/journal/*.md` | Per-user adaptive memory; gitignored |
 | L3 | `runtime/lab/user-profile.json`, `runtime/lab/achievements.json`, `runtime/lab/events.jsonl`, `runtime/lab/alerts.jsonl`, `runtime/bots/local.env`, `runtime/bots/wallets/`, `runtime/pm2/` | Operational data; gitignored |
 
@@ -933,10 +933,11 @@ the human-facing version; this is the Claude-facing operational version.
 
 | Need | File |
 |------|------|
-| Architecture + protocols (this file) | [`CLAUDE.md`](CLAUDE.md) |
+| Architecture + protocols (this file — for ongoing operations) | [`CLAUDE.md`](CLAUDE.md) |
+| AI agent setup runbook (the install flow + everything an agent needs to drive setup consistently) | [`README.ai.md`](README.ai.md) |
 | Universal Core behavior (mission, voice, response shape, AskUserQuestion discipline) | [`.claude/UNIVERSAL-CORE.md`](.claude/UNIVERSAL-CORE.md) |
 | Active personality voice + vocabulary | `.claude/personalities/<id>.md` (id from `runtime/lab/user-profile.json`) |
-| The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims | [`README.md`](README.md) |
+| The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims (human overview) | [`README.md`](README.md) |
 | The 7-section / 130-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
 | Three principles + file-locations table | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Manual install path (skipping Claude) | [`INSTALL.md`](INSTALL.md) |

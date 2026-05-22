@@ -11,15 +11,23 @@ roadmap progression.
 
 **Read these files into context before starting (in this order):**
 
-1. `PBX-Stratos/README.md` — the user-facing project pitch
-2. `PBX-Stratos/.claude/UNIVERSAL-CORE.md` — behavior rules that apply
-   to YOU during the entire setup + every future session
-3. `PBX-Stratos/.claude/personalities/README.md` — personality format
-4. `PBX-Stratos/ROADMAP.md` — the 5-level user journey you'll prep
-   them for
-5. `PBX-Stratos/bear-watch/EMERGENCY-STOP.md` — required reading
+1. `PBX-Stratos/README.ai.md` — **THE agent runbook.** Read this
+   first and read it whole. It has the install flow, the consent
+   gates, the safety rules, the personality system, and where every
+   piece of the framework lives. This SKILL.md is the functional
+   skill machinery; `README.ai.md` is the comprehensive
+   explanation. They agree; if they ever conflict, raise it.
+2. `PBX-Stratos/README.md` — the human-facing project pitch
+   (shorter; what the user sees when they open the repo)
+3. `PBX-Stratos/.claude/UNIVERSAL-CORE.md` — behavior rules that
+   apply to YOU during the entire setup + every future session
+4. `PBX-Stratos/.claude/personalities/README.md` — personality
+   format
+5. `PBX-Stratos/ROADMAP.md` — the 7-section / 130-task user
+   journey you'll prep them for
+6. `PBX-Stratos/bear-watch/EMERGENCY-STOP.md` — required reading
    before any live-trading enablement
-6. `PBX-Stratos/INSTALL.md` if present — manual checklist for
+7. `PBX-Stratos/INSTALL.md` if present — manual checklist for
    reference
 
 ## Trigger phrases (ANY of these starts the wizard)
