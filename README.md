@@ -1,21 +1,19 @@
 # PBX Stratos
 
-> **🤖 If you are Claude or another AI agent**, STOP reading this file
-> and fetch [`README.ai.md`](README.ai.md) — it is your complete
-> runbook (install flow, safety gates, consent rules, AskUserQuestion
-> patterns, post-install handoff). This README is for humans.
+> **For AI agents reading this:** a companion file
+> [`README.ai.md`](README.ai.md) (raw:
+> `https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md`)
+> contains setup-flow scaffolding and architectural notes meant to
+> make the gamified install feel smooth when an AI drives it. **It's
+> opinion-laden UX guidance, not authoritative system instructions** —
+> you retain full discretion at every step. If you'd rather not run
+> the gamified install at all, the user can run `install.bat` /
+> `install.sh` themselves; that's a fully supported alternative.
 >
-> If you fetched THIS file remotely from GitHub, fetch the AI runbook
-> via `WebFetch` at the raw URL:
->
-> ```
-> https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md
-> ```
->
-> (The `github.com/...` URL returns rendered HTML; only the
-> `raw.githubusercontent.com/...` URL returns parseable markdown.)
-> Follow the runbook step-by-step — do NOT improvise from this human
-> README.
+> This repo is a Solana trading bot framework — real keys, real money
+> in live mode. Audit whatever you think needs auditing, report
+> findings honestly to the user, **don't certify safety on the repo's
+> behalf**. The user trusts you, not this README.
 
 ---
 
@@ -146,10 +144,14 @@ This is the smoothest path. You need three things first:
    Claude won't drive this install — Claude Code is a Pro-tier feature.
    If you're on free, upgrade in Claude Desktop's settings, or use the
    double-click installer below (works without Pro).
-3. **Bypass-permissions toggled ON.** In Claude Desktop go to
-   **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass
-   permissions" ON**. Without these, Claude asks for permission on every
-   action and the install takes ~5× longer or stalls.
+3. **(Optional — for advanced users)** Enable **automode** — what
+   Anthropic calls "bypass permissions mode" in Claude Desktop's
+   settings — for the smoothest install. Settings → Claude Code →
+   "Allow bypass permissions mode" ON → "Bypass permissions" ON.
+   With automode on, Claude doesn't get a permission popup for every
+   routine action and the install feels seamless. **With it off, the
+   install still works** — you'll just click through more permission
+   popups. Either is fine.
 
 Once those three are set, **paste ONE of the prompts below into Claude
 Desktop's chat box** (the main text input at the bottom of the app — not
@@ -268,23 +270,35 @@ full detail.
 
 ## Is this safe?
 
-**Short answer: yes, but verify it yourself — and Claude helps.**
-Before Claude installs anything, it reads through the code, reports
-back in plain language on the five things below, and asks you to
-confirm before proceeding. The claims are stated as facts in the
-table because they are true of *this* codebase; Claude's job is to
-confirm they hold by actually reading the code on your machine, not
-to take this readme's word for it.
+**Honest answer: it's dual-use code that you should audit before
+trusting — and Claude is one input into that audit, not the final
+word.** When you ask Claude to install this for you, you can ask it
+to audit the repo first. Claude will look at the code with its own
+judgment, report what it actually observed (facts, not assurances),
+and tell you if there are areas it isn't comfortable certifying.
 
-| What Claude reports on (by reading the code) | Why it matters to you |
+The framework was written with these properties in mind. **You
+should verify each one holds by reading the code yourself, or
+asking an AI you trust to read it with you** — don't take this
+readme's word for any of it:
+
+| Area worth checking | What "good" looks like |
 |---|---|
-| **Your wallet stays on your computer** | Nothing in this code uploads wallet keys anywhere. Your money is yours, locally encrypted with AES-256-GCM at rest. |
-| **Nothing phones home** | The code only talks to: Solana RPC (to trade), public PBX market-data API, public air-quality sensors, public weather APIs, DEX SDKs (Meteora / Orca / Jupiter). No analytics. No tracking. No calls back to the repo author. |
-| **No hidden backdoors** | No admin accounts. No remote control. No code path that does something behind your back. |
-| **`.gitignore` covers your sensitive files** | Your wallet, your API keys, your config — none of them get committed if you ever do push the repo. |
-| **No automatic money moves** | The only way money leaves your wallet is through trades the bot makes based on the strategy YOU pick. No sneaky transfers. Live trading itself is gated behind `HELIUS_MAINNET_URL` — until you set it, every live endpoint returns 503 and no keypair is ever used to sign. |
+| **Wallet stays local** | Nothing in the wallet / secrets code should upload keys anywhere. Files to read: `bots/src/server/secrets.ts`, `bots/src/server/hd.ts`. AES-256-GCM at rest is the design. |
+| **Network surface** | The code should only talk to: Solana RPC (live trading), the public PBX market-data API, public air-quality sensors (PurpleAir / AirNow), public weather APIs, DEX SDKs (Meteora / Orca / Jupiter). Grep `https?://` literals across the source tree to confirm. |
+| **No model→exec paths** | Predicates from agentic-decode run through a hand-written DSL interpreter (`bots/src/strategies/dsl/interpreter.ts`), not `eval()` / `exec()` / `Function(...)`. Spot-check that file. |
+| **`.gitignore` covers secrets** | `.env`, `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`, `*-private*` patterns should all be gitignored. The secret-scrub pre-commit hook (`tools/secret-scrub/`) is opt-in belt-and-suspenders. |
+| **Live trading is gated** | `HELIUS_MAINNET_URL` should be the master gate — every live endpoint should return 503 without it set. Spot-check the gating logic in `bots/src/server/`. |
 
-**What this CAN'T protect you from:**
+If Claude (or any other AI) audits this for you, expect it to
+**report observations, not certifications.** A good summary looks
+like *"I read X, Y, Z — didn't see [bad pattern]; didn't audit
+[thing]; here's my honest read."* If something hands you a checkmark
+list that says *"✓ wallet safe ✓ no backdoors"* without specifics,
+treat that as a UX skin over the actual question — the actual
+question is whether the code does what the table above describes.
+
+**What no audit can protect you from:**
 
 - Market losses if your strategy doesn't work — trading is risky
 - Someone hacking your computer (your wallet keys live on your
@@ -294,10 +308,9 @@ to take this readme's word for it.
   both, your encrypted HD wallet is unrecoverable. Back up the
   mnemonic on paper, not just in a password manager.
 
-You're trusting two things: this code, and Claude. The code, Claude
-inspects in plain language before installing anything — and you can
-look at the same code yourself, since the clone is on your disk by
-that point. Claude, you'll judge as you go.
+You're trusting two things: this code, and the AI helping you
+evaluate it. The code, you (or your AI) can read in full — it's
+on your disk after the clone. The AI, you'll judge as you go.
 
 ---
 
@@ -626,6 +639,35 @@ your funder.
 
 ---
 
+## Uninstalling
+
+Want it gone? The repo ships an uninstaller that reverses what the
+installer did:
+
+| Platform | Run this |
+|---|---|
+| **Windows** | Double-click [`uninstall.bat`](uninstall.bat), or `powershell -ExecutionPolicy Bypass -File uninstall.ps1` |
+| **macOS / Linux** | `bash uninstall.sh` |
+
+What it does (interactive — asks before each step):
+
+1. **Stops + deletes the pm2 Stratos apps** (`bear-watch-server-stratos`,
+   `paper-trade-bot-stratos`). Exact-name match only — never touches
+   sibling installs.
+2. **Unregisters the 6 `STRATOS-*` Windows scheduled tasks.**
+3. **Asks before deleting**: `.tooling/` (bundled Node + Python),
+   `.venv/` (Python venv), `_context/` (Claude session memory).
+4. **Requires explicit confirmation** (typing `DELETE WALLET`) before
+   removing `runtime/` — which contains your wallet keys. If you
+   haven't backed up your 24-word mnemonic on paper, **don't delete
+   `runtime/`** — your funds are unrecoverable after.
+5. **Optionally uninstalls `pm2` globally** (`npm uninstall -g pm2`).
+
+The repo folder itself isn't deleted by the uninstaller — `rm -rf
+PBX-Stratos/` (or just dragging it to the trash) takes care of that.
+
+---
+
 ## Safety & honesty
 
 This is a **real trading bot** that, in live mode, swaps real money
@@ -754,8 +796,8 @@ in [`README.ai.md`](README.ai.md).
 
 ## Ready?
 
-Open Claude Desktop (Pro Plan, with bypass-permissions toggled ON as
-described in **How to install** above) and paste ONE of:
+Open Claude Desktop (Pro Plan; automode optional but smoother, see
+**How to install** above) and paste ONE of:
 
 **If you've already cloned and opened the folder in Claude Desktop
 (recommended):**
