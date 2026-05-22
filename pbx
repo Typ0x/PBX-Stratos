@@ -20,7 +20,8 @@ the README.
 
 First run walks you through optional keys (Helius / PurpleAir), fetches
 the on-chain backfill from the public PBX API, and saves config to
-~/.pbx-lab/. No keys are echoed. The decoder needs Helius or DATABASE_URL;
+runtime/lab/ (Layer 3 — gitignored; override via STRATOS_LAB_HOME env
+var). No keys are echoed. The decoder needs Helius or DATABASE_URL;
 backtesting works against cached on-chain data.
 """
 from __future__ import annotations
@@ -51,15 +52,23 @@ for _stream in (sys.stdout, sys.stderr):
             pass
 
 # ─── paths + constants ────────────────────────────────────────────────
-HOME = Path.home()
-PBX_HOME = HOME / ".pbx-lab"
-CONFIG_PATH = PBX_HOME / "config.json"
-DATA_DIR = PBX_HOME / "data"
-BACKFILL_PATH = DATA_DIR / "backfill.json"
-
 REPO_ROOT = Path(__file__).resolve().parent
 LAB_DIR = REPO_ROOT / "lab"
 RUNNERS = LAB_DIR / "runners"
+
+# Layer 3 runtime root for the lab. Honors the STRATOS_LAB_HOME env var
+# first (set by profiles/stratos.{ps1,sh} and bear-watch/pm2.config.cjs),
+# then falls back to <repo>/runtime/lab/. The legacy ~/.pbx-lab/ path is
+# NOT used as fallback under the three-layer architecture — runtime data
+# ships with the install, not in $HOME.
+HOME = Path.home()
+PBX_HOME = Path(
+    os.environ.get("STRATOS_LAB_HOME")
+    or str(REPO_ROOT / "runtime" / "lab")
+)
+CONFIG_PATH = PBX_HOME / "config.json"
+DATA_DIR = PBX_HOME / "data"
+BACKFILL_PATH = DATA_DIR / "backfill.json"
 
 PUBLIC_API = "https://pbx-mainnet-api.onrender.com"
 DEFAULT_BACKFILL_DAYS = 30
@@ -404,7 +413,7 @@ def _copy_to_clipboard(text: str) -> bool:
 
 
 def cmd_wallet(cfg: dict[str, Any]) -> int:
-    """Generate or import a Solana keypair for the bot. Saved 0600 to ~/.pbx-lab/."""
+    """Generate or import a Solana keypair for the bot. Saved 0600 to runtime/lab/."""
     args = sys.argv[2:] if len(sys.argv) > 2 else []
     sub = args[0] if args else None
     if sub == "new":
@@ -585,7 +594,7 @@ def _wallet_show(cfg: dict[str, Any]) -> int:
 
 # ─── achievement tracker ─────────────────────────────────────────────
 def _emit_event(event: dict) -> None:
-    """Append a JSON event to ~/.pbx-lab/events.jsonl. Achievement tracker
+    """Append a JSON event to runtime/lab/events.jsonl. Achievement tracker
     consumes these to unlock badges."""
     PBX_HOME.mkdir(parents=True, exist_ok=True)
     event = {"ts": datetime.now(timezone.utc).isoformat(), **event}

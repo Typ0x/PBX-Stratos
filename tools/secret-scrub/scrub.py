@@ -119,9 +119,9 @@ def scrub_staged() -> int:
 
 
 def _sessions_dir() -> Path:
-    # PBX_SESSIONS_DIR overrides for tests; default is the real location.
+    # STRATOS_SESSIONS_DIR overrides for tests; default is the real location.
     import os
-    override = os.environ.get('PBX_SESSIONS_DIR')
+    override = os.environ.get('STRATOS_SESSIONS_DIR')
     if override:
         return Path(override)
     return Path.home() / '.claude' / 'projects'

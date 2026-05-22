@@ -8,9 +8,11 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "typecheck": "npm --workspace bots run typecheck",
-    "server": "npm --workspace bots run server"
+    "server": "npm --workspace bots run server",
+    "reset": "node scripts/reset-fresh.mjs",
+    "reset:no-backup": "node scripts/reset-fresh.mjs --no-backup"
   },
   "devDependencies": {
-    "playwright": "1.49.1"
+    "playwright": "^1.49.1"
   }
 }

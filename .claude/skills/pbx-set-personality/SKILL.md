@@ -1,6 +1,6 @@
 ---
 name: pbx-set-personality
-description: Use when the user says ANY of "switch to <personality-id>", "change personality to X", "swap personality", "let me try the <X> personality", "try crypto-bro / surf-bro / drill-sergeant / quant-professor / hacker", "switch back to default", or wants to change just their Claude personality without re-running the full personality quiz. Reads available personalities from `.claude/personalities/`, validates the requested ID exists, optionally previews the personality voice before committing, updates `personality_id` in `~/.pbx-lab/user-profile.json`, and optionally also updates `theme_id` if the user wants the matching theme.
+description: Use when the user says ANY of "switch to <personality-id>", "change personality to X", "swap personality", "let me try the <X> personality", "try crypto-bro / surf-bro / drill-sergeant / quant-professor / hacker", "switch back to default", or wants to change just their Claude personality without re-running the full personality quiz. Reads available personalities from `.claude/personalities/`, validates the requested ID exists, optionally previews the personality voice before committing, updates `personality_id` in `runtime/lab/user-profile.json`, and optionally also updates `theme_id` if the user wants the matching theme.
 ---
 
 # PBX Stratos — Set Personality
@@ -40,7 +40,7 @@ full quiz. Quick swap, with optional preview + theme-match.
      taste-testing, then ask again
    - "Cancel"
 4. **On commit**: update `personality_id` (and optionally `theme_id`)
-   in `~/.pbx-lab/user-profile.json`, update `last_updated`
+   in `runtime/lab/user-profile.json`, update `last_updated`
 5. **Confirm in the NEW voice** — first response in the new
    personality, brief, in-character: e.g., Crypto Bro: "personality
    swapped fam, you're on crypto-bro now. drip looking different too

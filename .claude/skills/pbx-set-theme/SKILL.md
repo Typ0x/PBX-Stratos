@@ -1,6 +1,6 @@
 ---
 name: pbx-set-theme
-description: Use when the user says ANY of "switch theme to <id>", "change my theme", "swap dashboard look", "try the <X> theme", "match my theme to my personality", or wants to apply a different dashboard CSS theme without changing their personality. Reads available themes from `themes/`, validates the requested ID exists, applies the theme by copying `themes/<id>.css` to `bots/src/server/active-theme.css` (or symlinking on Unix), updates `theme_id` in `~/.pbx-lab/user-profile.json`, and tells the user to refresh their browser tab to see the change.
+description: Use when the user says ANY of "switch theme to <id>", "change my theme", "swap dashboard look", "try the <X> theme", "match my theme to my personality", or wants to apply a different dashboard CSS theme without changing their personality. Reads available themes from `themes/`, validates the requested ID exists, applies the theme by copying `themes/<id>.css` to `bots/src/server/active-theme.css` (or symlinking on Unix), updates `theme_id` in `runtime/lab/user-profile.json`, and tells the user to refresh their browser tab to see the change.
 ---
 
 # PBX Stratos — Set Theme
@@ -30,7 +30,7 @@ served lazily per request).
    is a real file
 2. **Copy** `themes/<id>.css` to `bots/src/server/active-theme.css`
    (on Unix, prefer a symlink — `ln -sf`)
-3. **Update `theme_id`** in `~/.pbx-lab/user-profile.json`, update
+3. **Update `theme_id`** in `runtime/lab/user-profile.json`, update
    `last_updated`
 4. **Tell the user to refresh** their dashboard tab to see the
    change. Themes are served lazily; no pm2 restart needed (Tier 0

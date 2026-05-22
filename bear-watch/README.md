@@ -38,11 +38,11 @@ same care as production server config — test in paper mode first,
 verify health-check still passes, and never `pm2 restart` the
 bear-watch-server while a live position is open without explicit
 acknowledgement (see `EMERGENCY-STOP.md` and your project's consent
-tier policy in `_context/CLAUDE.md`).
+tier policy in `CLAUDE.md`).
 
 ## What does NOT live here
 
-- Strategy code → lives in `lab/runners/`
+- Strategy code → lives in `bear-scout/runners/`
 - Live bot logic → lives in `bots/src/` (in the integrated starter repo)
 - Dashboard UI → lives in `bots/src/server/dashboard.html` + `themes/`
 - Per-scope journals + STATUS + audit reports → live in `_context/bear-watch/`

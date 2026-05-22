@@ -3,17 +3,17 @@
  * CLI. Identical mental model to local commands. Each subcommand is one
  * authenticated HTTPS call.
  *
- * Credentials live at $PBX_BOTS_HOME/remotes.json:
+ * Credentials live at $STRATOS_BOTS_HOME/remotes.json:
  *   { active: 'prod', remotes: { prod: { url, token } } }
  *
- * Override at call time with PBX_BOTS_REMOTE=<name>.
+ * Override at call time with STRATOS_BOTS_REMOTE=<name>.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const HOME = process.env.PBX_BOTS_HOME ?? join(homedir(), '.config', 'pbx-bots');
+const HOME = process.env.STRATOS_BOTS_HOME ?? join(homedir(), '.config', 'pbx-bots');
 const REMOTES_PATH = join(HOME, 'remotes.json');
 
 interface RemoteEntry {
@@ -36,7 +36,7 @@ function saveRemotes(r: RemotesFile): void {
 }
 
 function activeRemote(): RemoteEntry {
-  const override = process.env.PBX_BOTS_REMOTE;
+  const override = process.env.STRATOS_BOTS_REMOTE;
   const r = loadRemotes();
   const key = override ?? r.active;
   if (!key) throw new Error('no active remote — run: pbx-bots remote add <name> <url> <token>');
@@ -502,7 +502,7 @@ Bots:
                                                for a different destination. bot must be stopped first.
 
 Env:
-  PBX_BOTS_REMOTE              override the active remote name`);
+  STRATOS_BOTS_REMOTE              override the active remote name`);
     return;
   }
   const handler = remoteHandlers[sub];

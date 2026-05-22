@@ -19,47 +19,47 @@ roadmap.
 
 ## Section 1 — Genesis
 
-### s1.t1 — "Pro Tier Unlocked"
-> Claude Desktop installed and you're on the Pro Plan. No free-tier rate-limits choking the install. Step one of every degen's stack. Up next: type the magic phrase.
+### s1.t1 — "Pro Tier + Bypass ON"
+> claude desktop on the box, pro plan auth confirmed, both bypass-permissions toggles flipped ON. without those toggles the install drags 5x longer — degens hate latency. up next: clone the repo and drop the trigger phrase
 
-### s1.t2 — "Magic Phrase Dropped"
-> You hit Claude with the onboarding prompt and it's printing now. From here Claude does the heavy lifting — you mostly just nod and approve. Up next: anti-rug check on the code.
+### s1.t2 — "Trigger Sent"
+> you hit claude with the onboarding prompt and the wizard is printing. from here claude drives — you read and approve. up next: 4-stage anti-rug check on the code
 
-### s1.t3 — "Anti-Rug Check"
-> Smart move checking the contract first ser. Half the projects out there are rugs. This one isn't. Verified by an LLM that actually read the code. Let's keep moving.
+### s1.t3 — "Anti-Rug Check Cleared"
+> ser you actually read the contract before aping. host check, claude CLI check, clone integrity, 4 security greps — all four stages came back clean and you approved. half the projects out there are rugs; this one isn't. wagmi
 
-### s1.t4 — "Profile Built"
-> 5 Q's, profile locked in. Claude now knows how to talk to you without overwhelming. Say "run the personality quiz" anytime if vibes change.
+### s1.t4 — "Profile Locked"
+> 5 Q's answered, `~/.pbx-lab/user-profile.json` written. tech level, comms style, goal, consent, autonomy — all on file. claude now knows how to talk to you without overwhelming. say "run the personality quiz" anytime if vibes shift
 
-### s1.t5 — "On the GC"
-> You're in the PBX Stratos AI Agent group. Voice call scheduled or done. You're not lurking anymore — you're in the room with the team.
+### s1.t5 — "Helius Key Bid"
+> free helius RPC key pasted, `.env` written at repo root, ACL-locked to owner-only, `.gitignore` confirmed. `HELIUS_MAINNET_URL` is live. key itself never echoed back to chat — basic opsec, but it matters
 
-### s1.t6 — "Thesis Unlocked"
-> Claude walked you through how PM2.5 → token price. You can explain the play in your own words. Most retail just chases candles; you actually know why this thing moves.
+### s1.t6 — "Wallet Generated"
+> you picked fresh / import / defer and the server autogen'd `~/.pbx-bots/local.env` at mode 0600. `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words) — all there. the wallet your fleet derives from exists on disk now
 
-### s1.t7 — "Stack Mapped"
-> Node, Python, git, pm2 — you know what each one does. No more guessing what's a "dependency". Operator brain forming.
+### s1.t7 — "Mnemonic Backed Up on Paper"
+> Your 24-word `BOT_HD_MNEMONIC` is written down on paper and stored somewhere fireproof. The file is closed. No screenshot, no unprotected cloud sync. This phrase is the only thing that reconstructs every wallet your fleet derives — losing it means losing every position, permanently. Treat this paper like the deed to your house.
 
-### s1.t8 — "Deps + Anatomy"
-> Claude installed the packages AND walked you through what the main ones do. You're not just running a black box — you have a mental map.
+### s1.t8 — "Deps Installed"
+> `npm install` ran at the root via workspaces, `pip install -e .[decoder]` ran in `.venv`. `node_modules/` populated, `pbx_trader_lab` + `sklearn` + `numpy` import clean, `.tooling/ready.json` written. stack is wired
 
-### s1.t9 — "Supervisor Up"
-> pm2 installed and you know why. "Just run the script" loses every time you reboot, get a power flicker, or the script panics. Supervision = always-on.
+### s1.t9 — "Drip Set"
+> personality + matching theme locked in. `personality_id` + `theme_id` saved, `bots/src/server/active-theme.css` re-skinned. clean drip on the dashboard, claude vibes match. degen presentation = degen execution
 
-### s1.t10 — "Starter Locked + Justified"
-> Picked a starter strategy knowing what it's actually trying to do. Not a vibes-pick — you can defend it.
+### s1.t10 — "pm2 Fleet Online"
+> `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in pm2 list. `127.0.0.1:8787` listening, `/health` returns `{"ok":true}`. bot is breathing
 
-### s1.t11 — "Drip Set"
-> Personality + theme locked in. Clean drip on the dashboard, Claude vibes match. Section 3 is where you customize them deeper.
+### s1.t11 — "Cron Locked"
+> all 6 `BEARWATCH-*` scheduled tasks — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog — show `Ready` in `schtasks /query`. boring infra handled, your job is the alpha
 
 ### s1.t12 — "Dashboard Toured"
-> Claude walked you through every panel. You can read the whole control room at a glance now.
+> `127.0.0.1:8787/dashboard` open and claude walked you through every panel. positions, AQI, health, alerts, strategy — you can read the whole control room at a glance. iykyk
 
-### s1.t13 — "Cron Locked"
-> All 7 scheduled tasks live. You know what each one watches for. Boring infra is handled — your job is the alpha.
+### s1.t13 — "Health Check 5/7 Green"
+> `bear-watch/health-check.py` ran, 5+ of 7 checks GREEN (server, dashboard, heartbeat, AQI, alerts, disk, RPC). any REDs explained — AQI fills in after the first weather pull, disk REDs only if your drive is cooked. system verified
 
-### s1.t14 — "All Green, Bot Fully Live"
-> 7 for 7 on health checks. You can explain what each one tests. **Section 1: cleared. Up next: feel the pulse.**
+### s1.t14 — "In the GC"
+> you're in the PBX Stratos AI Agent group, voice call scheduled or done. you're not lurking anymore — you're in the room with the team. **section 1 cleared. up next: feel the pulse. move to Section 2 — Pulse.**
 
 ---
 
@@ -407,7 +407,7 @@ roadmap.
 > Your discovery, documented, shareable. Alpha that wouldn't exist without you.
 
 ### s7.t6 — "AQ-Price Forecaster Cooking"
-> You built a near-term PM2.5 → price model using `lab/aq-price/` and it BEAT the persistence baseline on 7 days of held-out data. Forecasting next-hour PM2.5 is the upstream of the alpha — owning that pipeline is genuine research territory, ser.
+> You built a near-term PM2.5 → price model using `bear-scout/aq-price/` and it BEAT the persistence baseline on 7 days of held-out data. Forecasting next-hour PM2.5 is the upstream of the alpha — owning that pipeline is genuine research territory, ser.
 
 ### s7.t7 — "New Sensor Integrated"
 > Data source the project never knew about, now feeding decisions.

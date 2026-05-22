@@ -6,7 +6,20 @@
 <title>PBX Bots — Trading Dashboard</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="/dashboard.css">
+<!-- canvas-confetti: used by the onboarding tour step 1 celebration.
+     Loaded lazily, ~10kb gzipped. No-op if blocked (graceful fallback). -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<!-- Cache-bust CSS + JS on every onboarding-impacting change so the
+     browser doesn't serve stale .onboard-* rules. Bump the version
+     suffix when shipping new CSS or JS edits the tour depends on. -->
+<link rel="stylesheet" href="/dashboard.css?v=20260521-10">
+<!-- Active personality theme. Loaded AFTER dashboard.css so theme
+     overrides win. The pbx-set-theme skill copies themes/<id>.css to
+     bots/src/server/active-theme.css on switch; the /active-theme.css
+     route sends Cache-Control: no-cache so the browser always pulls
+     fresh content on refresh — no manual cache-bust bumps needed
+     when themes swap or get edited. -->
+<link rel="stylesheet" href="/active-theme.css" id="active-theme-link">
 </head>
 <body class="bg-[#0a0d13] text-zinc-200 bg-grid min-h-screen">
 
@@ -129,6 +142,61 @@
   </div>
 </div>
 
+<!-- First-time onboarding overlay: a 10-step interactive tour that
+     navigates between views and waits for real user actions (e.g.
+     clicking Decode on a wallet). Fires once on the first dashboard
+     load after auth succeeds; `localStorage.pbx_onboarding_v1_done = '1'`
+     locks it out forever after. Highlighted panels pulse via the
+     `onboard-highlight` class — sharp + bright against the flat dim
+     backdrop (no blur).
+
+     Two separate layers (NOT a single .modal-bg parent containing the
+     card) so a highlighted panel can punch through the dim backdrop:
+       - #onboard-backdrop  → the dim layer  (z-50)
+       - .onboard-highlight → the pulsed el  (z-55, above backdrop)
+       - #onboard-modal     → the card host  (z-60, above highlight)
+     -->
+<!-- Uses the custom .onboard-backdrop class (flat 65% dim, no blur)
+     so the highlighted panel above it can render sharp + bright. -->
+<div id="onboard-backdrop" class="hidden fixed inset-0 z-50 onboard-backdrop"></div>
+<!-- Modal positioned at bottom of viewport (not center) so the
+     highlighted panel above stays visible. The pointer-events-none
+     outer wrapper + pointer-events-auto on the inner card means
+     clicks on dashboard panels (the things being highlighted) still
+     work. -->
+<div id="onboard-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center px-4 pb-8 pointer-events-none">
+  <div class="card rounded-xl p-8 w-full max-w-2xl bg-[#0a0d13] relative pointer-events-auto">
+    <button id="onboard-skip" class="absolute top-3 right-4 text-[11px] mono muted hover:text-zinc-300 transition" type="button">Skip tutorial</button>
+
+    <!-- 10-dot step indicator. Filled emerald = current, zinc-400 =
+         completed, zinc-700 = pending. Rebuilt on every step change. -->
+    <div id="onboard-dots" class="flex items-center gap-1.5 mb-4 pt-1"></div>
+
+    <header class="mb-3">
+      <h2 id="onboard-title" class="text-lg font-semibold text-zinc-50">You're set up</h2>
+    </header>
+
+    <section id="onboard-body" class="text-[13px] text-zinc-200 leading-relaxed space-y-3 min-h-[120px]"></section>
+
+    <div class="mt-6 flex items-center gap-2">
+      <button id="onboard-prev" type="button" class="border border-zinc-700 text-zinc-300 rounded py-2 px-4 hover:border-zinc-500 transition disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+      <div class="flex-1"></div>
+      <button id="onboard-next" type="button" class="bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 px-5 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+    </div>
+
+    <!-- Step counter, tucked at bottom-right of the card. Mirrors the
+         Skip-tutorial link at top-right. Plain "X of 10" — no "Step"
+         prefix here, since the body's title already starts with
+         "Step N: ..." and showing the word twice was noisy. -->
+    <div id="onboard-stepnum" class="absolute bottom-3 right-4 text-[11px] mono muted">1 of 10</div>
+  </div>
+</div>
+
+<!-- Onboarding completion toast. Shown for ~4s after Finish. -->
+<div id="onboard-toast" class="hidden fixed bottom-6 right-6 z-50 card rounded-lg px-4 py-3 text-[12px] text-zinc-200 mono shadow-lg border border-emerald-500/40">
+  Tour complete. Refresh anytime to replay if you cleared site data.
+</div>
+
 <!-- Backup modal: stays open until the user confirms they wrote down
      the mnemonic by re-typing 3 random words. Three-step flow:
        (1) reveal — show 24 words in a grid, "I wrote these down" CTA
@@ -225,7 +293,20 @@
     <a href="https://pbx.earth/docs" target="_blank" rel="noopener noreferrer"
        class="text-[11px] text-zinc-400 mono hover:text-zinc-100 transition"
        title="Protocol mechanics, region-token math, FAQs">docs ↗</a>
-    <div id="header-kpis" class="ml-auto flex items-center gap-7 text-sm">
+    <!-- Recalibrate button. Opens a 7-step modal walkthrough that
+         re-runs the 5 personality-quiz questions + personality + theme
+         picks. Hover shows the native browser tooltip explaining what
+         clicking does (no custom CSS needed — title= renders on every
+         theme without theme-specific styling). The button itself uses
+         the same emerald CTA utility classes the rest of the dashboard
+         uses, so every theme's .bg-emerald-500 override automatically
+         recolors it (gold on lambo, phosphor on matrix, etc). -->
+    <button id="recalibrate-btn" type="button"
+            class="ml-auto bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200 rounded mono text-[11px] px-3 py-1 transition"
+            title="Recalibrate Claude — re-run the 5 personality-quiz questions and change your personality / theme. Opens a quick 7-step walkthrough; about 2 minutes.">
+      ↻ Recalibrate
+    </button>
+    <div id="header-kpis" class="flex items-center gap-7 text-sm">
       <div><div class="label">Capital</div><div id="kpi-capital" class="mono text-base value">—</div></div>
       <div><div class="label">NAV</div><div id="kpi-nav" class="mono text-base value">—</div></div>
       <div><div class="label">PnL</div><div id="kpi-pnl" class="mono text-base value">—</div></div>
@@ -250,6 +331,22 @@
        to an icon rail (~56px). Each button carries data-view so the JS
        can wire clicks generically. Collapsed state persists. -->
   <nav id="sidebar" class="shrink-0 border-r border-zinc-800/60 bg-[#0c1018] sticky top-[57px] h-[calc(100vh-57px)] flex flex-col py-3 transition-[width] duration-150" style="width:200px">
+    <!-- Setup Guide trigger — replays the onboarding tour on click.
+         Always visible at the top of the sidebar (even when collapsed)
+         so the user can re-launch the walkthrough without clearing
+         site data. Emerald glow on hover; full label hides when the
+         sidebar is collapsed (the "?" circle stays). -->
+    <div class="px-2 pb-2 mb-1 border-b border-zinc-800/60">
+      <button id="setup-guide-btn" type="button"
+        class="nav-btn flex items-center gap-3 w-full rounded-md px-3 py-2 text-[13px] transition setup-guide-btn"
+        title="Replay the dashboard setup guide">
+        <span class="setup-guide-mark inline-flex items-center justify-center w-4 h-4 shrink-0 rounded-full border border-zinc-600 text-[10px] mono font-semibold transition">?</span>
+        <span class="nav-label">Setup Guide</span>
+      </button>
+    </div>
+    <!-- Primary nav: the 5 main views the user spends time in. Lives
+         at the top of the sidebar inside the flex-1 div so its bottom
+         anchors against the secondary group below it. -->
     <div id="nav-items" class="flex-1 flex flex-col gap-1 px-2">
       <button type="button" data-view="discover" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Discover">
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
@@ -272,7 +369,22 @@
         <span class="nav-label">Live trading</span>
       </button>
     </div>
-    <!-- Collapse / expand toggle, pinned to the sidebar bottom. -->
+    <!-- Secondary nav: Health + Achievements live their own group at
+         the bottom, separated by a thin border from the trading views
+         above. These are meta-views (system status + progress
+         tracking), not part of the core trading loop. -->
+    <div id="nav-items-secondary" class="flex flex-col gap-1 px-2 pt-2 border-t border-zinc-800/60">
+      <button type="button" data-view="health" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Health">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+        <span class="nav-label">Health</span>
+      </button>
+      <button type="button" data-view="achievements" class="nav-btn flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Achievements">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"></path></svg>
+        <span class="nav-label">Achievements</span>
+      </button>
+    </div>
+    <!-- Collapse / expand toggle, pinned to the sidebar bottom below
+         both nav groups. -->
     <div class="px-2 pt-2 border-t border-zinc-800/60">
       <button id="nav-toggle" type="button" class="nav-btn w-full flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition" title="Collapse sidebar">
         <svg id="nav-toggle-icon" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -292,8 +404,14 @@
        renderWelcomeHero() hides it the moment a bot exists. This is the
        single clear "what do I do" entry point for a fresh dashboard. -->
   <section id="welcome-hero" class="hidden px-10 py-12 min-h-[82vh] flex items-center justify-center text-center relative overflow-hidden">
+    <!-- The radial halo behind the welcome hero. Color comes from a
+         theme CSS var so the green default → gold (lambo) / coral
+         (beach) / olive (camo) / brown (academia) / neon green
+         (matrix) per active theme. Default falls back to emerald
+         when no theme is active. Inline style is intentional —
+         opacity is set on the wrapper, COLOR is var-driven. -->
     <div class="absolute inset-0 opacity-[0.10] pointer-events-none"
-         style="background: radial-gradient(640px circle at 50% 38%, #10b981, transparent 70%);"></div>
+         style="background: radial-gradient(640px circle at 50% 38%, var(--theme-hero-glow, #10b981), transparent 70%);"></div>
     <div class="relative z-10 max-w-2xl mx-auto space-y-10">
       <div class="space-y-3">
         <h1 class="text-3xl font-semibold text-zinc-50 tracking-tight">Welcome to PBX Trader Lab</h1>
@@ -374,10 +492,6 @@
 
   </section>
 
-  <!-- Funder card lives at the BOTTOM of the Discover view (below the
-       discovery controls) — explore-first, fund-later ordering. -->
-  <section id="funder-card"></section>
-
   </main>
 
   <!-- ===== Leaderboard view ===== -->
@@ -445,7 +559,39 @@
        rendered into by id/selector and must exist exactly ONCE. -->
   <main id="view-paper" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
 
+  <!-- Always-visible header. Mirrors the Live trading view's header so
+       the Paper view is never blank — the previous version hid every
+       data-analytics section when no bots existed and there was nothing
+       outside them, producing an empty page. (Caught in commit 71bc05d
+       theme audit.) -->
+  <header class="space-y-1">
+    <div class="text-sm font-semibold text-zinc-50">Paper trading</div>
+    <div class="text-[12px] muted">Run strategies against live market prices without real funds. Decode a strategy from a top trader's wallet in the Strategies tab — once you do, it'll spawn as a paper bot here.</div>
+  </header>
+
   <section id="bot-cards" class="grid grid-cols-3 gap-4"></section>
+
+  <!-- Empty state. Visible when no bots exist (mirror of data-analytics —
+       see updatePristine() in dashboard.js). Once a bot lands, this hides
+       and the Performance / Trade history / Tick log analytics surface. -->
+  <section id="paper-empty" class="card rounded-xl p-10 text-center space-y-4">
+    <div class="text-[15px] font-medium text-zinc-100">No paper bots yet</div>
+    <div class="text-[12px] muted max-w-md mx-auto leading-relaxed">
+      Once you decode a strategy from a top trader's wallet, it spawns as a paper bot here.
+      The bot ticks every 60 seconds against real market prices but moves zero real funds —
+      a clean way to watch a strategy without risking capital.
+    </div>
+    <div class="flex items-center justify-center gap-2 pt-2">
+      <button id="paper-empty-cta-strategies" type="button"
+              class="bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 hover:bg-emerald-400 transition text-[12px]">
+        → Strategies
+      </button>
+      <button id="paper-empty-cta-discover" type="button"
+              class="border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded px-4 py-1.5 transition text-[12px]">
+        ↻ Discover top traders
+      </button>
+    </div>
+  </section>
 
   <section data-analytics class="grid grid-cols-3 gap-4">
     <div class="card rounded-xl p-5 col-span-2">
@@ -526,11 +672,36 @@
   </main>
 
   <!-- ===== Live trading view ===== -->
-  <!-- Placeholder stub for now — live bots + analytics live under Paper.
-       The user can grow this view into a real live-only fleet later. -->
+  <!-- The funder wallet IS the live-trading entry point: until the
+       funder is funded with USDC + SOL, no live bot can spawn. Used
+       to live at the bottom of Discover (explore-first ordering);
+       moved here so its semantics match its location — funding the
+       funder happens on the Live tab. Populated by renderFunder(). -->
   <main id="view-live" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <header class="space-y-1">
+      <div class="text-sm font-semibold text-zinc-50">Live trading</div>
+      <div class="text-[12px] muted">Real-money mode on Solana mainnet. Fund the funder wallet below, then spawn bots from a paper-tested strategy.</div>
+    </header>
+    <section id="funder-card"></section>
+  </main>
+
+  <!-- ===== Health view (bear-watch ops) ===== -->
+  <!-- Populated by renderHealth() in dashboard.js. Pulls from
+       GET /api/ops/health which mirrors the 7-check health-check.py
+       output in TS and also surfaces pm2 + scheduled-task state. -->
+  <main id="view-health" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
     <div class="card rounded-xl py-16 px-6 text-center">
-      <div class="text-[13px] muted">Live trading — fund the funder wallet and deploy a live bot to see it here.</div>
+      <div class="text-[13px] muted">Loading health…</div>
+    </div>
+  </main>
+
+  <!-- ===== Achievements view (roadmap progress + unlocks) ===== -->
+  <!-- Populated by renderAchievements() in dashboard.js. Pulls from
+       GET /api/ops/achievements which composes ROADMAP.md sections +
+       ~/.pbx-lab/user-profile.json + achievements/definitions.json. -->
+  <main id="view-achievements" class="hidden max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+    <div class="card rounded-xl py-16 px-6 text-center">
+      <div class="text-[13px] muted">Loading achievements…</div>
     </div>
   </main>
 
@@ -538,6 +709,59 @@
 </div><!-- /app shell -->
 
 <script src="/leaderboard-sort.js"></script>
+<!-- ===== Recalibrate modal =====
+     Opened by the header #recalibrate-btn. A 7-step walkthrough:
+     5 personality-quiz questions, then personality pick, then theme
+     pick. All UI uses standard emerald/zinc utilities so every theme
+     reskins it automatically via the existing !important overrides
+     (gold on lambo, phosphor green on matrix, olive on camo, etc).
+
+     The form ships its answers to POST /api/profile/recalibrate
+     which writes user-profile.json (hardened — see index.ts) and
+     copies the chosen theme CSS to active-theme.css. -->
+<div id="recalibrate-overlay" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center px-4">
+  <div id="recalibrate-card" class="card w-full max-w-xl rounded-xl p-6 space-y-5">
+    <header class="flex items-center justify-between gap-4">
+      <div>
+        <div class="text-sm font-semibold text-zinc-50">Recalibrate Claude</div>
+        <div class="text-[11px] muted mt-0.5">Step <span id="recalibrate-step-current">1</span> of <span id="recalibrate-step-total">7</span> — about 2 minutes total</div>
+      </div>
+      <button id="recalibrate-close" type="button"
+              class="text-zinc-400 hover:text-zinc-100 transition text-lg leading-none"
+              aria-label="Close">×</button>
+    </header>
+    <!-- Progress dots — filled in by JS, one per step. -->
+    <div id="recalibrate-progress" class="flex items-center gap-1.5"></div>
+    <!-- Question + options. JS populates these per step. -->
+    <div class="space-y-3">
+      <div id="recalibrate-question" class="text-[15px] font-medium text-zinc-50"></div>
+      <div id="recalibrate-hint" class="text-[12px] muted"></div>
+      <div id="recalibrate-options" class="space-y-2"></div>
+    </div>
+    <!-- Nav. -->
+    <footer class="flex items-center gap-2 pt-2 border-t border-zinc-800/40">
+      <button id="recalibrate-prev" type="button"
+              class="border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 rounded px-3 py-1.5 text-[12px] transition disabled:opacity-40 disabled:cursor-not-allowed">
+        ← Previous
+      </button>
+      <button id="recalibrate-skip" type="button"
+              class="text-[11px] muted hover:text-zinc-300 transition px-2">
+        Skip
+      </button>
+      <div class="flex-1"></div>
+      <button id="recalibrate-next" type="button"
+              class="bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 text-[12px] hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">
+        Next →
+      </button>
+      <button id="recalibrate-done" type="button"
+              class="hidden bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 text-[12px] hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">
+        Save
+      </button>
+    </footer>
+    <p id="recalibrate-err" class="hidden text-[11px] text-rose-300"></p>
+  </div>
+</div>
+
 <script src="/dashboard.js"></script>
 </body>
 </html>

@@ -55,11 +55,61 @@ Examples of when to use it:
 Examples of when to ASK in plain text instead:
 - The user needs to TYPE something (e.g., paste an API key, give a wallet
   nickname)
-- There are >4 options worth presenting
 - The choice depends on free-form judgment ("what's your annual income?")
 
 When in doubt: use the popup. It's easier for the user than thinking
 up an answer.
+
+#### Overflow pattern — when there are more than 4 options
+
+The AskUserQuestion popup caps at 4 options. When you have 5+ real
+options, **never** drop down to plain text — paginate via the popup
+instead. The user should always be one click from the answer they
+want, video-game style.
+
+The rule:
+
+- **≤ 4 real options** → show them all.
+- **> 4 real options** → show the first 3 real options as options 1-3.
+  Make option 4 a navigation slot: **"See more options →"** with a
+  description like *"Show the rest of the choices"*.
+- **When the user clicks "See more options →"** → fire a new
+  AskUserQuestion with the NEXT 3 real options as options 1-3. Make
+  option 4 a return slot: **"← See original options"** with a
+  description like *"Go back to the first set of choices"*.
+- **The user can round-trip freely.** Forward → Back → Forward — each
+  click is a fresh popup with the appropriate 3 + nav slot.
+
+The exception: if option 4 is GENUINELY the most likely pick, use it
+for the real option and put the navigation in option 1 or in plain
+text. The point is "the most likely-clicked button stays a button" —
+don't force navigation into the spot the user would naturally tap.
+
+Naming convention for the navigation slot:
+
+| Going forward | Going back |
+|---------------|-----------|
+| "See more options →" | "← See original options" |
+| "Other choices →" | "← First set" |
+| "Show me alternatives →" | "← Back to the main list" |
+
+Pick what fits the voice. Always include the arrow so the direction is
+obvious at a glance.
+
+Examples:
+
+- "Which starter strategy?" with 7 starters → page-1 popup with 3
+  strategies + "See more options →"; page-2 popup with the other 4 +
+  "← See original options".
+- "Which dashboard panel do you want to dig into?" with 6 panels →
+  same paging pattern.
+- "Which personality?" with 6 personalities — page 1: Default,
+  Crypto Bro, Drill Sergeant + "See more →"; page 2: Surf Bro, Quant
+  Professor, Hacker + "← Back".
+
+If a personality file says "be brief," the overflow pattern still
+applies — brevity is no excuse to drop into plain text and force the
+user to type.
 
 ### 3. Match vocabulary + pace to the user's profile
 
@@ -252,6 +302,38 @@ warnings, just go" still asks for consent on Tier 2 actions.
 If a user complains "you're being too formal" during an emergency, the
 right response is "I'll switch back to your personality voice once we're
 out of the emergency" — not to drop the safety voice.
+
+## Silent execution SOP — no shell windows ever pop up for the user
+
+A working operator install should look like Claude is doing magic in
+the background. No cmd.exe windows flashing on screen. No PowerShell
+prompts. No black rectangles appearing and disappearing during ops.
+
+The rule: **every long-running OR scheduled process MUST execute
+without a visible terminal**. Concretely:
+
+| Surface | How to keep it silent |
+|---------|----------------------|
+| Claude tool calls (Bash, PowerShell tools) | These already run in the agent harness — no window pops. Just use them; never wrap a tool call in `Start-Process` with a window argument. |
+| Scheduled tasks | Wrap every `.bat` in `wscript.exe "<repo>/bear-watch/silent-run.vbs" "<bat>"`. `silent-run.vbs` runs the bat with `WindowStyle = 0` (hidden). `register-scheduled-tasks.ps1` already does this — match the pattern when adding new tasks. |
+| pm2 worker spawns | pm2's Node daemon spawns children with stdio piped; no console pops by default. Don't pass `windowsHide: false` or fork with detached terminal flags. |
+| Manual ad-hoc commands the user runs | Use the **pbx CLI** (`./pbx <verb>`) — the wrapper runs in their existing terminal, no second window. Avoid suggesting `Start-Process powershell -ArgumentList ...` patterns. |
+| Browser launch | `Start-Process 'http://...'` is fine — opens in the user's default browser (a GUI app, not a console). |
+| One-off diagnostic scripts a user might run | Prefer scripts that exit silently on success and log to a file. If they MUST show output, use the existing terminal where the user invoked them — do not spawn a new window. |
+
+If you catch yourself about to write `cmd /c start ...` or
+`Start-Process -WindowStyle Normal` or any pattern that pops a new
+console for the user to stare at, **stop and use a silent path
+instead**. The user's screen should stay quiet whether the bot is
+booting, recovering from a crash, doing a backup at 3am, or running
+a backtest in the background.
+
+The only acceptable exception: a deliberately user-facing CLI run
+(e.g., `pbx wallet new`) where the OUTPUT is what the user is reading.
+Even then, run in the user's existing terminal — do not spawn a new
+one.
+
+---
 
 ## Reading + writing the user profile
 

@@ -21,7 +21,7 @@
   const t = (s) => document.createTextNode(String(s));
 
   // ============ auth ============
-  let TOKEN = localStorage.getItem('PBX_BOT_API_TOKEN');
+  let TOKEN = localStorage.getItem('STRATOS_BOT_API_TOKEN');
   // On localhost the server bypasses bearer auth for loopback sockets, so
   // we don't need a token at all — but we still grab the autogen value from
   // /api/local-token to keep the same code path (bearer header is harmless
@@ -33,7 +33,7 @@
     const v = document.getElementById('token-input').value.trim();
     if (!v) return;
     TOKEN = v;
-    localStorage.setItem('PBX_BOT_API_TOKEN', v);
+    localStorage.setItem('STRATOS_BOT_API_TOKEN', v);
     hideAuth();
     refreshAll();
     setInterval(refreshAll, 15000);
@@ -51,7 +51,7 @@
         // it rather than silently looping if something is misconfigured.
         throw new Error('localhost returned 401 (server auth misconfigured)');
       }
-      localStorage.removeItem('PBX_BOT_API_TOKEN');
+      localStorage.removeItem('STRATOS_BOT_API_TOKEN');
       TOKEN = null;
       const errEl = document.getElementById('token-err');
       errEl.textContent = 'Bad token. Try again.';
@@ -315,13 +315,24 @@
     const pristine = !hasBots && !workflowStarted && !heroEngaged;
 
     hero.classList.toggle('hidden', hasBots);
-    document.getElementById('funder-card').classList.toggle('hidden', pristine);
+    // Funder card moved to the Live trading view — visibility is now
+    // governed by which sidebar tab is active (showView), not by the
+    // pristine flag. The pristine hide only applies to Discover-view
+    // siblings (workflow-card). The funder element is left out of
+    // this toggle so it doesn't end up double-hidden when the user
+    // clicks into Live trading.
     document.getElementById('workflow-card').classList.toggle('hidden', pristine);
     // Performance / Trade history / Tick log / Backtest — only meaningful
     // once at least one bot exists.
     document.querySelectorAll('[data-analytics]').forEach((el) => {
       el.classList.toggle('hidden', !hasBots);
     });
+    // Paper view empty-state — inverse of data-analytics. When there
+    // are no bots, the analytics blocks are hidden AND #paper-empty is
+    // shown so the user sees a "what is paper trading + how do I get a
+    // bot" card instead of a totally blank screen. Once a bot lands,
+    // the analytics surface and this empty card hides.
+    document.getElementById('paper-empty')?.classList.toggle('hidden', hasBots);
     // Header: the Capital/NAV/PnL/Volume KPIs and the "show stopped"
     // toggle are a row of dead $0.00s for a user with no bots. Hide
     // them until there's a bot, so the header stays clean on first run.
@@ -723,8 +734,12 @@
     if (b.gauge) {
       const g = b.gauge;
       const gaugeChildren = [];
+      // gauge zones — entry-zone color comes from the active theme via
+      // --theme-hero-glow (default falls back to emerald). Exit zone
+      // stays semantic red across all themes since it signals "exit"
+      // regardless of palette.
       if (g.exitZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.exitZone[0]}%; right:${100-g.exitZone[1]}%; background:#ef4444` }));
-      if (g.entryZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.entryZone[0]}%; right:${100-g.entryZone[1]}%; background:#10b981` }));
+      if (g.entryZone) gaugeChildren.push(el('div', { class: 'gauge-zone', style: `left:${g.entryZone[0]}%; right:${100-g.entryZone[1]}%; background:var(--theme-hero-glow, #10b981)` }));
       for (const tk of g.ticks || []) {
         gaugeChildren.push(el('div', { class: 'gauge-tick', style: 'left:' + tk.pos + '%' }));
         gaugeChildren.push(el('div', { class: 'gauge-tick-label', style: 'left:' + tk.pos + '%' }, tk.label));
@@ -1267,8 +1282,10 @@
     discover: 'view-discover',
     leaderboard: 'view-leaderboard',
     strategies: 'view-strategies',
+    health: 'view-health',
     paper: 'view-paper',
     live: 'view-live',
+    achievements: 'view-achievements',
   };
 
   // Switch to a view by name (discover|leaderboard|paper|live). Hides
@@ -1279,7 +1296,7 @@
     for (const [view, id] of Object.entries(VIEW_IDS)) {
       document.getElementById(id)?.classList.toggle('hidden', view !== name);
     }
-    document.querySelectorAll('#nav-items .nav-btn').forEach((btn) => {
+    document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
       btn.setAttribute('aria-current', btn.dataset.view === name ? 'true' : 'false');
     });
     // Entering the Leaderboard: fetch the live market table on first
@@ -1294,6 +1311,17 @@
     // each time the view becomes visible.
     if (name === 'strategies') {
       loadDecodedStrategies();
+    }
+    // Health view: re-fetch the 7-check ops snapshot on every visit.
+    // Cheap (a couple of fs.stat + one schtasks / pm2 jlist call) so a
+    // fresh read per visit is preferable to stale-on-tab-switch.
+    if (name === 'health') {
+      renderHealth();
+    }
+    // Achievements view: re-fetch roadmap progress + user profile +
+    // event-driven unlocks. Once per visit; no polling.
+    if (name === 'achievements') {
+      renderAchievements();
     }
     try { localStorage.setItem(NAV_VIEW_KEY, name); } catch {}
   }
@@ -1315,7 +1343,7 @@
 
   // Wire the nav buttons + collapse toggle, then restore saved state.
   function initNav() {
-    document.querySelectorAll('#nav-items .nav-btn').forEach((btn) => {
+    document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
       btn.addEventListener('click', () => showView(btn.dataset.view));
     });
     const toggle = document.getElementById('nav-toggle');
@@ -1325,6 +1353,20 @@
         setNavCollapsed(collapsed);
       });
     }
+    // Setup Guide replays the onboarding tour. Doesn't touch the
+    // `pbx_onboarding_v1_done` flag — that flag still gates the
+    // FIRST-VISIT auto-open. This is the manual replay path.
+    const setupGuideBtn = document.getElementById('setup-guide-btn');
+    if (setupGuideBtn && typeof openOnboardOverlay === 'function') {
+      setupGuideBtn.addEventListener('click', () => openOnboardOverlay());
+    }
+    // Paper trading empty-state CTAs — clicking either jumps to the
+    // relevant view so the user has a clear path forward when no
+    // paper bots exist yet.
+    const paperEmptyStrats = document.getElementById('paper-empty-cta-strategies');
+    if (paperEmptyStrats) paperEmptyStrats.addEventListener('click', () => showView('strategies'));
+    const paperEmptyDiscover = document.getElementById('paper-empty-cta-discover');
+    if (paperEmptyDiscover) paperEmptyDiscover.addEventListener('click', () => showView('discover'));
     setNavCollapsed(localStorage.getItem(NAV_COLLAPSED_KEY) === '1');
     showView(localStorage.getItem(NAV_VIEW_KEY) || 'discover');
   }
@@ -1395,7 +1437,21 @@
     const host = document.getElementById('market-leaderboard');
     if (!host) return;
     if (lbState.loading && !lbState.traders) {
-      replace(host, el('div', { class: 'py-16 text-center text-[13px] muted' }, 'Loading top traders…'));
+      // Animated three-dot spinner so the user sees motion on slow
+      // first fetches instead of a frozen "Loading top traders…"
+      // string. Each dot scales independently via the .pulse-dot
+      // keyframe already defined in dashboard.css; staggered delays
+      // create a wave effect. (Caught in commit 71bc05d audit.)
+      replace(host, el('div', { class: 'py-16 text-center text-[13px] muted flex flex-col items-center gap-3' },
+        el('div', null, 'Loading top traders…'),
+        el('div', { class: 'flex items-center gap-1.5' },
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot' }),
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot',
+                       style: 'animation-delay: 0.2s' }),
+          el('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot',
+                       style: 'animation-delay: 0.4s' }),
+        ),
+      ));
       return;
     }
     if (lbState.error && !lbState.traders) {
@@ -1588,9 +1644,15 @@
   initBackupModal();
   initWorkflow();
   initDeployModal();
+  initOnboarding();
 
   bootstrapAuth().then((ready) => {
     if (!ready) { showAuth(); return; }
+    // First-time onboarding fires AFTER auth succeeds but BEFORE the
+    // first refreshAll() paints — so the tour can highlight elements
+    // without competing with state-driven re-renders. The overlay is
+    // a no-op once `pbx_onboarding_v1_done` is set in localStorage.
+    maybeStartOnboarding();
     refreshAll();
     setInterval(refreshAll, 15000);
   });
@@ -2994,3 +3056,1649 @@
     startBtn.disabled = true;
     startBtn.title = 'Workflow disabled — see banner above for missing tools';
   }
+
+  // ============ first-time onboarding tour ============
+  //
+  // 10-step interactive walkthrough. Unlike the previous retrospective
+  // tour, this one NAVIGATES the dashboard and WAITS for user actions:
+  // it switches views via showView(), highlights real panels, and gates
+  // certain steps on real DOM events (e.g. clicking Decode on a wallet).
+  //
+  // Step list:
+  //   1. Welcome / congrats           (no gate, no view change)
+  //   2. Discover — Find top traders  (view=discover, gate=click #workflow-start)
+  //   3. While that runs…             (view=discover, no gate)
+  //   4. Leaderboard tour             (view=leaderboard, gate=click any Decode)
+  //   5. Strategies tour              (view=strategies, no gate)
+  //   6. Paper trading + sample data  (view=paper, no gate, inject mock card)
+  //   7. Live trading + sample data   (view=live, no gate, inject mock card)
+  //   8. Back to Discover — save      (view=discover, gate=fallback button)
+  //   9. Decode a wallet directly     (view=discover, gate=fallback button)
+  //  10. You're ready                 (Finish button — sets done flag)
+  //
+  // Each gated step also offers a "Just continue →" escape link so a
+  // user who can't find the target never gets stuck. Cleanup functions
+  // returned by gate.listen() are run when the step changes or the tour
+  // is dismissed, so click handlers don't leak.
+  //
+  // State key (unchanged — the screenshot script reads this name):
+  //   localStorage.pbx_onboarding_v1_done = '1'  → never show again.
+  //
+  // Current step is NOT persisted — a reload restarts at step 1.
+
+  const ONBOARD_KEY = 'pbx_onboarding_v1_done';
+
+  // Each step is { title, body: (string|Node)[], view?: 'discover'|...,
+  //                highlight?: selector, gate?: {description, listen} }.
+  // gate.listen(advance) wires an action listener and returns a cleanup
+  // function; advance() is the tour's "go to next step" callback.
+  let onboardSteps = null;
+  let onboardCurrent = 0;
+  // Active gate cleanup — invoked on step change / dismiss so click
+  // handlers wired by gate.listen() don't accumulate.
+  let onboardGateCleanup = null;
+  // Track which sample-data injections are live so we can remove them
+  // when leaving the relevant step or dismissing the tour.
+  let onboardSampleNodes = [];
+
+  function buildOnboardSteps() {
+    const steps = [];
+
+    // 1 — Welcome / congrats (with confetti)
+    steps.push({
+      title: "You're set up",
+      body: () => [
+        el('p', null,
+          "Claude just audited the code, installed dependencies, generated your wallet keys, started the dashboard server and paper-trade bot, and registered six background watchdogs. ",
+          "This tour shows you how to actually use what you've got."),
+        el('p', { class: 'muted' }, 'Eleven short steps follow — most just take a click. You can skip anytime, or replay later with the "?" Setup Guide icon top-left.'),
+      ],
+      onEnter: () => onboardConfetti(),
+    });
+
+    // 2 — Discover: click Find top traders
+    //
+    // First-run state shows #welcome-hero with its big #hero-start
+    // CTA; once the user has bots, the workflow card with
+    // #workflow-start is what's visible. The tour fires on first
+    // visit so #hero-start is the practical target, but we gate on
+    // BOTH so the step advances no matter which CTA the user clicks.
+    steps.push({
+      title: 'Step 1: Discover top traders',
+      view: 'discover',
+      // The tour only fires on first visit, when #welcome-hero is
+      // showing — so #hero-start is the visible CTA. The gate below
+      // listens for both #hero-start and #workflow-start so the tour
+      // advances no matter which button the user actually clicks.
+      highlight: '#hero-start',
+      body: () => [
+        el('p', null,
+          'Discover finds the wallets currently making money on PBX. Click the green ',
+          el('strong', { class: 'text-emerald-300' }, 'Find top traders & decode'),
+          ' button to start the search. It takes about two minutes.'),
+        el('p', { class: 'muted' },
+          "While it runs we'll walk through the rest of the dashboard."),
+      ],
+      gate: {
+        description: 'Waiting for: click Find top traders & decode',
+        listen: (advance) => {
+          const heroBtn = document.getElementById('hero-start');
+          const wfBtn   = document.getElementById('workflow-start');
+          const handler = () => advance();
+          if (heroBtn) heroBtn.addEventListener('click', handler, { once: true });
+          if (wfBtn)   wfBtn.addEventListener('click',   handler, { once: true });
+          return () => {
+            if (heroBtn) heroBtn.removeEventListener('click', handler);
+            if (wfBtn)   wfBtn.removeEventListener('click',   handler);
+          };
+        },
+      },
+    });
+
+    // 3 — Discovery running, let's tour the rest
+    steps.push({
+      title: 'Step 2: While that runs, let’s tour the rest of the site',
+      view: 'discover',
+      body: () => [
+        el('p', null,
+          "Discovery is working in the background. Meanwhile, let me show you the other four pages so you know what's where."),
+        el('p', { class: 'muted' }, 'Click Next to keep moving.'),
+      ],
+    });
+
+    // 4 — Leaderboard: click any wallet's Decode button
+    steps.push({
+      title: 'Step 3: The Leaderboard',
+      view: 'leaderboard',
+      highlight: '#market-leaderboard',
+      body: () => [
+        el('p', null,
+          'Leaderboard ranks every wallet Discover has found, sorted by recent P&L. ',
+          'Pick a wallet that looks interesting and click its ',
+          el('strong', { class: 'text-emerald-300' }, 'Decode'),
+          ' button — that kicks off the strategy reverse-engineering and takes you to the Strategies page.'),
+        el('p', { class: 'muted' },
+          "If the table is still loading, hit Refresh up top or use Just continue below."),
+      ],
+      gate: {
+        description: 'Waiting for: click Decode on any wallet row',
+        listen: (advance) => {
+          // The per-row Decode markup is generated dynamically and
+          // doesn't carry a stable data-attr — match on button text +
+          // the leaderboard container so we don't fire on stray
+          // "decode" text elsewhere on the page.
+          const container = document.getElementById('market-leaderboard');
+          const handler = (e) => {
+            if (!container) return;
+            const btn = e.target.closest('button');
+            if (!btn || !container.contains(btn)) return;
+            const txt = (btn.textContent || '').trim().toLowerCase();
+            if (txt === 'decode' || txt === 'starting…') advance();
+          };
+          document.addEventListener('click', handler, true);
+          return () => document.removeEventListener('click', handler, true);
+        },
+      },
+    });
+
+    // 5 — Strategies (no gate)
+    steps.push({
+      title: 'Step 4: Strategies',
+      view: 'strategies',
+      highlight: '#view-strategies',
+      body: () => [
+        el('p', null,
+          'You just kicked off the wallet decoder. It runs Claude in a loop against historical trades to extract the entry and exit rules. ',
+          'Decoded strategies land here.'),
+        el('p', null,
+          'From this page you can backtest, deploy to paper, or promote to live. Click Next to keep touring.'),
+      ],
+    });
+
+    // 6 — Paper trading + injected sample data
+    steps.push({
+      title: 'Step 5: Paper trading',
+      view: 'paper',
+      highlight: '#view-paper',
+      onEnter: () => injectSamplePaperBots(),
+      onLeave: () => removeSampleNodes(),
+      body: () => [
+        el('p', null,
+          'Paper trading runs a strategy against live market prices without spending real money. ',
+          'Use it to validate a decoded strategy before going live.'),
+        el('p', { class: 'muted' },
+          "We've shown you some sample data here so you can see what an active paper bot looks like."),
+      ],
+    });
+
+    // 7 — Live trading + injected sample data
+    steps.push({
+      title: 'Step 6: Live trading',
+      view: 'live',
+      highlight: '#view-live',
+      onEnter: () => injectSampleLiveBots(),
+      onLeave: () => removeSampleNodes(),
+      body: () => [
+        el('p', null,
+          'Live trading is the real-money mode. A bot here actually swaps USDC for region tokens on Solana mainnet. ',
+          'Only promote strategies you’ve paper-traded for at least a week.'),
+        el('p', { class: 'muted' },
+          "Like paper, we've populated some sample bots so you can see the layout."),
+      ],
+    });
+
+    // 8 — Wallet setup reminder, anchored on the Live trading view
+    //     so the funder-card is right there as the user reads it.
+    //
+    // Skip-able by design: the user might be exploring with no
+    // intent to trade live. Live-trading endpoints stay 503 until
+    // BOT_HD_MNEMONIC is set up + the funder is funded, so deferring
+    // is safe.
+    steps.push({
+      title: 'Step 7: Set up your wallet (optional)',
+      view: 'live',
+      highlight: '#funder-card',
+      body: () => [
+        el('p', null,
+          "Discovery's still running in the background. While you wait, lock down your wallet so you're ready if you decide to trade live later. ",
+          "The card highlighted above is your ",
+          el('strong', null, 'funder wallet'),
+          ' — every live bot derives from it.'),
+        el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
+          el('div', { class: 'text-amber-200 font-medium' }, '⚠ Recommended (skippable):'),
+          el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
+            el('li', null,
+              'Back up the 24-word recovery phrase: open ',
+              el('code', { class: 'mono text-amber-200' }, '~/.pbx-bots/local.env'),
+              ' and copy the words after ',
+              el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
+              ' onto paper. Fireproof storage. ',
+              el('strong', null, 'Do not screenshot, do not paste into a cloud sync.'),
+            ),
+            el('li', null,
+              "If you want to actually trade live later, send USDC + SOL to the address shown on the funder card above (~$50 USDC + ~0.05 SOL covers one bot). ",
+              el('span', { class: 'muted' }, "Skip this if you're just paper-trading — costs nothing."),
+            ),
+          ),
+        ),
+        el('p', { class: 'muted text-[12px]' },
+          "Not ready yet? Click Next to skip — you can come back to this anytime. ",
+          "Live trading stays gated until you do, but everything else still works."),
+      ],
+    });
+
+    // 9 — Strategies page (where decoded strategies populate after Discover)
+    //
+    // Navigates to /view-strategies + highlights the strategies table
+    // so the user can SEE where their decoded strategies will land
+    // once Discover finishes. The cool stuff happens here.
+    steps.push({
+      title: 'Step 8: Where the cool stuff lands',
+      view: 'strategies',
+      highlight: '#view-strategies',
+      body: () => [
+        el('p', null,
+          'This is the Strategies page — every decoded wallet Discover finishes turns into a strategy on this list.'),
+        el('p', null,
+          'Each row is a reverse-engineered rule with its own entry filters, exit logic, and a status flag (paper / live). ',
+          'You can backtest any strategy, deploy it as a paper bot, or promote a paper-tested winner to live.'),
+        el('p', { class: 'muted text-[12px]' },
+          "Page might be empty right now — Discover hasn't finished yet. Strategies populate here in real time as it does."),
+      ],
+    });
+
+    // 10 — Health page (system at a glance)
+    //
+    // Navigate to /view-health + pulse-highlight the 7-check card so
+    // the user sees the live system status. Reassuring "we're watching
+    // everything for you" beat right before the final achievements
+    // step — they should leave the tour feeling supervised, not alone.
+    steps.push({
+      title: 'Step 9: Your system, at a glance',
+      view: 'health',
+      highlight: '#view-health',
+      body: () => [
+        el('p', null,
+          'The Health page is your one-screen ops view. The 7-check above tracks server uptime, ',
+          'paper-trade heartbeat freshness, AQI feed, disk space, and the Solana RPC connection — all live.'),
+        el('p', null,
+          'Six background watchdogs (STRATOS-* scheduled tasks) also run on their own cadence ',
+          'every 5 min / hourly / daily — they handle health checks, weather pulls, daily digests, ',
+          'state + codebase backups, and outage recovery without you ever clicking anything.'),
+        el('p', { class: 'muted text-[12px]' },
+          'Green dots = humming. Red = something needs attention. Hit "Re-check" up top to refresh.'),
+      ],
+    });
+
+    // 11 — Achievements page (the final step before handoff)
+    //
+    // Navigate to /view-achievements and highlight the Section 1
+    // section card so the user sees their auto-tracked progress.
+    // This is also where the tour lands — the final Ready step
+    // stays on this view.
+    steps.push({
+      title: 'Step 10: Your roadmap + achievements',
+      view: 'achievements',
+      highlight: '#view-achievements',
+      body: () => [
+        el('p', null,
+          'Every install gets a 7-section, 131-task roadmap. Section 1 (Genesis) is mostly auto-tracked ',
+          'already — Claude detects what you\'ve done from your install state and marks it complete.'),
+        el('p', null,
+          'Sections 2 through 7 unlock as you ',
+          el('strong', null, 'trade, decode wallets, and explore the dashboard'),
+          '. Tasks in those sections need a real action to fire — Claude celebrates each one in your chosen personality voice.'),
+        el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5 text-[12px]' },
+          el('div', { class: 'text-zinc-100 font-medium mb-1' }, '💡 How to actually complete the rest'),
+          el('p', { class: 'text-zinc-300' },
+            'Just talk to Claude in chat. Say things like ',
+            el('em', { class: 'text-emerald-300' }, '"help me decode a wallet"'),
+            ', ',
+            el('em', { class: 'text-emerald-300' }, '"show me my next achievement"'),
+            ', or ',
+            el('em', { class: 'text-emerald-300' }, '"deploy a paper bot"'),
+            ' — Claude knows the roadmap and will guide you through each milestone, then mark them done automatically when conditions are met.'),
+        ),
+      ],
+    });
+
+    // 12 — You're ready (final handoff, lands on Achievements view)
+    //
+    // Stay on the Achievements view from step 11 — gives the user a
+    // visual anchor (their progress card) while they read the
+    // Telegram CTA + handoff line. No highlight; the modal IS the
+    // focal point here.
+    steps.push({
+      title: "You're ready to start",
+      view: 'achievements',
+      body: () => [
+        el('p', null,
+          "That's the whole site. The roadmap is now your map — work through it with Claude one chat at a time, and the achievements page tracks every milestone in real time."),
+        el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5' },
+          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the PBX Stratos operator community'),
+          el('p', { class: 'text-[12px] text-zinc-300 mb-2' },
+            'Other operators meet on Telegram to compare strategies, share decoded wallets, and coordinate during signal regime changes. Free to join.'),
+          el('a', {
+            href: 'https://t.me/+CmFL4HXFGFE3NTgx',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            class: 'inline-block bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 text-[12px] hover:bg-emerald-400 transition',
+          }, 'Open Telegram invite ↗'),
+        ),
+        el('p', { class: 'muted text-[12px] mt-2' },
+          'Replay this tour anytime — click the "?" Setup Guide icon at the top of the sidebar.'),
+      ],
+    });
+
+    return steps;
+  }
+
+  // ── Sample data injection ────────────────────────────────────────────
+  // Steps 6 + 7 inject mock paper/live bots so empty views still demo
+  // what real data looks like. Tracked in `onboardSampleNodes` so we
+  // can yank them when leaving the step or dismissing the tour.
+
+  function buildSampleBotCard(opts) {
+    // Mirrors the visual language of botCard() without trying to mock
+    // every internal field — a single descriptive card per spec, with
+    // a SAMPLE pill so the user knows it's preview, not their data.
+    const accent = opts.live ? '#fb7185' : '#7dd3fc';
+    return el('article', {
+      class: 'card rounded-xl p-5 glow-up',
+      style: '--accent: ' + accent + '; border-left: 3px solid ' + accent + ';',
+    },
+      el('header', { class: 'flex items-start justify-between gap-3 mb-3' },
+        el('div', { class: 'flex items-center gap-2 flex-wrap' },
+          el('span', { class: 'text-sm font-semibold text-zinc-50' }, opts.name),
+          el('span', {
+            class: 'text-[10px] mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+          }, 'RUNNING'),
+          el('span', {
+            class: 'text-[10px] mono px-1.5 py-0.5 rounded ' + (opts.live
+              ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30'
+              : 'bg-sky-500/10 text-sky-300 border border-sky-500/30'),
+          }, opts.live ? 'LIVE' : 'PAPER'),
+          el('span', { class: 'onboard-sample-pill' }, 'SAMPLE'),
+        ),
+        el('div', { class: 'text-right' },
+          el('div', { class: 'label' }, 'Lifetime PnL'),
+          el('div', { class: 'text-2xl mono leading-none ' + (opts.pnlPositive ? 'text-emerald-400' : 'text-rose-400') }, opts.pnl),
+          el('div', { class: 'text-[12px] mono opacity-80 muted' }, opts.age + ' · ' + opts.closed + ' closed'),
+        ),
+      ),
+      el('div', { class: 'grid grid-cols-2 gap-3 text-[12px] mono text-zinc-300' },
+        el('div', null, el('div', { class: 'label' }, 'Strategy'), el('div', null, opts.strategy)),
+        el('div', null, el('div', { class: 'label' }, 'Last tick'), el('div', null, opts.lastTick)),
+      ),
+    );
+  }
+
+  function injectSamplePaperBots() {
+    removeSampleNodes();
+    const host = document.getElementById('bot-cards');
+    if (!host) return;
+    const cards = [
+      buildSampleBotCard({
+        name: 'paper-eg-1', strategy: 'mean_reversion', live: false,
+        pnl: '+4.7%', pnlPositive: true, age: 'up 2h', closed: '3',
+        lastTick: '12s ago',
+      }),
+      buildSampleBotCard({
+        name: 'paper-eg-2', strategy: 'pm25_zscore', live: false,
+        pnl: '+1.2%', pnlPositive: true, age: 'up 8h', closed: '7',
+        lastTick: '8s ago',
+      }),
+    ];
+    const wrap = el('div', { id: 'onboard-paper-sample', class: 'contents' });
+    cards.forEach((c) => wrap.append(c));
+    host.append(wrap);
+    onboardSampleNodes.push(wrap);
+  }
+
+  function injectSampleLiveBots() {
+    removeSampleNodes();
+    const view = document.getElementById('view-live');
+    if (!view) return;
+    // The live view is currently a single empty-state card. Insert the
+    // samples ABOVE the empty card so the user sees both: the layout
+    // they'll get once funded, and the real empty state below it.
+    const wrap = el('section', {
+      id: 'onboard-live-sample',
+      class: 'grid grid-cols-3 gap-4',
+    },
+      buildSampleBotCard({
+        name: 'live-eg-1', strategy: 'mean_reversion', live: true,
+        pnl: '+2.1%', pnlPositive: true, age: 'up 1d', closed: '5',
+        lastTick: '10s ago',
+      }),
+      buildSampleBotCard({
+        name: 'live-eg-2', strategy: 'pm25_zscore', live: true,
+        pnl: '-0.4%', pnlPositive: false, age: 'up 3d', closed: '12',
+        lastTick: '6s ago',
+      }),
+    );
+    view.prepend(wrap);
+    onboardSampleNodes.push(wrap);
+  }
+
+  function removeSampleNodes() {
+    while (onboardSampleNodes.length) {
+      const node = onboardSampleNodes.pop();
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+    }
+  }
+
+  // ── Highlight + step rendering ───────────────────────────────────────
+
+  function onboardHighlight(selector) {
+    document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
+    if (!selector) return;
+    const target = document.querySelector(selector);
+    if (target) {
+      target.classList.add('onboard-highlight');
+      // Scroll the highlighted target into the top half of the
+      // viewport so the bottom-anchored modal doesn't cover it.
+      // Brief delay so the .onboard-highlight class is painted
+      // before the scroll animation starts.
+      setTimeout(() => {
+        try {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Add a little headroom above so the sticky header doesn't clip it.
+          window.scrollBy({ top: -80, behavior: 'smooth' });
+        } catch { /* old browser, no smooth-scroll — non-fatal */ }
+      }, 80);
+    }
+  }
+
+  // ── Confetti (step 1 celebration) ────────────────────────────────────
+  // Uses canvas-confetti loaded via CDN in dashboard.html. Fires from
+  // both sides + a top burst, runs ~2.5s, then stops. No-op if the
+  // library failed to load (offline / CDN block).
+  function onboardConfetti() {
+    if (typeof window.confetti !== 'function') return;
+    const c = window.confetti;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999, gravity: 0.8 };
+    const colors = ['#10b981', '#34d399', '#6ee7b7', '#fbbf24', '#a78bfa', '#38bdf8'];
+    // Top burst
+    c({ ...defaults, particleCount: 80, origin: { x: 0.5, y: 0.15 }, colors });
+    // Side cannons every 250ms for ~2.5s
+    let bursts = 0;
+    const interval = setInterval(() => {
+      bursts += 1;
+      if (bursts > 10) { clearInterval(interval); return; }
+      c({ ...defaults, particleCount: 35, angle: 60,  spread: 65, origin: { x: 0,    y: 0.7 }, colors });
+      c({ ...defaults, particleCount: 35, angle: 120, spread: 65, origin: { x: 1,    y: 0.7 }, colors });
+    }, 250);
+  }
+
+  function renderOnboardDots() {
+    const host = document.getElementById('onboard-dots');
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    for (let i = 0; i < onboardSteps.length; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'onboard-dot' + (i < onboardCurrent ? ' done' : i === onboardCurrent ? ' current' : '');
+      host.append(dot);
+    }
+  }
+
+  function clearGateCleanup() {
+    if (typeof onboardGateCleanup === 'function') {
+      try { onboardGateCleanup(); } catch { /* swallow — listener already gone */ }
+    }
+    onboardGateCleanup = null;
+  }
+
+  function advanceOnboard() {
+    if (onboardCurrent >= onboardSteps.length - 1) {
+      finishOnboarding(false);
+      return;
+    }
+    onboardCurrent++;
+    renderOnboardStep();
+  }
+
+  function renderOnboardStep() {
+    // Tear down the previous step: cleanup any gate listener, run the
+    // outgoing step's onLeave (e.g. remove injected samples) only if
+    // the next step doesn't share the same one.
+    clearGateCleanup();
+    // Always clear samples — each step that wants them re-injects in
+    // onEnter. This keeps the live/paper sample data isolated.
+    removeSampleNodes();
+
+    const step = onboardSteps[onboardCurrent];
+
+    // View navigation BEFORE the modal repaints so the page settles
+    // under the dim backdrop while the user reads.
+    if (step.view && typeof showView === 'function') {
+      try { showView(step.view); } catch { /* showView guarded internally */ }
+    }
+    if (typeof step.onEnter === 'function') {
+      try { step.onEnter(); } catch { /* injection failures are non-fatal */ }
+    }
+
+    document.getElementById('onboard-stepnum').textContent = (onboardCurrent + 1) + ' of ' + onboardSteps.length;
+    document.getElementById('onboard-title').textContent = step.title;
+
+    const body = document.getElementById('onboard-body');
+    while (body.firstChild) body.removeChild(body.firstChild);
+    for (const node of step.body()) body.append(node);
+
+    renderOnboardDots();
+    onboardHighlight(step.highlight || null);
+    updateOnboardControls();
+
+    // Wire the gate AFTER controls are rendered (so the "Just continue"
+    // link exists to receive its click handler). Auto-advance fires
+    // after a 600ms delay so the user sees their action register.
+    if (step.gate && typeof step.gate.listen === 'function') {
+      const advanceWithDelay = () => {
+        clearGateCleanup();
+        setTimeout(() => {
+          // Re-check we're still on the same step before advancing —
+          // a manual click on "Just continue" may have already moved
+          // us forward.
+          if (onboardSteps[onboardCurrent] === step) advanceOnboard();
+        }, 600);
+      };
+      onboardGateCleanup = step.gate.listen(advanceWithDelay);
+    }
+  }
+
+  function updateOnboardControls() {
+    const step = onboardSteps[onboardCurrent];
+    const prev = document.getElementById('onboard-prev');
+    const next = document.getElementById('onboard-next');
+    const body = document.getElementById('onboard-body');
+    if (prev) prev.disabled = onboardCurrent === 0;
+    if (!next || !body) return;
+
+    if (step.gate) {
+      // Gated step — replace the Next button with a "Waiting for…" pill
+      // plus an escape link, and surface a confirm button if the gate
+      // provides one (steps 8 + 9 where no real DOM target exists).
+      next.classList.add('hidden');
+      const gateWrap = el('div', { class: 'mt-3 flex items-center gap-3 flex-wrap' });
+      gateWrap.append(el('span', { class: 'onboard-waiting' }, step.gate.description));
+      if (step.gate.confirmLabel) {
+        const confirmBtn = el('button', {
+          type: 'button',
+          class: 'border border-emerald-500/50 text-emerald-300 rounded px-3 py-1.5 hover:bg-emerald-500/10 transition text-[12px]',
+        }, step.gate.confirmLabel);
+        confirmBtn.addEventListener('click', () => {
+          clearGateCleanup();
+          advanceOnboard();
+        });
+        gateWrap.append(confirmBtn);
+      }
+      const skipLink = el('button', {
+        type: 'button', class: 'onboard-skip-gate',
+      }, 'Just continue →');
+      skipLink.addEventListener('click', () => {
+        clearGateCleanup();
+        advanceOnboard();
+      });
+      gateWrap.append(skipLink);
+      body.append(gateWrap);
+    } else {
+      next.classList.remove('hidden');
+      next.disabled = false;
+      next.textContent = onboardCurrent === onboardSteps.length - 1
+        ? 'Finish'
+        : 'Next';
+    }
+  }
+
+  function openOnboardOverlay() {
+    onboardSteps = onboardSteps || buildOnboardSteps();
+    onboardCurrent = 0;
+    document.getElementById('onboard-backdrop').classList.remove('hidden');
+    document.getElementById('onboard-modal').classList.remove('hidden');
+    // Toggle a body class so CSS can shrink the giant 82vh welcome
+    // hero (and any other normally-full-height landing elements) into
+    // a compact form that doesn't collide with the bottom-anchored
+    // modal. Removed on close.
+    document.body.classList.add('onboard-active');
+    renderOnboardStep();
+  }
+
+  function closeOnboardOverlay(showToast) {
+    clearGateCleanup();
+    removeSampleNodes();
+    document.getElementById('onboard-backdrop').classList.add('hidden');
+    document.getElementById('onboard-modal').classList.add('hidden');
+    document.body.classList.remove('onboard-active');
+    onboardHighlight(null);
+    if (showToast) {
+      const toast = document.getElementById('onboard-toast');
+      if (toast) {
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 4000);
+      }
+    }
+  }
+
+  function finishOnboarding(viaSkip) {
+    try { localStorage.setItem(ONBOARD_KEY, '1'); } catch { /* private-mode etc */ }
+    closeOnboardOverlay(!viaSkip);
+  }
+
+  function initOnboarding() {
+    const modal = document.getElementById('onboard-modal');
+    if (!modal) return; // markup missing — nothing to wire
+    document.getElementById('onboard-prev').addEventListener('click', () => {
+      if (onboardCurrent > 0) {
+        onboardCurrent--;
+        renderOnboardStep();
+      }
+    });
+    document.getElementById('onboard-next').addEventListener('click', () => {
+      // Gated steps hide this button entirely, so this branch only
+      // fires for non-gated steps (and the final Finish).
+      if (onboardCurrent < onboardSteps.length - 1) {
+        onboardCurrent++;
+        renderOnboardStep();
+      } else {
+        finishOnboarding(false);
+      }
+    });
+    document.getElementById('onboard-skip').addEventListener('click', () => {
+      const ok = window.confirm('Skip the tour? You can replay it anytime via the "?" Setup Guide icon at the top of the sidebar.');
+      if (ok) finishOnboarding(true);
+    });
+  }
+
+  function maybeStartOnboarding() {
+    let done = null;
+    try { done = localStorage.getItem(ONBOARD_KEY); } catch { /* fall through */ }
+    if (done === '1') return;
+    openOnboardOverlay();
+  }
+
+  // ============ Health view (bear-watch ops) ============
+  //
+  // Mirrors the 7-check health-check.py output plus pm2 process state,
+  // scheduled-task state, and the alert tail. Source endpoint:
+  // GET /api/ops/health (see bots/src/server/index.ts). Re-renders on
+  // each visit (cheap, no polling).
+
+  // Format a uptime in seconds → human-friendly "2h 14m" / "3d 4h" / etc.
+  function fmtUptime(sec) {
+    if (sec == null || !Number.isFinite(sec)) return '—';
+    sec = Math.max(0, Math.floor(sec));
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + (sec % 60) + 's';
+    return sec + 's';
+  }
+
+  // Format an ISO timestamp → "May 21, 14:32:05" local. Returns "—" on
+  // null/invalid input.
+  function fmtTs(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+
+  // Status pill: emerald (ok), rose (bad), amber (warn). Matches the
+  // pattern used in #health-pills + the workflow chips.
+  function statusPill(label, kind) {
+    const palette = {
+      ok:   'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      bad:  'bg-rose-500/15 text-rose-300 border-rose-500/30',
+      warn: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      idle: 'bg-zinc-700/30 text-zinc-300 border-zinc-700/60',
+    };
+    const cls = palette[kind] || palette.idle;
+    return el('span', {
+      class: 'inline-flex items-center text-[10px] font-semibold mono tracking-wide '
+        + 'uppercase px-2 py-0.5 rounded border ' + cls,
+    }, label);
+  }
+
+  // Colored dot for the 3 top-status indicators. Pulses when ok.
+  function statusDot(kind) {
+    const bg = kind === 'ok' ? 'bg-emerald-400' : (kind === 'bad' ? 'bg-rose-400' : 'bg-amber-400');
+    const pulse = kind === 'ok' ? ' pulse-dot' : '';
+    return el('span', { class: 'inline-block w-2 h-2 rounded-full ' + bg + pulse });
+  }
+
+  async function renderHealth() {
+    const host = document.getElementById('view-health');
+    if (!host) return;
+    // While fetching, leave a slim loading state in place. On error,
+    // show a one-line rose message + a Retry button.
+    replace(host,
+      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+        el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
+    );
+    let data;
+    try {
+      data = await api('/api/ops/health');
+    } catch (err) {
+      const retryBtn = el('button', {
+        class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+          + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
+      }, 'Retry');
+      retryBtn.addEventListener('click', () => renderHealth());
+      replace(host,
+        el('div', { class: 'card rounded-xl py-12 px-6 text-center space-y-2' },
+          el('div', { class: 'text-[13px] text-rose-300' },
+            'Could not load health — ' + (err && err.message ? err.message : 'unknown error')),
+          retryBtn),
+      );
+      return;
+    }
+
+    // ── Top status row: Server / Paper-trade bot / RPC ──
+    const serverKind = data.server && data.server.online ? 'ok' : 'bad';
+    const paperKind = data.paperTrade && data.paperTrade.online ? 'ok' : 'bad';
+    const rpcKind = data.rpc && data.rpc.reachable ? 'ok' : 'bad';
+
+    function topCard(title, kind, valueNode, sub) {
+      return el('div', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+        statusDot(kind),
+        el('div', { class: 'flex-1 min-w-0' },
+          el('div', { class: 'text-[11px] mono muted uppercase tracking-wide' }, title),
+          el('div', { class: 'mono text-base value mt-0.5' }, valueNode),
+          sub ? el('div', { class: 'text-[11px] muted mono mt-0.5 truncate' }, sub) : null,
+        ),
+      );
+    }
+
+    const serverValue = data.server && data.server.online
+      ? 'up ' + fmtUptime(data.server.uptimeSec)
+      : 'down';
+    const serverSub = 'port ' + (data.server && data.server.port != null
+      ? data.server.port : '—')
+      + (data.server && data.server.version ? ' · ' + data.server.version : '');
+
+    const paperValue = data.paperTrade && data.paperTrade.online
+      ? 'live'
+      : 'stalled';
+    const paperSub = data.paperTrade && data.paperTrade.heartbeatAgeSec != null
+      ? fmtUptime(data.paperTrade.heartbeatAgeSec) + ' since last tick'
+      : 'no heartbeat file';
+
+    const rpcValue = data.rpc && data.rpc.reachable
+      ? ('slot ' + (data.rpc.slot != null ? data.rpc.slot : '—'))
+      : 'unreachable';
+    const rpcSub = (data.rpc && data.rpc.latencyMs != null
+      ? data.rpc.latencyMs + 'ms · ' : '')
+      + (data.rpc && data.rpc.url ? data.rpc.url : '');
+
+    const topRow = el('section', { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+      topCard('Server', serverKind, serverValue, serverSub),
+      topCard('Paper-trade bot', paperKind, paperValue, paperSub),
+      topCard('RPC', rpcKind, rpcValue, rpcSub),
+    );
+
+    // ── 7-check card ──
+    const checks = Array.isArray(data.checks) ? data.checks : [];
+    const greenCount = checks.filter((c) => c.ok).length;
+    const recheckBtn = el('button', {
+      class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+        + 'hover:border-zinc-500 text-zinc-300 transition',
+    }, 'Re-check');
+    recheckBtn.addEventListener('click', () => renderHealth());
+
+    const checksHeader = el('header', { class: 'mb-4 flex items-baseline justify-between gap-4' },
+      el('div', null,
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, '7-check health'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          greenCount + ' / ' + checks.length + ' green · checked ' + fmtTs(data.checkedAt)),
+      ),
+      recheckBtn,
+    );
+
+    const checkRows = checks.map((c) => el('div', {
+      class: 'flex items-center gap-3 py-2 border-b border-zinc-800/60 last:border-b-0',
+    },
+      el('div', { class: 'flex-1 min-w-0' },
+        el('div', { class: 'text-[13px] text-zinc-100' }, c.name),
+        el('div', { class: 'text-[11px] muted mono truncate' }, c.detail || ''),
+      ),
+      statusPill(c.ok ? 'green' : 'red', c.ok ? 'ok' : 'bad'),
+    ));
+
+    const checksCard = el('section', { class: 'card rounded-xl p-5' },
+      checksHeader,
+      checks.length === 0
+        ? el('div', { class: 'text-[12px] muted text-center py-4' }, 'No checks reported.')
+        : el('div', null, ...checkRows),
+    );
+
+    // ── pm2 process supervisor card ──
+    // Filter to only `-stratos`-suffixed apps so the panel never
+    // displays processes from a sibling install (pbxtra etc) sharing
+    // the same pm2 daemon, or the shared pm2-logrotate module. The
+    // user explicitly wants the dashboard to feel "this install only."
+    const allPm2 = Array.isArray(data.pm2) ? data.pm2 : [];
+    const pm2List = allPm2.filter((p) => (p && typeof p.name === 'string' && p.name.endsWith('-stratos')));
+    const pm2Header = el('header', { class: 'mb-3' },
+      el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'pm2 process supervisor'),
+      el('div', { class: 'text-[12px] muted mt-0.5' },
+        pm2List.length + ' stratos process' + (pm2List.length === 1 ? '' : 'es') + ' tracked'),
+    );
+
+    let pm2Body;
+    if (pm2List.length === 0) {
+      pm2Body = el('div', { class: 'text-[12px] muted py-2' },
+        'pm2 not available on this host (or no PBX processes are running).');
+    } else {
+      const head = el('div', {
+        class: 'grid grid-cols-7 gap-3 text-[10px] tracking-wide muted '
+          + 'uppercase border-b border-zinc-800/60 pb-2 mb-2',
+      },
+        el('div', null, 'Name'),
+        el('div', null, 'Status'),
+        el('div', { class: 'text-right' }, 'PID'),
+        el('div', { class: 'text-right' }, 'Uptime'),
+        el('div', { class: 'text-right' }, 'Mem'),
+        el('div', { class: 'text-right' }, 'Restarts'),
+        el('div', { class: 'text-right' }, 'CPU'),
+      );
+      const rows = pm2List.map((p) => {
+        const kind = p.status === 'online' ? 'ok' : (p.status === 'stopped' ? 'idle' : 'bad');
+        return el('div', { class: 'grid grid-cols-7 gap-3 py-1.5 text-[12px] mono text-zinc-300' },
+          el('div', { class: 'text-zinc-100 truncate' }, p.name || '—'),
+          el('div', null, statusPill(p.status || 'unknown', kind)),
+          el('div', { class: 'text-right' }, p.pid != null ? String(p.pid) : '—'),
+          el('div', { class: 'text-right' }, fmtUptime(p.uptimeSec)),
+          el('div', { class: 'text-right' }, p.memMb != null ? p.memMb + ' MB' : '—'),
+          el('div', { class: 'text-right' }, p.restarts != null ? String(p.restarts) : '—'),
+          el('div', { class: 'text-right' }, p.cpu != null ? p.cpu + '%' : '—'),
+        );
+      });
+      pm2Body = el('div', null, head, ...rows);
+    }
+
+    const pm2Card = el('section', { class: 'card rounded-xl p-5' }, pm2Header, pm2Body);
+
+    // ── Scheduled watchdogs card ──
+    const tasks = Array.isArray(data.scheduledTasks) ? data.scheduledTasks : [];
+    const tasksHeader = el('header', { class: 'mb-3' },
+      el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Scheduled watchdogs'),
+      el('div', { class: 'text-[12px] muted mt-0.5' },
+        tasks.length + ' STRATOS-* task' + (tasks.length === 1 ? '' : 's')),
+    );
+
+    let tasksBody;
+    if (tasks.length === 0) {
+      tasksBody = el('div', { class: 'text-[12px] muted py-2' },
+        'No scheduled watchdogs reported. Run bear-watch/register-scheduled-tasks.ps1 to install.');
+    } else {
+      const head = el('div', {
+        class: 'grid grid-cols-5 gap-3 text-[10px] tracking-wide muted '
+          + 'uppercase border-b border-zinc-800/60 pb-2 mb-2',
+      },
+        el('div', null, 'Name'),
+        el('div', null, 'Schedule'),
+        el('div', null, 'Last run'),
+        el('div', null, 'Last result'),
+        el('div', null, 'Next run'),
+      );
+      const rows = tasks.map((t) => el('div', {
+        class: 'grid grid-cols-5 gap-3 py-1.5 text-[12px] mono text-zinc-300',
+      },
+        el('div', { class: 'text-zinc-100 truncate', title: t.name || '' }, t.name || '—'),
+        el('div', { class: 'truncate' }, t.schedule || '—'),
+        el('div', { class: 'truncate' }, fmtTs(t.lastRunIso)),
+        el('div', { class: 'truncate' }, t.lastResult || '—'),
+        el('div', { class: 'truncate' }, fmtTs(t.nextRunIso)),
+      ));
+      tasksBody = el('div', null, head, ...rows);
+    }
+
+    const tasksCard = el('section', { class: 'card rounded-xl p-5' },
+      tasksHeader, tasksBody);
+
+    // ── Recent alerts card ──
+    // Caption now shows the canonical Layer-3 runtime path (the
+    // server reads STRATOS_LAB_HOME ?? ~/.pbx-lab — see index.ts —
+    // and writes there). The legacy ~/.pbx-lab/ caption was stale
+    // after the three-layer architecture migration.
+    const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+    const alertsHeader = el('header', { class: 'mb-3 flex items-center justify-between gap-3' },
+      el('div', null,
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Recent alerts'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          'Tail of runtime/lab/alerts.jsonl (last 10)'),
+      ),
+      alerts.length === 0 ? statusDot('ok') : null,
+    );
+
+    let alertsBody;
+    if (alerts.length === 0) {
+      alertsBody = el('div', { class: 'text-[12px] muted py-2 flex items-center gap-2' },
+        el('span', { class: 'text-emerald-300' }, 'No alerts. Everything’s quiet.'));
+    } else {
+      const sevKind = (s) => s === 'error' ? 'bad' : (s === 'warn' ? 'warn' : 'idle');
+      alertsBody = el('div', { class: 'space-y-2' },
+        ...alerts.map((a) => el('div', {
+          class: 'flex items-start gap-3 text-[12px] py-1 border-b border-zinc-800/40 last:border-b-0',
+        },
+          el('span', { class: 'mono muted shrink-0' }, fmtTs(a.ts)),
+          el('span', { class: 'shrink-0' }, statusPill(a.severity || 'info', sevKind(a.severity))),
+          el('span', { class: 'text-zinc-200 mono break-words' }, a.message || ''),
+        )),
+      );
+    }
+
+    const alertsCard = el('section', { class: 'card rounded-xl p-5' },
+      alertsHeader, alertsBody);
+
+    replace(host, topRow, checksCard, pm2Card, tasksCard, alertsCard);
+  }
+
+  // ============ Achievements view (roadmap progress) ============
+  //
+  // GET /api/ops/achievements returns a composite of:
+  //   - profile (personality + tech_level + autonomy_level + roadmap level)
+  //   - sections[] with per-task done state derived from
+  //     ~/.pbx-lab/user-profile.json achievements_unlocked array
+  //   - eventAchievements[] from achievements/definitions.json
+  //
+  // Per-section cards collapse/expand on click; the current section is
+  // auto-expanded on first render. POST /api/ops/achievements/mark
+  // flips a task to done and re-renders.
+
+  // Personality color → small visible cue for the profile header. Maps
+  // each known personality to a hue. Unknown ids fall through to emerald.
+  function personalityColor(id) {
+    switch (id) {
+      case 'crypto-bro':       return '#fbbf24';   // gold
+      case 'drill-sergeant':   return '#f43f5e';   // red
+      case 'surf-bro':         return '#38bdf8';   // sky
+      case 'quant-professor':  return '#a78bfa';   // violet
+      case 'hacker':           return '#22d3ee';   // cyan
+      default:                 return '#10b981';   // emerald (default)
+    }
+  }
+
+  // Personality-voiced tagline keyed off personality_id. Each line ends
+  // with "{done} of {total} tasks" interpolated by the caller. Default
+  // is neutral.
+  function personalityTagline(id, done, total) {
+    const remaining = Math.max(0, total - done);
+    switch (id) {
+      case 'crypto-bro':
+        return 'LFG ser — you’ve cleared ' + done + ' of ' + total + ' tasks. ' + remaining + ' more to the bag.';
+      case 'drill-sergeant':
+        return 'STATUS REPORT, OPERATOR — ' + done + ' of ' + total + ' tasks down. ' + remaining + ' remaining. Move.';
+      case 'surf-bro':
+        return done + ' of ' + total + ' tasks ridden, dude. ' + remaining + ' more waves coming in — stay patient.';
+      case 'quant-professor':
+        return 'Progress: ' + done + ' / ' + total + ' tasks (' + (total > 0 ? Math.round(done * 100 / total) : 0) + '%). Variance below — fewer surprises ahead.';
+      case 'hacker':
+        return 'commits: ' + done + '/' + total + ' · ' + remaining + ' tasks pending compile';
+      default:
+        return done + ' of ' + total + ' tasks complete. ' + remaining + ' to go.';
+    }
+  }
+
+  async function renderAchievements() {
+    const host = document.getElementById('view-achievements');
+    if (!host) return;
+    replace(host,
+      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+        el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
+    );
+    let data;
+    try {
+      data = await api('/api/ops/achievements');
+    } catch (err) {
+      const retryBtn = el('button', {
+        class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
+          + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
+      }, 'Retry');
+      retryBtn.addEventListener('click', () => renderAchievements());
+      replace(host,
+        el('div', { class: 'card rounded-xl py-12 px-6 text-center space-y-2' },
+          el('div', { class: 'text-[13px] text-rose-300' },
+            'Could not load achievements — ' + (err && err.message ? err.message : 'unknown error')),
+          retryBtn),
+      );
+      return;
+    }
+
+    const profile = data.profile || {};
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+    const eventAchievements = Array.isArray(data.eventAchievements) ? data.eventAchievements : [];
+    // Server tells us which task IDs run through auto-detection (presently
+    // Section 1 only). The remainder still use the Mark-done button.
+    const autoDetected = new Set(Array.isArray(data.autoDetectedTasks) ? data.autoDetectedTasks : []);
+    // Manual outliers in Section 1 that the detector intentionally CAN'T
+    // verify (paper mnemonic backup, voice call). These render as a
+    // user-flippable checkbox so the existing /mark endpoint still works.
+    const sectionOneManualIds = new Set(['s1.t7', 's1.t14']);
+
+    // ── Profile header card ──
+    const totalDone = sections.reduce((sum, s) => sum + (s.doneTasks || 0), 0);
+    const totalTasks = sections.reduce((sum, s) => sum + (s.totalTasks || 0), 0);
+    // Roadmap level the user is reported to be on; fall back to the
+    // first non-complete section, then to 1 if everything is done.
+    let level = Number(profile.roadmap_level) || 0;
+    if (!level) {
+      const idx = sections.findIndex((s) => (s.doneTasks || 0) < (s.totalTasks || 0));
+      level = idx === -1 ? Math.max(1, sections.length) : (idx + 1);
+    }
+    level = Math.max(1, Math.min(sections.length || 7, level));
+    const currentSection = sections[level - 1] || sections[0];
+    const sectionPct = currentSection && currentSection.totalTasks > 0
+      ? Math.round((currentSection.doneTasks || 0) * 100 / currentSection.totalTasks)
+      : 0;
+
+    const avatar = el('span', {
+      class: 'inline-block w-10 h-10 rounded-full',
+      style: 'background:' + personalityColor(profile.personality_id),
+      title: profile.personality_id || 'default',
+    });
+    const profileMeta = el('div', { class: 'flex-1 min-w-0' },
+      el('div', { class: 'text-[13px] text-zinc-100 mono' },
+        profile.personality_id || 'default',
+        ' · ', profile.tech_level || '—',
+        ' · ', profile.autonomy_level || '—',
+      ),
+      el('div', { class: 'text-lg font-semibold text-zinc-50 mt-1' },
+        'You’re at Roadmap Level ', String(level), ' of ', String(sections.length || 7),
+        currentSection ? ' · ' + currentSection.name : '',
+      ),
+      el('div', { class: 'mt-2' },
+        el('div', { class: 'h-2 rounded bg-zinc-800/80 overflow-hidden' },
+          el('div', { class: 'h-full bg-emerald-500', style: 'width:' + sectionPct + '%' })),
+        el('div', { class: 'text-[11px] muted mono mt-1' },
+          sectionPct + '% through ' + (currentSection ? currentSection.name : '')
+          + ' · ' + (currentSection ? (currentSection.doneTasks + ' / ' + currentSection.totalTasks) : '0 / 0')
+          + ' tasks'),
+      ),
+      el('div', { class: 'text-[12px] text-zinc-300 mt-2' },
+        personalityTagline(profile.personality_id, totalDone, totalTasks)),
+    );
+
+    const profileCard = el('section', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+      avatar, profileMeta);
+
+    // ── Section cards (collapsible, current section auto-expanded) ──
+    const sectionCards = sections.map((sec, i) => {
+      const isCurrent = (i + 1) === level;
+      const pct = sec.totalTasks > 0 ? Math.round((sec.doneTasks || 0) * 100 / sec.totalTasks) : 0;
+      const body = el('div', { class: isCurrent ? 'mt-4 space-y-2' : 'mt-4 space-y-2 hidden' });
+      const chev = el('span', {
+        class: 'text-[12px] muted mono transition-transform',
+        style: 'display:inline-block;' + (isCurrent ? 'transform:rotate(90deg);' : ''),
+      }, '▶');
+
+      const header = el('header', {
+        class: 'flex items-baseline justify-between gap-4 cursor-pointer select-none',
+      },
+        el('div', { class: 'flex items-baseline gap-3 min-w-0' },
+          chev,
+          el('div', { class: 'text-sm font-semibold text-zinc-50 truncate' },
+            'Section ' + (i + 1) + ' · ' + (sec.name || '')),
+        ),
+        el('div', { class: 'flex items-baseline gap-3 shrink-0' },
+          el('div', { class: 'text-[11px] muted mono' },
+            (sec.doneTasks || 0) + ' / ' + (sec.totalTasks || 0)),
+          el('div', { class: 'w-32 h-1.5 rounded bg-zinc-800/80 overflow-hidden' },
+            el('div', { class: 'h-full bg-emerald-500', style: 'width:' + pct + '%' })),
+        ),
+      );
+      header.addEventListener('click', () => {
+        const open = !body.classList.contains('hidden');
+        body.classList.toggle('hidden', open);
+        chev.style.transform = open ? '' : 'rotate(90deg)';
+      });
+
+      // True for any section that contains at least one auto-detected
+      // task. Currently Section 1 is the only one — see autoDetected.
+      const tasks = Array.isArray(sec.tasks) ? sec.tasks : [];
+      const sectionHasAuto = tasks.some((t) => autoDetected.has(t.id));
+
+      const rows = tasks.map((task) => {
+        const checkbox = el('span', {
+          class: 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '
+            + (task.done
+              ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+              : 'border-zinc-700 text-transparent'),
+        }, task.done ? '✓' : '');
+
+        // Three render modes for the trailing control:
+        //   1. auto-tracked task → small muted label (no button)
+        //   2. manual outlier in Section 1 (s1.t7, s1.t14) → user-flippable
+        //      checkbox that POSTs to /mark
+        //   3. anything else → existing "Mark done" button
+        let trailing = null;
+        if (autoDetected.has(task.id)) {
+          // Mode 1: server has detection logic for this one.
+          trailing = el('span', {
+            class: 'text-[10px] mono muted shrink-0 inline-flex items-center gap-1',
+            title: task.done
+              ? 'Auto-detected — last refresh confirmed this is done'
+              : 'Auto-detected on refresh — no manual marking needed',
+          }, el('span', { style: 'display:inline-block;' }, '↻'), 'auto-tracked');
+        } else if (sectionOneManualIds.has(task.id)) {
+          // Mode 2: manual outlier. Render a flippable checkbox (one-way:
+          // we never auto-untick a manual claim).
+          if (!task.done) {
+            const manualBtn = el('button', {
+              class: 'text-[10px] mono rounded px-2 py-0.5 border border-amber-500/40 '
+                + 'text-amber-200 hover:bg-amber-500/10 transition shrink-0 inline-flex items-center gap-1',
+              title: 'Manual — Claude can\'t verify this. Click once you\'ve done it.',
+            }, el('span', null, '☐'), 'manual: mark done');
+            manualBtn.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              manualBtn.disabled = true;
+              manualBtn.textContent = 'saving…';
+              try {
+                await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+                renderAchievements();
+              } catch (err) {
+                manualBtn.disabled = false;
+                manualBtn.textContent = 'retry';
+                manualBtn.className = 'text-[10px] mono rounded px-2 py-0.5 border border-rose-500/40 '
+                  + 'text-rose-300 hover:bg-rose-500/10 transition shrink-0';
+                manualBtn.title = 'Could not mark — ' + (err && err.message ? err.message : 'error');
+              }
+            });
+            trailing = manualBtn;
+          } else {
+            trailing = el('span', {
+              class: 'text-[10px] mono muted shrink-0',
+              title: 'Manually marked done',
+            }, 'manual ✓');
+          }
+        } else if (!task.done) {
+          // Mode 3: legacy Mark-done button for Sections 2-7 (no
+          // auto-detector yet — future work).
+          const markBtn = el('button', {
+            class: 'text-[10px] mono rounded px-2 py-0.5 border border-emerald-500/40 '
+              + 'text-emerald-300 hover:bg-emerald-500/10 transition shrink-0',
+            title: 'Mark this task complete',
+          }, 'Mark done');
+          markBtn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            markBtn.disabled = true;
+            markBtn.textContent = 'saving…';
+            try {
+              await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+              renderAchievements();
+            } catch (err) {
+              markBtn.disabled = false;
+              markBtn.textContent = 'retry';
+              markBtn.className = 'text-[10px] mono rounded px-2 py-0.5 border border-rose-500/40 '
+                + 'text-rose-300 hover:bg-rose-500/10 transition shrink-0';
+              markBtn.title = 'Could not mark — ' + (err && err.message ? err.message : 'error');
+            }
+          });
+          trailing = markBtn;
+        }
+
+        return el('div', {
+          class: 'flex items-start gap-3 py-2 border-b border-zinc-800/40 last:border-b-0',
+        },
+          checkbox,
+          el('span', { class: 'text-[11px] mono muted shrink-0 w-12' }, task.id || ''),
+          el('div', { class: 'flex-1 min-w-0 text-[12px] text-zinc-200' }, task.description || ''),
+          trailing,
+        );
+      });
+
+      // Per-section auto-tracked footer note. Only sections that contain
+      // at least one auto-detected task get the note; everything else
+      // looks identical to the pre-auto-detection UI.
+      const autoFooter = sectionHasAuto
+        ? el('div', { class: 'text-[10px] muted mono mt-2 italic' },
+            'Claude auto-tracks these — no manual marking needed. Refresh the page to re-detect.')
+        : null;
+
+      replace(body, rows.length > 0
+        ? el('div', null, ...rows)
+        : el('div', { class: 'text-[12px] muted text-center py-3' }, 'No tasks in this section yet.'),
+        autoFooter);
+
+      return el('section', { class: 'card rounded-xl p-5' }, header, body);
+    });
+
+    // ── Event-driven achievements ──
+    const eventGrid = el('div', { class: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' },
+      ...eventAchievements.map((a) => {
+        const unlocked = !!a.unlocked;
+        return el('div', {
+          class: 'rounded-lg p-4 border ' + (unlocked
+            ? 'border-emerald-500/40 bg-emerald-500/5'
+            : 'border-zinc-800/60 bg-[#0a0d13] opacity-60'),
+        },
+          el('div', { class: 'flex items-baseline justify-between gap-2 mb-1' },
+            el('div', { class: 'text-[13px] font-semibold ' + (unlocked ? 'text-emerald-200' : 'text-zinc-400') }, a.name || a.id || ''),
+            statusPill(unlocked ? 'unlocked' : 'locked', unlocked ? 'ok' : 'idle'),
+          ),
+          el('div', { class: 'text-[11px] text-zinc-300 leading-snug' }, a.description || ''),
+          a.criteria
+            ? el('div', { class: 'text-[10px] muted mono mt-2 italic' }, a.criteria)
+            : null,
+          unlocked && a.unlockedAt
+            ? el('div', { class: 'text-[10px] mono muted mt-1' }, 'unlocked ' + fmtTs(a.unlockedAt))
+            : null,
+        );
+      }),
+    );
+
+    const eventCard = el('section', { class: 'card rounded-xl p-5' },
+      el('header', { class: 'mb-4' },
+        el('div', { class: 'text-sm font-semibold text-zinc-50' }, 'Event-driven achievements'),
+        el('div', { class: 'text-[12px] muted mt-0.5' },
+          'Auto-unlocked from ~/.pbx-lab/events.jsonl — no manual attestation needed.'),
+      ),
+      eventAchievements.length === 0
+        ? el('div', { class: 'text-[12px] muted py-2' }, 'No event-driven achievements defined.')
+        : eventGrid,
+    );
+
+    // Top-of-page control row: a Refresh detection button that re-fetches
+    // /api/ops/achievements so the user can force a re-scan after, say,
+    // installing dependencies or finishing the personality quiz.
+    const refreshBtn = el('button', {
+      class: 'text-[11px] mono rounded px-3 py-1 border border-zinc-700 hover:border-emerald-500 '
+        + 'text-zinc-200 hover:text-emerald-200 transition shrink-0 inline-flex items-center gap-1',
+      title: 'Re-scan local state and update auto-tracked tasks',
+    }, el('span', null, '↻'), 'Refresh detection');
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'scanning…';
+      renderAchievements();
+    });
+    // If the server unlocked one or more tasks during this request, show
+    // a subtle inline note. (autoUnlockedThisRequest is set by index.ts.)
+    const justUnlocked = Array.isArray(data.autoUnlockedThisRequest)
+      ? data.autoUnlockedThisRequest : [];
+    const justUnlockedNote = justUnlocked.length > 0
+      ? el('span', { class: 'text-[11px] text-emerald-300 mono ml-auto' },
+          'Auto-unlocked ' + justUnlocked.length + ' task' + (justUnlocked.length === 1 ? '' : 's') + ' on this refresh.')
+      : null;
+    const controlBar = el('div', { class: 'flex items-center gap-3 mb-1' },
+      refreshBtn, justUnlockedNote);
+
+    replace(host, controlBar, profileCard, ...sectionCards, eventCard);
+  }
+
+  // ============ theme motif injection ============
+  // Themes that want a "shooting-star" atmospheric layer opt in by
+  // setting --motif-enabled: 1 on :root. When that flag is set, we
+  // inject N individual motif spans into <body> — each with its own
+  // randomized position, animation-delay, and duration via inline
+  // CSS custom properties. The theme's CSS handles the shape (via
+  // background-image / pseudo content) and the keyframe animation.
+  //
+  // Why individual DOM elements instead of one tiled pseudo:
+  //   Pure-CSS pseudos paint a SAME tile repeatedly — every visible
+  //   "$" fades together because they share one animation timeline.
+  //   To get per-element shooting-star independence each motif must
+  //   be its own element with its own animation-delay seed.
+  //
+  // ~32 elements is the sweet spot for a typical 1440px viewport —
+  // enough density that 2-3 are visibly peaking at any moment but
+  // never crowding the screen. Counts per type are tunable.
+  (function injectThemeMotifs() {
+    // Defensive: skip if already injected (script loaded twice).
+    if (document.querySelector('.motif-layer')) return;
+
+    const enabled = getComputedStyle(document.documentElement)
+      .getPropertyValue('--motif-enabled').trim();
+    if (enabled !== '1') return;
+
+    const layer = document.createElement('div');
+    layer.className = 'motif-layer';
+    layer.setAttribute('aria-hidden', 'true');
+
+    // 48 elements total — 16 of each VARIANT. The variants are
+    // generic (v1 / v2 / v3) so each theme can define its own three
+    // motif shapes via .motif-v1, .motif-v2, .motif-v3 selectors
+    // without the JS needing per-theme knowledge. With the 25%-duty
+    // opacity envelope, ~12 are visibly peaking at any given moment.
+    // Negative-delay seeding (below) keeps the visibility floor
+    // around 8 — the user-requested minimum.
+    const counts = { v1: 16, v2: 16, v3: 16 };
+    for (const type in counts) {
+      for (let i = 0; i < counts[type]; i++) {
+        const span = document.createElement('span');
+        span.className = 'motif motif-' + type;
+        // Per-element randomness:
+        //  --mx / --my : random viewport position (covers any size).
+        //  --d         : NEGATIVE animation-delay so each element jumps
+        //                straight into a random mid-cycle phase on
+        //                first render. Without this, elements with
+        //                large positive delays sit invisible for up to
+        //                15s after page load — that's the "first 10-15
+        //                seconds nothing loads" the user reported.
+        //  --dur       : 10-16s jitter so elements with identical
+        //                delays still drift out of sync over time.
+        //  --dx / --dy : random direction (0-360°) + 18-38px total
+        //                displacement. Visible window is only 25% of
+        //                the cycle, so the user sees ~5-10px of actual
+        //                motion per element — alive but not floating
+        //                away.
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 18 + Math.random() * 20;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance;
+        span.style.setProperty('--mx', (Math.random() * 100).toFixed(2) + 'vw');
+        span.style.setProperty('--my', (Math.random() * 100).toFixed(2) + 'vh');
+        span.style.setProperty('--d',  (-Math.random() * 16).toFixed(2) + 's');
+        span.style.setProperty('--dur', (10 + Math.random() * 6).toFixed(2) + 's');
+        span.style.setProperty('--dx', dx.toFixed(1) + 'px');
+        span.style.setProperty('--dy', dy.toFixed(1) + 'px');
+        layer.appendChild(span);
+      }
+    }
+
+    document.body.appendChild(layer);
+  })();
+
+  // ============ Recalibrate walkthrough ============
+  // Modal flow that re-runs the 5 personality-quiz questions, then
+  // personality + theme picks, then POSTs the answers to
+  // /api/profile/recalibrate. The endpoint writes user-profile.json
+  // (hardened — see index.ts) and copies the chosen theme CSS to
+  // active-theme.css so the new look applies on the next reload.
+  //
+  // Each step is a single question with 3-7 button options. Selecting
+  // an option auto-advances to the next step. Previous + Skip nav
+  // keeps the user in control. The "Save" CTA on the final step is
+  // the only place that hits the network.
+  (function initRecalibrate() {
+    const btn = document.getElementById('recalibrate-btn');
+    const overlay = document.getElementById('recalibrate-overlay');
+    if (!btn || !overlay) return;
+
+    const closeBtn = document.getElementById('recalibrate-close');
+    const prevBtn  = document.getElementById('recalibrate-prev');
+    const nextBtn  = document.getElementById('recalibrate-next');
+    const skipBtn  = document.getElementById('recalibrate-skip');
+    const doneBtn  = document.getElementById('recalibrate-done');
+    const qEl      = document.getElementById('recalibrate-question');
+    const hintEl   = document.getElementById('recalibrate-hint');
+    const optsEl   = document.getElementById('recalibrate-options');
+    const progEl   = document.getElementById('recalibrate-progress');
+    const stepCurEl = document.getElementById('recalibrate-step-current');
+    const stepTotEl = document.getElementById('recalibrate-step-total');
+    const errEl    = document.getElementById('recalibrate-err');
+
+    // Questions match Step 1 of .claude/skills/pbx-stratos-setup/SKILL.md.
+    // Order + option values are the canonical schema; changing them
+    // would desync with the profile fields the server expects.
+    const STEPS = [
+      { field: 'tech_level', q: 'How techy are you?',
+        hint: 'Controls whether Claude explains jargon or skips the basics.',
+        opts: [
+          { v: 'not-technical',         l: 'Not technical at all',                  d: 'Avoid jargon. Explain every term.' },
+          { v: 'comfortable-not-coder', l: 'Comfortable with computers, not a coder', d: 'Brief explanations when terms come up.' },
+          { v: 'casual-coder',          l: "I've coded before, casually",          d: 'Skip basics. Explain specialized stuff.' },
+          { v: 'developer',             l: "I'm a developer",                       d: 'Lean technical. Reference functions + files directly.' },
+        ] },
+      { field: 'communication_style', q: 'How should I talk to you?',
+        hint: 'Controls response length + density.',
+        opts: [
+          { v: 'brief',              l: 'Brief — get to the point',         d: 'Short answers. Lists. Lead with the answer.' },
+          { v: 'balanced',           l: 'Balanced — answer plus context',   d: 'Answer first, then a sentence or two of why/how.' },
+          { v: 'thorough',           l: 'Thorough — teach me as we go',     d: 'Explain reasoning. Mini-tutorial mode.' },
+          { v: 'match-personality',  l: 'Match the personality I pick',     d: 'Whatever vibe my personality has.' },
+        ] },
+      { field: 'goal', q: 'What do you want to do with this bot?',
+        hint: 'Sets how deep the live-trading setup goes.',
+        opts: [
+          { v: 'explore',    l: 'Just curious — exploring',                d: 'Skip live-trading setup. Focus on understanding.' },
+          { v: 'paper',      l: 'Paper trade and learn',                   d: 'Install paper trader, skip live wallet.' },
+          { v: 'small-live', l: 'Run a small live bot (~$100)',            d: 'Full install including live wallet + Helius key.' },
+          { v: 'multi-bot',  l: '$500-$1000 to deploy multiple bots',      d: 'Full install + multi-bot scaffolding + scheduled monitoring.' },
+        ] },
+      { field: 'consent_level', q: 'How much should I check in before doing things?',
+        hint: 'Controls the consent-gate cadence.',
+        opts: [
+          { v: 'very-cautious', l: 'Very cautious — check everything',                d: 'Pause for confirm on every action.' },
+          { v: 'cautious',      l: 'Cautious — check the big stuff',                  d: 'Confirm money moves + bot-behavior changes. Routine stuff is fine.' },
+          { v: 'balanced',      l: 'Balanced — tell me, then do it',                  d: 'Announce, then act. Stop only for major calls.' },
+          { v: 'hands-off',     l: 'Hands-off — do the right thing, tell me after',   d: 'Just handle it. Summarize after. Stop only for real decisions.' },
+        ] },
+      { field: 'autonomy_level', q: 'How much should I do vs. you do?',
+        hint: 'Who drives the keyboard.',
+        opts: [
+          { v: 'claude-everything',  l: 'You do everything — I\'ll review',         d: 'Claude runs every command. User reviews output.' },
+          { v: 'show-cool-parts',    l: 'You do most of it — show me the cool parts', d: 'Claude handles boring setup; pauses for interesting moments.' },
+          { v: 'together',           l: 'We do it together — teach me as we go',     d: 'Claude explains as it goes. User learns enough to do it later.' },
+          { v: 'user-driven',        l: 'I do it, you guide me',                     d: 'User types commands. Claude coaches.' },
+        ] },
+      { field: 'personality_id', q: 'Pick a personality',
+        hint: 'Changes Claude\'s voice. Doesn\'t affect bot behavior.',
+        opts: [
+          { v: 'default',         l: 'Default',          d: 'Neutral, balanced, professional.' },
+          { v: 'crypto-bro',      l: 'Crypto Bro',       d: 'Degen KOL who\'s "made it" — ser, ngmi, alpha, printing.' },
+          { v: 'drill-sergeant',  l: 'Drill Sergeant',   d: 'Strict, terse, military — ALL-CAPS callouts.' },
+          { v: 'surf-bro',        l: 'Surf Bro',         d: 'Chill, encouraging, upbeat — yo, dude, totally.' },
+          { v: 'quant-professor', l: 'Quant Professor',  d: 'Formal, academic, hedged language.' },
+          { v: 'hacker',          l: 'Hacker',           d: '1337, dark, lowercase, abbreviated.' },
+        ] },
+      { field: 'theme_id', q: 'Pick a theme',
+        hint: 'Changes dashboard CSS only. Independent of personality.',
+        opts: [
+          { v: 'auto',     l: 'Match my personality (recommended)',   d: 'Use whatever theme the picked personality pairs with by default.' },
+          { v: 'default',  l: 'Default — slate + indigo + emerald',  d: 'The reference look. Get-out-of-the-way baseline.' },
+          { v: 'lambo',    l: 'Lambo — gold on matte black',          d: 'Crypto-bro luxury terminal.' },
+          { v: 'matrix',   l: 'Matrix — phosphor green on black',    d: 'CRT terminal, all mono.' },
+          { v: 'camo',     l: 'Camo — olive + amber military',       d: 'Disciplined, functional.' },
+          { v: 'beach',    l: 'Beach — coral + teal pastels',        d: 'Chill, low-stakes vibe.' },
+          { v: 'academia', l: 'Academia — cream + serif',            d: 'Working paper aesthetic. Light theme.' },
+        ] },
+    ];
+
+    let stepIdx = 0;
+    const answers = {};
+    let currentProfile = null;
+
+    // Swatch colors for the personality + theme picker steps. Each
+    // option gets a small colored circle so the user can preview the
+    // accent at a glance without committing — no hover state, no
+    // network, just an inline visual hint. Personality values map to
+    // their paired-theme accent; theme values map to themselves;
+    // 'auto' renders as a rainbow gradient to signal "follow your
+    // personality."
+    const SWATCH_BY_PERSONALITY = {
+      'default':         '#34d399',
+      'crypto-bro':      '#d4af37',
+      'drill-sergeant':  '#8fa840',
+      'surf-bro':        '#ff7f6b',
+      'quant-professor': '#6b4423',
+      'hacker':          '#00ff66',
+    };
+    const SWATCH_BY_THEME = {
+      'default':  '#34d399',
+      'lambo':    '#d4af37',
+      'matrix':   '#00ff66',
+      'camo':     '#8fa840',
+      'beach':    '#ff7f6b',
+      'academia': '#6b4423',
+    };
+
+    // ── Render helpers ──
+    function renderStep() {
+      const step = STEPS[stepIdx];
+      stepCurEl.textContent = String(stepIdx + 1);
+      stepTotEl.textContent = String(STEPS.length);
+      qEl.textContent = step.q;
+      hintEl.textContent = step.hint || '';
+      errEl.classList.add('hidden');
+
+      // Progress dots.
+      progEl.replaceChildren();
+      for (let i = 0; i < STEPS.length; i++) {
+        const dot = document.createElement('span');
+        const isActive = i === stepIdx;
+        const isDone = i < stepIdx;
+        dot.className = 'inline-block w-1.5 h-1.5 rounded-full transition '
+          + (isActive ? 'bg-emerald-400' : (isDone ? 'bg-emerald-500/60' : 'bg-zinc-700'));
+        progEl.appendChild(dot);
+      }
+
+      // Option cards. Selecting one auto-advances (except on the
+      // final step — Save button submits).
+      const selected = answers[step.field] != null ? answers[step.field]
+                       : (currentProfile && currentProfile[step.field]) || null;
+      optsEl.replaceChildren();
+      // Swatch lookup applies only on personality + theme picker steps;
+      // everything else (the 5 quiz steps) just gets the bare label
+      // + description card.
+      const swatchMap = step.field === 'personality_id' ? SWATCH_BY_PERSONALITY
+                       : step.field === 'theme_id' ? SWATCH_BY_THEME
+                       : null;
+      for (const opt of step.opts) {
+        const isSelected = opt.v === selected;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'w-full text-left border rounded p-3 transition '
+          + (isSelected
+              ? 'border-emerald-500/60 bg-emerald-500/10'
+              : 'border-zinc-700/60 hover:border-zinc-500 hover:bg-zinc-800/40');
+        const label = document.createElement('div');
+        label.className = 'text-[13px] font-medium text-zinc-100';
+        label.textContent = opt.l;
+        const desc = document.createElement('div');
+        desc.className = 'text-[11px] muted mt-0.5';
+        desc.textContent = opt.d || '';
+        // Build the card. If a swatch applies, wrap the label/desc
+        // in a flex row with a 14px colored circle on the left so
+        // the user sees the theme's accent before committing.
+        if (swatchMap) {
+          const swatchColor = swatchMap[opt.v];
+          const swatchStyle = swatchColor
+            ? `background: ${swatchColor};`
+            // 'auto' = follow your personality. Show a gradient of all
+            // 6 accents to telegraph "pick from any of these."
+            : 'background: linear-gradient(135deg, '
+              + '#34d399 0%, #d4af37 20%, #00ff66 40%, '
+              + '#8fa840 60%, #ff7f6b 80%, #6b4423 100%);';
+          const row = el('div', { class: 'flex items-center gap-3' },
+            el('span', {
+              class: 'inline-block w-3.5 h-3.5 rounded-full border border-zinc-600/50 shrink-0 shadow-sm',
+              style: swatchStyle,
+              'aria-hidden': 'true',
+            }),
+            el('div', { class: 'flex-1 min-w-0' },
+              label,
+              opt.d ? desc : null,
+            ),
+          );
+          card.appendChild(row);
+        } else {
+          card.appendChild(label);
+          if (opt.d) card.appendChild(desc);
+        }
+        card.addEventListener('click', () => {
+          answers[step.field] = opt.v;
+          if (stepIdx < STEPS.length - 1) {
+            stepIdx += 1;
+            renderStep();
+          } else {
+            renderStep();  // refresh selection highlight
+          }
+        });
+        optsEl.appendChild(card);
+      }
+
+      // Nav state.
+      prevBtn.disabled = stepIdx === 0;
+      const isFinal = stepIdx === STEPS.length - 1;
+      nextBtn.classList.toggle('hidden', isFinal);
+      doneBtn.classList.toggle('hidden', !isFinal);
+    }
+
+    function open() {
+      stepIdx = 0;
+      for (const k in answers) delete answers[k];
+      // Pre-fill from current profile (best effort, no token required
+      // since /api/profile is local-only safe).
+      fetch('/api/profile', { credentials: 'same-origin' })
+        .then((r) => r.ok ? r.json() : null)
+        .then((p) => { currentProfile = p && typeof p === 'object' ? p : {}; renderStep(); })
+        .catch(() => { currentProfile = {}; renderStep(); });
+      overlay.classList.remove('hidden');
+    }
+
+    function close() {
+      overlay.classList.add('hidden');
+    }
+
+    async function submit() {
+      doneBtn.disabled = true;
+      doneBtn.textContent = 'Saving…';
+      errEl.classList.add('hidden');
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+        const resp = await fetch('/api/profile/recalibrate', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(answers),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          throw new Error(body.error || ('HTTP ' + resp.status));
+        }
+        // Show a confirmation state in the modal before the reload —
+        // jumping straight to location.reload() reads as if the click
+        // was ignored. ~900ms is enough to register the success
+        // without making the user wait perceptibly. Modal nav and
+        // content collapse into a centered "Saved" message.
+        const updated = Object.keys(answers);
+        qEl.textContent = '✓ Saved';
+        hintEl.textContent = 'Applying your new ' +
+          (updated.length === 1 ? 'preference' : 'preferences') +
+          ' (' + updated.length + ' field' + (updated.length === 1 ? '' : 's') +
+          ' updated). Reloading…';
+        optsEl.replaceChildren();
+        progEl.replaceChildren();
+        prevBtn.classList.add('hidden');
+        skipBtn.classList.add('hidden');
+        nextBtn.classList.add('hidden');
+        doneBtn.classList.add('hidden');
+        // Add a single confirmation tick so the user sees the success
+        // beat even on a fast network. Themed via existing emerald
+        // utilities → reskins per theme automatically.
+        optsEl.replaceChildren(el('div', {
+          class: 'text-center py-6',
+        },
+          el('div', { class: 'text-5xl text-emerald-400' }, '✓'),
+        ));
+        await new Promise((r) => setTimeout(r, 900));
+        // Force a hard reload so the new theme CSS and any restart-
+        // sensitive UI bits pick up the change cleanly.
+        location.reload();
+      } catch (e) {
+        errEl.textContent = 'Save failed: ' + (e && e.message ? e.message : String(e));
+        errEl.classList.remove('hidden');
+        doneBtn.disabled = false;
+        doneBtn.textContent = 'Save';
+      }
+    }
+
+    // Wire up.
+    btn.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    prevBtn.addEventListener('click', () => { if (stepIdx > 0) { stepIdx -= 1; renderStep(); } });
+    nextBtn.addEventListener('click', () => { if (stepIdx < STEPS.length - 1) { stepIdx += 1; renderStep(); } });
+    skipBtn.addEventListener('click', () => {
+      if (stepIdx < STEPS.length - 1) { stepIdx += 1; renderStep(); }
+      else { close(); }
+    });
+    doneBtn.addEventListener('click', submit);
+    // Click on the dim backdrop to close (but not when clicking the card).
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  })();

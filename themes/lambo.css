@@ -1,0 +1,403 @@
+/* PBX Stratos — Lambo theme (gold on matte black, paired with Crypto Bro)
+ *
+ * The "won early, sharing alpha" aesthetic. Matte black panels, gold
+ * accents on PnL + key callouts, no neon, no gradients. Looks like a
+ * trading terminal a real degen would actually run, not the Robinhood
+ * confetti screen. Sharp 4px corners — feels harder-edged than default.
+ *
+ * Gold replaces emerald as the primary accent: buttons, PnL, links.
+ * Every Tailwind emerald-* utility on the page gets remapped to gold.
+ *
+ * Tailwind utility classes carry specificity 10 and would otherwise
+ * beat element-level rules. We override the specific utilities the
+ * dashboard's HTML applies (bg-[#0a0d13], bg-emerald-500, text-zinc-*,
+ * etc.) with !important so the theme wins regardless of class order.
+ */
+
+:root {
+  --bg-primary:    #0a0a0a;
+  --bg-secondary:  #141414;
+  --bg-tertiary:   #1f1f1f;
+  --text-primary:  #f5e6c8;
+  --text-muted:    #8a7a5c;
+  --text-accent:   #d4af37;
+  --border-color:  #2a2620;
+  --gold:          #d4af37;
+  --gold-bright:   #e6c560;
+  --gold-dim:      rgba(212, 175, 55, 0.5);
+  /* Solid color (no alpha) used by inline-style radial gradients that
+   * can't be reached by .bg-emerald-500 overrides — the welcome hero
+   * halo + the gauge entry-zone fill. Opacity is applied at the
+   * wrapper level (e.g. opacity-[0.10] on the hero halo div). */
+  --theme-hero-glow: #d4af37;
+}
+
+/* Body — matte black, warm off-white text. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #0a0a0a !important;
+  color: #f5e6c8 !important;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Kill the indigo grid backdrop — pure matte. */
+.bg-grid { background-image: none !important; }
+
+/* Header + sidebar — same matte base, slightly lifted panels. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 10, 10, 0.95) !important; border-color: #2a2620 !important; }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #0d0d0d !important; border-color: #2a2620 !important; }
+
+/* Card panels — flat dark, no gradient, sharp 4px corners. */
+.card {
+  background: #141414 !important;
+  border: 1px solid #2a2620 !important;
+  border-radius: 4px !important;
+}
+
+/* ── Emerald → Gold ────────────────────────────────────────────────── */
+/* Solid fills (primary CTAs). */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #d4af37 !important;
+  color: #0a0a0a !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #e6c560 !important;
+}
+/* Transparent emerald tints used for chips/badges/pills. */
+.bg-emerald-500\/5  { background-color: rgba(212, 175, 55, 0.05) !important; }
+.bg-emerald-500\/10 { background-color: rgba(212, 175, 55, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(212, 175, 55, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(212, 175, 55, 0.20) !important; }
+
+/* Text shades. */
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #d4af37 !important; }
+.hover\:text-emerald-300:hover, .hover\:text-emerald-200:hover { color: #e6c560 !important; }
+
+/* Borders. */
+.border-emerald-500\/20 { border-color: rgba(212, 175, 55, 0.25) !important; }
+.border-emerald-500\/30 { border-color: rgba(212, 175, 55, 0.35) !important; }
+.border-emerald-500\/40 { border-color: rgba(212, 175, 55, 0.45) !important; }
+.border-emerald-500\/50 { border-color: rgba(212, 175, 55, 0.55) !important; }
+.border-emerald-500\/60 { border-color: rgba(212, 175, 55, 0.65) !important; }
+
+/* Pulse-dot in the header (bg-emerald-400 + pulse-dot). */
+.pulse-dot { animation: pulse 2s ease-in-out infinite; }
+
+/* ── Sky (recommended pill, links, info chips) → soft gold ───────── */
+.bg-sky-500, .bg-sky-400 { background-color: #d4af37 !important; color: #0a0a0a !important; }
+.bg-sky-500\/5  { background-color: rgba(212, 175, 55, 0.05) !important; }
+.bg-sky-500\/10 { background-color: rgba(212, 175, 55, 0.10) !important; }
+.bg-sky-500\/15 { background-color: rgba(212, 175, 55, 0.15) !important; }
+.bg-sky-500\/20 { background-color: rgba(212, 175, 55, 0.20) !important; }
+.text-sky-300, .text-sky-400 { color: #d4af37 !important; }
+.border-sky-500\/20, .border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(212, 175, 55, 0.45) !important; }
+/* "view on Solscan" anchor — explicitly forced. */
+a.text-sky-300, a.text-sky-400 { color: #d4af37 !important; }
+
+/* ── Violet (evolution-invented badge) → warm copper ─────────────── */
+.text-violet-300, .text-violet-400 { color: #b87a2b !important; }
+.bg-violet-500\/10, .bg-violet-500\/15 { background-color: rgba(184, 122, 43, 0.12) !important; }
+.border-violet-500\/30, .border-violet-500\/40 { border-color: rgba(184, 122, 43, 0.4) !important; }
+
+/* ── Muted, value, label custom classes ─────────────────────────── */
+.muted { color: #8a7a5c !important; }
+.value { color: #f5e6c8 !important; }
+.label { color: #8a7a5c !important; }
+
+/* ── Zinc text scale — every shade remapped to a cream tone. ─────── */
+.text-zinc-50  { color: #fbf5e8 !important; }
+.text-zinc-100 { color: #f5e6c8 !important; }
+.text-zinc-200 { color: #ddc99f !important; }
+.text-zinc-300 { color: #b8a474 !important; }
+.text-zinc-400 { color: #8a7a5c !important; }
+.text-zinc-500 { color: #6f624a !important; }
+.text-zinc-600 { color: #594e3b !important; }
+.text-zinc-700 { color: #43392c !important; }
+
+/* ── Zinc backgrounds (input fields, nested panels, fleet selector). */
+.bg-zinc-700 { background-color: #1f1a14 !important; }
+.bg-zinc-800 { background-color: #141414 !important; }
+.bg-zinc-900 { background-color: #0a0a0a !important; }
+.bg-zinc-700\/30 { background-color: rgba(31, 26, 20, 0.45) !important; }
+
+/* ── Zinc borders ────────────────────────────────────────────────── */
+.border-zinc-700        { border-color: #2a2620 !important; }
+.border-zinc-700\/60    { border-color: rgba(42, 38, 32, 0.7) !important; }
+.border-zinc-800        { border-color: #2a2620 !important; }
+.border-zinc-800\/40    { border-color: rgba(42, 38, 32, 0.5) !important; }
+.border-zinc-800\/60    { border-color: rgba(42, 38, 32, 0.7) !important; }
+.border-zinc-900        { border-color: #1a1610 !important; }
+.hover\:border-zinc-500:hover { border-color: #6f624a !important; }
+
+/* Inputs/dark surfaces — push to the matte-black baseline. */
+.bg-\[\#0a0d13\] { background-color: #0a0a0a !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(10, 10, 10, 0.6) !important; }
+.focus\:border-emerald-500:focus { border-color: #d4af37 !important; }
+
+/* Mono font — JetBrains, like a real desk. */
+.mono { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important; }
+
+/* Checkbox accent (show-stopped toggle). */
+input[type="checkbox"].accent-emerald-500 { accent-color: #d4af37 !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #c9512c !important; }
+
+/* Sidebar active nav item — gold, not emerald. */
+.nav-btn[aria-current="true"] {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.10) !important;
+  border-left-color: #d4af37 !important;
+}
+.nav-btn:hover { color: #f5e6c8 !important; background: #1a1a1a !important; }
+.setup-guide-btn:hover { color: #d4af37 !important; background: rgba(212, 175, 55, 0.08) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #d4af37 !important; color: #d4af37 !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25), 0 0 14px rgba(212, 175, 55, 0.5) !important;
+}
+
+/* ── Modal backdrop dim ────────────────────────────────────────────── */
+.modal-bg { background: rgba(0, 0, 0, 0.85) !important; }
+
+/* ── PnL glows: keep semantic up=green/down=red so charts read, but tinted */
+.glow-up   { box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18), 0 0 24px rgba(212, 175, 55, 0.06) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(201, 81, 44, 0.20), 0 0 24px rgba(201, 81, 44, 0.06) !important; }
+
+/* ── Workflow + Evolution rank-1 row tints ────────────────────────── */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.02)) !important;
+  box-shadow: inset 2px 0 0 #d4af37 !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.40), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(212, 175, 55, 0.28); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(212, 175, 55, 0.22); } 100% { background-color: transparent; } }
+
+/* ── Evolution origin badges ──────────────────────────────────────── */
+.evo-badge-decoded  { background: rgba(212, 175, 55, .15) !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-badge-invented { background: rgba(184, 122, 43, .15) !important; color: #c9933f !important; border-color: rgba(184, 122, 43, .35) !important; }
+.evo-badge-mutated  { background: rgba(230, 197, 96, .15) !important; color: #e6c560 !important; border-color: rgba(230, 197, 96, .35) !important; }
+.evo-badge-crossed  { background: rgba(245, 230, 200, .12) !important; color: #f5e6c8 !important; border-color: rgba(245, 230, 200, .30) !important; }
+
+/* ── Evolution metric stat cards (live behind dashboard.css with hard colors) */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #0d0c08 !important; border-color: #2a2620 !important;
+}
+.evo-metric-val { color: #f5e6c8 !important; }
+.evo-metric-val.pos { color: #d4af37 !important; }
+.evo-metric-val.neg { color: #c9512c !important; }
+.evo-strat-row { background: #0d0c08 !important; border-color: #2a2620 !important; }
+.evo-strat-row .evo-res-pred { background: #060503 !important; }
+.evo-strat-chip-val.pos { color: #d4af37 !important; }
+.evo-strat-chip-val.neg { color: #c9512c !important; }
+.evo-strat-deploy { background: #d4af37 !important; border-color: #d4af37 !important; color: #0a0a0a !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #e6c560 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .55) !important; }
+.evo-hero { background: rgba(212, 175, 55, .07) !important; border-color: rgba(212, 175, 55, .45) !important; }
+.evo-hero-label { color: #e6c560 !important; }
+.evo-res-status-ok   { color: #d4af37 !important; }
+.evo-res-status-warn { color: #e6b540 !important; }
+.evo-ledger { background: #141414 !important; border-color: #2a2620 !important; color: #ddc99f !important; }
+.evo-ledger-h2 { color: #f5e6c8 !important; }
+.evo-ledger-li, .evo-ledger-p { color: #ddc99f !important; }
+.evo-pop-mult { background: rgba(138, 122, 92, .15) !important; color: #b8a474 !important; border-color: rgba(138, 122, 92, .35) !important; }
+.evo-chip-running { background: rgba(212, 175, 55, .15) !important; color: #d4af37 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-chip-done    { background: rgba(212, 175, 55, .15) !important; color: #e6c560 !important; border-color: rgba(212, 175, 55, .35) !important; }
+.evo-chip-failed  { background: rgba(201, 81, 44, .15) !important; color: #d97757 !important; border-color: rgba(201, 81, 44, .35) !important; }
+
+/* ── Deploy modal mode-selector chips ─────────────────────────────── */
+.deploy-mode-btn { border-color: #2a2620 !important; background: #0a0a0a !important; }
+.deploy-mode-btn:hover { border-color: #594e3b !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #d4af37 !important; box-shadow: 0 0 0 1px rgba(212, 175, 55, .4) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #c9512c !important; box-shadow: 0 0 0 1px rgba(201, 81, 44, .4) !important; }
+
+/* ── Onboarding tour overlays ─────────────────────────────────────── */
+.onboard-backdrop { background: rgba(0, 0, 0, 0.65) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.45), 0 0 36px 6px rgba(212, 175, 55, 0.28); }
+  50%      { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0.75), 0 0 56px 10px rgba(212, 175, 55, 0.45); }
+}
+.onboard-highlight { outline-color: rgba(230, 197, 96, 0.95) !important; }
+.onboard-dot.current { background: #d4af37 !important; }
+.onboard-dot.done    { background: #b8a474 !important; }
+.onboard-waiting { border-color: rgba(212, 175, 55, 0.45) !important; background: rgba(212, 175, 55, 0.08) !important; color: #f5e6c8 !important; }
+.onboard-waiting::before { background: #d4af37 !important; }
+.onboard-livecheck { background: #0a0a0a !important; border-color: #2a2620 !important; }
+.onboard-livecheck .ok  { color: #d4af37 !important; }
+.onboard-livecheck .bad { color: #c9512c !important; }
+.onboard-livecheck .pending { color: #8a7a5c !important; }
+
+/* ── Workflow page chart legend area + tab-buttons ────────────────── */
+.tabbtn[aria-selected="true"] { background: #1f1a14 !important; color: #f5e6c8 !important; }
+.tabbtn { color: #8a7a5c !important; }
+.tabbtn:hover { color: #ddc99f !important; }
+
+/* ── Scrollbar — match the matte palette ──────────────────────────── */
+.scrollbar::-webkit-scrollbar-thumb { background: #2a2620 !important; }
+
+/* ── Inline-styled personality avatar circle ──────────────────────────
+ * The achievements page renders a 40×40 round avatar whose color is
+ * baked inline by personalityColor() in dashboard.js — `style="background:
+ * #10b981"` for the "default" personality. With !important we can
+ * still beat the inline style. We re-tint each known color to the
+ * lambo gold family so a "default" or "drill-sergeant" user lands
+ * on a theme-consistent circle. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #d4af37 !important;
+}
+
+/* ── Achievements section progress bars (inline-styled bg-emerald-500). */
+.bg-emerald-500[style*="width"] { background-color: #d4af37 !important; }
+
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(212, 175, 55, 0.65) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(212, 175, 55, 0.25) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(212, 175, 55, 0.25) !important; }
+
+/* ── Atmospheric background motif (true per-element shooting stars) ──
+ * Crypto Bro vibe: $ symbols + tiny upward-chart fragments + gold-bar
+ * pills, scattered across the viewport, EACH ONE blinking in and
+ * out on its own timeline. Not a tiled pattern — actual individual
+ * elements with per-instance animation-delay so they pop in and
+ * disappear independently like fireflies / shooting stars.
+ *
+ * ## How the elements get there
+ *
+ * dashboard.js (`injectThemeMotifs` IIFE at end of file) checks for
+ * the --motif-enabled flag below; when set, it injects ~32 spans
+ * into <body class="motif-layer"> — each span gets:
+ *
+ *   --mx  : random viewport-X position    (0-100vw)
+ *   --my  : random viewport-Y position    (0-100vh)
+ *   --d   : random animation-delay        (0-14s)
+ *   --dur : random animation-duration     (10-16s)
+ *
+ * The injected DOM is purely decorative — pointer-events: none on the
+ * wrapper, aria-hidden="true", z-index pinned below content via the
+ * existing #sidebar/header/main stacking rule.
+ *
+ * ## Why per-element instead of tiled pseudo
+ *
+ * Tiled pseudo (the v2 approach) painted the same SVG at every grid
+ * point and animated the ENTIRE layer's opacity — every visible "$"
+ * faded together. Real shooting-star independence requires each
+ * motif element to be its own DOM node with its own timeline. The
+ * trade-off is ~32 extra elements in body, which is nothing for
+ * layout perf since they're all position: fixed (no reflow) and
+ * animate opacity only (composite, no paint thrash).
+ *
+ * ## Animation curve
+ *
+ * Asymmetric — long invisible period, sharp rise to peak, brief
+ * hold, slow decay back to invisible. Sells the "twinkle" feel
+ * better than a symmetric sine breathe.
+ *
+ *   0% → invisible
+ *   ~60-65% → invisible
+ *   ~70% → quick rise to peak opacity 0.14
+ *   ~78% → still at peak (brief hold)
+ *   ~95% → faded back to 0
+ *
+ * Peak opacity 0.14 is higher than the tiled v2 (0.08-0.10) because
+ * each element is now a small isolated point — needs more brightness
+ * to feel like a "spark" rather than vanishing into the background.
+ *
+ * ## Reduced motion
+ *
+ * Holds all elements at a stable 0.06 opacity with no animation.
+ * Vibe preserved (faint scattered motifs), motion stopped.
+ */
+:root {
+  /* Opt-in flag read by dashboard.js's injectThemeMotifs IIFE.
+   * Themes that don't want motifs simply don't set this. */
+  --motif-enabled: 1;
+}
+
+.motif-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  /* Both opacity and transform animate per-element, so hint the
+   * compositor on both. Each motif is small + fixed-positioned, so
+   * promoting them to their own layers is cheap. */
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* ── v1: Bitcoin coin — gold disc with ₿ glyph inside ────────────── *
+ * Gold disc + dark ₿ symbol = recognizable bitcoin badge at small
+ * sizes. Outer circle solid gold; inner ₿ uses near-black so the
+ * symbol reads against the gold even at the peak opacity. */
+.motif-v1 {
+  width: 22px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='%23d4af37'/><text x='11' y='16.5' font-family='Arial,system-ui,sans-serif' font-size='15' font-weight='900' fill='%231a1a1a' text-anchor='middle'>₿</text></svg>");
+}
+
+/* ── v2: Chart-up — small upward polyline with terminus dot ──────── */
+.motif-v2 {
+  width: 64px;
+  height: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'><polyline points='2,24 16,20 30,14 46,7 60,2' stroke='%23d4af37' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='60' cy='2' r='2' fill='%23d4af37'/></svg>");
+}
+
+/* ── v3: Lambo — low-slung supercar silhouette ───────────────────── *
+ * Profile of an Aventador-style supercar: pointed nose, steep
+ * windshield rake, compact cockpit (darker gold), two visible
+ * wheels. Solid gold body so it reads even at the 14%-peak opacity
+ * the twinkle keyframe enforces. */
+.motif-v3 {
+  width: 56px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 22'><path d='M 3 17 L 6 12 L 13 11 L 18 7 L 36 7 L 43 11 L 52 12 L 54 17 Z' fill='%23d4af37'/><path d='M 19 8 L 23 5 L 33 5 L 37 8 Z' fill='%23a08828'/><circle cx='13' cy='18' r='3' fill='%231a1a1a'/><circle cx='13' cy='18' r='1.2' fill='%23d4af37'/><circle cx='43' cy='18' r='3' fill='%231a1a1a'/><circle cx='43' cy='18' r='1.2' fill='%23d4af37'/></svg>");
+}
+
+/* ── Twinkle keyframes (shared selector — each theme defines its own
+ *    motif-twinkle with its own peak opacity). ────────────────────── *
+ * Opacity drives the visibility envelope (invisible 60% of cycle,
+ * sharp rise, brief peak, slow decay). Transform drifts continuously
+ * from translate(0,0) at cycle start to translate(--dx, --dy) at
+ * cycle end — set per element by the JS injector with a random
+ * direction + 18-38px magnitude. Visible window is only 25% of the
+ * cycle (60%-95%), so the user sees ~5-10px of motion per element
+ * while it's lit. The loop restart's jump back to (0,0) happens
+ * while opacity is 0 → invisible to the eye.
+ */
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.14; }
+  78%  { opacity: 0.14; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.06; transform: none; }
+}
+
+/* Ensure dashboard chrome sits above the motif layer. Sidebar, header,
+ * and main content already create their own stacking contexts via
+ * sticky positioning + z-index, but pin them here defensively so the
+ * twinkling never bleeds through chrome panels. */
+#sidebar, header, main { position: relative; z-index: 1; }

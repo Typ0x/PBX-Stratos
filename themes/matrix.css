@@ -1,0 +1,348 @@
+/* PBX Stratos — Matrix theme (green-on-black mono, paired with Hacker)
+ *
+ * Phosphor green on pure black. ALL text monospace. Sharp corners
+ * (radius: 0). Faint scanline-glow text-shadow on key values. Built
+ * to feel like a CRT terminal — log output, not a marketing landing.
+ *
+ * Every non-green hue (amber/rose/sky/violet) is remapped to a shade
+ * of green so the theme reads as cohesive: dim green for warn, lime
+ * for info, bright phosphor for accent.
+ */
+
+:root {
+  --bg-primary:    #000000;
+  --bg-secondary:  #001100;
+  --bg-tertiary:   #002200;
+  --text-primary:  #00ff66;
+  --text-muted:    #008833;
+  --text-accent:   #66ff99;
+  --border-color:  #003311;
+  --phosphor:      #00ff66;
+  --phosphor-dim:  #008833;
+  --phosphor-bright: #66ff99;
+  --warn-green:    #ccff66;
+  --bad-green:     #ff6633;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Matrix already runs phosphor green,
+   * so the halo stays cohesive at the brightest shade. */
+  --theme-hero-glow: #00ff66;
+}
+
+/* Body — pure black, phosphor green, mono everywhere. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #000000 !important;
+  color: #00ff66 !important;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", "SF Mono", Menlo, monospace !important;
+  text-shadow: 0 0 1px rgba(0, 255, 102, 0.3) !important;
+}
+
+/* FORCE MONOSPACE EVERYWHERE — element + nested. */
+*, *::before, *::after {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", "SF Mono", Menlo, monospace !important;
+}
+
+/* Replace the indigo grid with a phosphor green dot grid. */
+.bg-grid { background-image: radial-gradient(rgba(0, 255, 102, 0.10) 1px, transparent 1px) !important; background-size: 22px 22px !important; }
+
+/* Header + sidebar — pure black with very dark green borders. */
+header.bg-\[\#0a0d13\]\/95 {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  border-color: #003311 !important;
+}
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #000a00 !important; border-color: #003311 !important; }
+
+/* Card panels — dark green-tinted on black, sharp corners. */
+.card {
+  background: #001100 !important;
+  border: 1px solid #003311 !important;
+  border-radius: 0 !important;
+}
+
+/* ── Emerald → Phosphor green ─────────────────────────────────────── */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #00ff66 !important;
+  color: #000000 !important;
+  text-shadow: none !important;
+  box-shadow: 0 0 12px rgba(0, 255, 102, 0.6) !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #66ff99 !important;
+  box-shadow: 0 0 18px rgba(0, 255, 102, 0.8) !important;
+}
+.bg-emerald-500\/5  { background-color: rgba(0, 255, 102, 0.05) !important; }
+.bg-emerald-500\/10 { background-color: rgba(0, 255, 102, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(0, 255, 102, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(0, 255, 102, 0.20) !important; }
+.text-emerald-200, .text-emerald-300, .text-emerald-400 {
+  color: #66ff99 !important;
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.7) !important;
+}
+.border-emerald-500\/20 { border-color: rgba(0, 255, 102, 0.30) !important; }
+.border-emerald-500\/30 { border-color: rgba(0, 255, 102, 0.45) !important; }
+.border-emerald-500\/40 { border-color: rgba(0, 255, 102, 0.55) !important; }
+.border-emerald-500\/50 { border-color: rgba(0, 255, 102, 0.65) !important; }
+.border-emerald-500\/60 { border-color: rgba(0, 255, 102, 0.75) !important; }
+
+/* Sky → lime-cyan green. */
+.bg-sky-500, .bg-sky-400 { background-color: #66ffcc !important; color: #000000 !important; }
+.bg-sky-500\/5  { background-color: rgba(102, 255, 204, 0.05) !important; }
+.bg-sky-500\/10 { background-color: rgba(102, 255, 204, 0.10) !important; }
+.bg-sky-500\/15 { background-color: rgba(102, 255, 204, 0.15) !important; }
+.bg-sky-500\/20 { background-color: rgba(102, 255, 204, 0.20) !important; }
+.text-sky-300, .text-sky-400 { color: #66ffcc !important; text-shadow: 0 0 4px rgba(102, 255, 204, 0.5) !important; }
+.border-sky-500\/20, .border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(102, 255, 204, 0.45) !important; }
+a.text-sky-300, a.text-sky-400 { color: #66ffcc !important; }
+
+/* Amber → dim warning green (still distinguishable). */
+.text-amber-200, .text-amber-300, .text-amber-400 { color: #ccff33 !important; text-shadow: 0 0 4px rgba(204, 255, 51, 0.5) !important; }
+.bg-amber-500\/5  { background-color: rgba(204, 255, 51, 0.05) !important; }
+.bg-amber-500\/10 { background-color: rgba(204, 255, 51, 0.10) !important; }
+.bg-amber-500\/15 { background-color: rgba(204, 255, 51, 0.15) !important; }
+.bg-amber-500\/20 { background-color: rgba(204, 255, 51, 0.20) !important; }
+.border-amber-500\/30, .border-amber-500\/40 { border-color: rgba(204, 255, 51, 0.45) !important; }
+
+/* Rose → orange-red phosphor for ERR; still legible against black. */
+.bg-rose-500\/5  { background-color: rgba(255, 102, 51, 0.05) !important; }
+.bg-rose-500\/10 { background-color: rgba(255, 102, 51, 0.10) !important; }
+.bg-rose-500\/15 { background-color: rgba(255, 102, 51, 0.15) !important; }
+.text-rose-100, .text-rose-200, .text-rose-300, .text-rose-400 { color: #ff6633 !important; text-shadow: 0 0 4px rgba(255, 102, 51, 0.5) !important; }
+.border-rose-500\/30, .border-rose-500\/40, .border-rose-500\/60 { border-color: rgba(255, 102, 51, 0.45) !important; }
+
+/* Violet → deep teal-green (still distinct from amber/sky). */
+.text-violet-300, .text-violet-400 { color: #99ffaa !important; }
+
+/* Muted + value text — dimmer/brighter green. */
+.muted { color: #008833 !important; text-shadow: none !important; }
+.value {
+  color: #66ff99 !important;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.6) !important;
+}
+.label { color: #008833 !important; text-shadow: none !important; }
+
+/* Zinc text scale → green scale. */
+.text-zinc-50  { color: #99ffbb !important; }
+.text-zinc-100 { color: #66ff99 !important; }
+.text-zinc-200 { color: #00ff66 !important; }
+.text-zinc-300 { color: #00cc55 !important; }
+.text-zinc-400 { color: #008833 !important; }
+.text-zinc-500 { color: #006622 !important; }
+.text-zinc-600 { color: #004411 !important; }
+.text-zinc-700 { color: #003311 !important; }
+
+/* Zinc backgrounds → near-black green tints. */
+.bg-zinc-700 { background-color: #002200 !important; }
+.bg-zinc-800 { background-color: #001100 !important; }
+.bg-zinc-900 { background-color: #000a00 !important; }
+.bg-zinc-700\/30 { background-color: rgba(0, 34, 0, 0.6) !important; }
+
+/* Zinc borders → green. */
+.border-zinc-700        { border-color: #003311 !important; }
+.border-zinc-700\/60    { border-color: rgba(0, 51, 17, 0.7) !important; }
+.border-zinc-800        { border-color: #003311 !important; }
+.border-zinc-800\/40    { border-color: rgba(0, 51, 17, 0.45) !important; }
+.border-zinc-800\/60    { border-color: rgba(0, 51, 17, 0.65) !important; }
+.border-zinc-900        { border-color: #002200 !important; }
+.hover\:border-zinc-500:hover { border-color: #006622 !important; }
+
+/* Inputs — pure black, green border, mono. */
+.bg-\[\#0a0d13\] { background-color: #000000 !important; color: #00ff66 !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
+.focus\:border-emerald-500:focus { border-color: #00ff66 !important; box-shadow: 0 0 8px rgba(0, 255, 102, 0.6) !important; }
+
+/* Checkbox accent. */
+input[type="checkbox"].accent-emerald-500 { accent-color: #00ff66 !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #ff6633 !important; }
+
+/* Sidebar active nav item — phosphor green glow. */
+.nav-btn[aria-current="true"] {
+  color: #66ff99 !important;
+  background: rgba(0, 255, 102, 0.10) !important;
+  border-left-color: #00ff66 !important;
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.7) !important;
+}
+.nav-btn { color: #008833 !important; }
+.nav-btn:hover { color: #00ff66 !important; background: #001a0a !important; }
+.setup-guide-btn:hover { color: #66ff99 !important; background: rgba(0, 255, 102, 0.10) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #00ff66 !important; color: #00ff66 !important;
+  box-shadow: 0 0 0 2px rgba(0, 255, 102, 0.30), 0 0 14px rgba(0, 255, 102, 0.6) !important;
+}
+
+/* Modal backdrop dim — pure black for maximal CRT contrast. */
+.modal-bg { background: rgba(0, 0, 0, 0.92) !important; backdrop-filter: blur(2px) !important; }
+
+/* Onboarding tour overlays — phosphor accent. */
+.onboard-backdrop { background: rgba(0, 0, 0, 0.85) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(0, 255, 102, 0.55), 0 0 36px 6px rgba(0, 255, 102, 0.30); }
+  50%      { box-shadow: 0 0 0 6px rgba(0, 255, 102, 0.85), 0 0 56px 10px rgba(0, 255, 102, 0.55); }
+}
+.onboard-highlight { outline-color: rgba(0, 255, 102, 0.95) !important; }
+.onboard-dot.current { background: #00ff66 !important; box-shadow: 0 0 8px rgba(0, 255, 102, 0.7) !important; }
+.onboard-dot.done    { background: #008833 !important; }
+.onboard-waiting { border-color: rgba(0, 255, 102, 0.55) !important; background: rgba(0, 255, 102, 0.08) !important; color: #66ff99 !important; }
+.onboard-waiting::before { background: #00ff66 !important; }
+.onboard-livecheck { background: #000a00 !important; border-color: #003311 !important; color: #00ff66 !important; }
+.onboard-livecheck .ok  { color: #66ff99 !important; }
+.onboard-livecheck .bad { color: #ff6633 !important; }
+.onboard-livecheck .pending { color: #008833 !important; }
+.onboard-warn { border-color: rgba(204, 255, 51, 0.45) !important; background: rgba(204, 255, 51, 0.06) !important; color: #ccff33 !important; }
+
+/* PnL glows — phosphor up, red down. */
+.glow-up   { box-shadow: 0 0 0 1px rgba(0, 255, 102, 0.30), 0 0 24px rgba(0, 255, 102, 0.10) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(255, 102, 51, 0.30), 0 0 24px rgba(255, 102, 51, 0.10) !important; }
+
+/* Workflow + Evolution rank-1. */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(0, 255, 102, 0.20), rgba(0, 255, 102, 0.02)) !important;
+  box-shadow: inset 2px 0 0 #00ff66 !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(0, 255, 102, 0.45), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(0, 255, 102, 0.32); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(0, 255, 102, 0.26); } 100% { background-color: transparent; } }
+
+/* Evolution origin badges — all green shades. */
+.evo-badge-decoded  { background: rgba(102, 255, 204, .15) !important; color: #66ffcc !important; border-color: rgba(102, 255, 204, .35) !important; }
+.evo-badge-invented { background: rgba(153, 255, 170, .15) !important; color: #99ffaa !important; border-color: rgba(153, 255, 170, .35) !important; }
+.evo-badge-mutated  { background: rgba(204, 255, 51, .15) !important; color: #ccff33 !important; border-color: rgba(204, 255, 51, .35) !important; }
+.evo-badge-crossed  { background: rgba(102, 255, 153, .15) !important; color: #66ff99 !important; border-color: rgba(102, 255, 153, .35) !important; }
+
+/* Evolution panels — black backgrounds. */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #000a00 !important; border-color: #003311 !important; color: #00ff66 !important;
+}
+.evo-metric-val { color: #66ff99 !important; text-shadow: 0 0 4px rgba(0, 255, 102, 0.5) !important; }
+.evo-metric-val.pos { color: #00ff66 !important; }
+.evo-metric-val.neg { color: #ff6633 !important; }
+.evo-metric-key, .evo-res-label { color: #008833 !important; }
+.evo-strat-row { background: #000a00 !important; border-color: #003311 !important; }
+.evo-strat-row .evo-res-pred { background: #000000 !important; }
+.evo-strat-chip-val { color: #66ff99 !important; }
+.evo-strat-chip-val.pos { color: #00ff66 !important; }
+.evo-strat-chip-val.neg { color: #ff6633 !important; }
+.evo-strat-chip-key, .evo-strat-tag { color: #008833 !important; }
+.evo-strat-deploy { background: #00ff66 !important; border-color: #00ff66 !important; color: #000000 !important; box-shadow: 0 0 8px rgba(0, 255, 102, 0.5) !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #66ff99 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #66ff99 !important; border-color: rgba(0, 255, 102, .55) !important; }
+.evo-hero { background: rgba(0, 255, 102, .08) !important; border-color: rgba(0, 255, 102, .45) !important; }
+.evo-hero-label { color: #66ff99 !important; }
+.evo-res-status-ok   { color: #00ff66 !important; }
+.evo-res-status-warn { color: #ccff33 !important; }
+.evo-ledger { background: #001100 !important; border-color: #003311 !important; color: #00cc55 !important; }
+.evo-ledger-h2 { color: #66ff99 !important; }
+.evo-ledger-li, .evo-ledger-p { color: #00cc55 !important; }
+.evo-ledger-li::before { color: #006622 !important; }
+.evo-pop-mult { background: rgba(0, 136, 51, .15) !important; color: #00cc55 !important; border-color: rgba(0, 136, 51, .35) !important; }
+.evo-pop-k, .evo-res-pred .k { color: #00cc55 !important; }
+.evo-chip-running { background: rgba(0, 255, 102, .15) !important; color: #00ff66 !important; border-color: rgba(0, 255, 102, .35) !important; }
+.evo-chip-done    { background: rgba(102, 255, 204, .15) !important; color: #66ffcc !important; border-color: rgba(102, 255, 204, .35) !important; }
+.evo-chip-failed  { background: rgba(255, 102, 51, .15) !important; color: #ff6633 !important; border-color: rgba(255, 102, 51, .35) !important; }
+.evo-run-btn-view { background: rgba(0, 255, 102, .15) !important; color: #00ff66 !important; border-color: rgba(0, 255, 102, .35) !important; }
+.evo-run-btn-view:hover:not(:disabled) { background: rgba(0, 255, 102, .25) !important; }
+.evo-drawer { background: #000a00 !important; border-color: #003311 !important; }
+.evo-drawer-backdrop { background: rgba(0, 0, 0, 0.7) !important; }
+.evo-drawer-close { color: #008833 !important; }
+.evo-drawer-close:hover { color: #00ff66 !important; background: #001a0a !important; }
+
+/* Deploy modal mode-selector chips. */
+.deploy-mode-btn { border-color: #003311 !important; background: #000000 !important; color: #00ff66 !important; }
+.deploy-mode-btn:hover { border-color: #006622 !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #66ffcc !important; box-shadow: 0 0 0 1px rgba(102, 255, 204, .5) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #ff6633 !important; box-shadow: 0 0 0 1px rgba(255, 102, 51, .5) !important; }
+
+/* Tab buttons. */
+.tabbtn[aria-selected="true"] { background: #001a0a !important; color: #66ff99 !important; }
+.tabbtn { color: #008833 !important; }
+.tabbtn:hover { color: #00ff66 !important; }
+
+/* Scrollbar. */
+.scrollbar::-webkit-scrollbar-thumb { background: #003311 !important; }
+
+/* Gauge — phosphor styling. */
+.gauge { background: #000a00 !important; }
+.gauge-tick { background: #006622 !important; }
+.gauge-tick-label { color: #008833 !important; }
+
+/* Personality avatar circle — re-tint to phosphor regardless of which
+ * personality color was baked in by dashboard.js. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#fbbf24"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #00ff66 !important;
+  box-shadow: 0 0 12px rgba(0, 255, 102, 0.6) !important;
+}
+.bg-emerald-500[style*="width"] { background-color: #00ff66 !important; }
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(0, 255, 102, 0.70) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(0, 255, 102, 0.35) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(0, 255, 102, 0.35) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with matrix-specific shapes: a single
+ * katakana glyph (Matrix-rain style), a tight binary digit pair,
+ * and a terminal block-cursor. Peak opacity is 0.12 — slightly
+ * below lambo's 0.14 because phosphor-on-pure-black has more
+ * inherent contrast than gold-on-matte. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: katakana glyph — single half-width kana, classic Matrix rain. */
+.motif-v1 {
+  width: 18px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 22'><text x='9' y='17' font-family='Consolas,Menlo,monospace' font-size='18' font-weight='700' fill='%2300ff66' text-anchor='middle'>タ</text></svg>");
+}
+
+/* v2: binary pair — tight "01" cluster, mono font. */
+.motif-v2 {
+  width: 28px;
+  height: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 16'><text x='0' y='13' font-family='Consolas,Menlo,monospace' font-size='13' font-weight='700' fill='%2300ff66'>01</text></svg>");
+}
+
+/* v3: terminal block-cursor — solid phosphor rectangle. */
+.motif-v3 {
+  width: 12px;
+  height: 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'><rect x='1' y='1' width='10' height='16' fill='%2300ff66'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.12; }
+  78%  { opacity: 0.12; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.05; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

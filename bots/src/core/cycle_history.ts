@@ -1,34 +1,34 @@
 /**
  * Engine-cycle feed for the DSL live-feature layer (Phase 2).
  *
- * The Python decoder (`compute_snapshots` in `lab/runners/wallet-evolve.py`)
+ * The Python decoder (`compute_snapshots` in `bear-scout/runners/wallet-evolve.py`)
  * builds, per engine rebalance cycle, four signed "flow" features
  * (`flow_1/2/5/10`) plus the raw `cycle_sold` / `cycle_bought` labels.
  * `flow_history.ts` cannot serve these: it computes *net USDC* (not a
  * signed cycle count) and is gated on `DATABASE_URL`. This module is the
- * replacement — it pulls recent engine rebalance cycles from the PUBLIC
+ * replacement â€” it pulls recent engine rebalance cycles from the PUBLIC
  * lab API (`/api/lab/cycles`), works with no `DATABASE_URL` (explore
  * mode), and exposes the exact signed cycle-count flow the decoder uses.
  *
- * ── Faithful reproduction of a Python quirk ──────────────────────────
+ * â”€â”€ Faithful reproduction of a Python quirk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * The Python `flow()` does `c['bought'] == region` / `c['sold'] == region`
  * where `region` is one of the short codes 'NYC' / 'CHI' / 'TOR'. But the
  * `/api/lab/cycles` endpoint returns `sold`/`bought` as a MIX of labels:
  * 'NYC' uses the short code, while Chicago/Toronto come back as the FULL
  * city name ('Chicago' / 'Toronto'). So in Python, `flow()` only ever
- * matches NYC — CHI and TOR flow are structurally always 0. Verified
+ * matches NYC â€” CHI and TOR flow are structurally always 0. Verified
  * against real `snapshots.json` files: every CHI/TOR snapshot has
- * flow_1/2/5/10 == 0, while NYC snapshots carry the full ±N range.
+ * flow_1/2/5/10 == 0, while NYC snapshots carry the full Â±N range.
  *
  * This is a bug in the Python decoder, but the live layer's job is
- * PARITY with the decoder, not correctness — a decoded rule was fitted
+ * PARITY with the decoder, not correctness â€” a decoded rule was fitted
  * against these exact (NYC-only) flow values. So `flowFor()` deliberately
  * reproduces the label-mismatch: it compares cycle labels to the region
  * using the SAME asymmetric matching, yielding NYC-only flow. See the
  * parity harness for the assertion that locks this in.
  *
  * `cycle_sold` / `cycle_bought` are surfaced verbatim (whatever label the
- * API returned — 'NYC' / 'Chicago' / 'Toronto' / null), matching what
+ * API returned â€” 'NYC' / 'Chicago' / 'Toronto' / null), matching what
  * the decoder stores in the snapshot dict.
  *
  * Cache: ~60s. Engine cycles fire ~every 6 min, so a per-tick (15-60s)
@@ -62,7 +62,7 @@ export class CycleHistory {
 
   /**
    * @param days             history window for the `/api/lab/cycles` query.
-   * @param refreshIntervalMs cache TTL. 60s default — cycles fire ~6 min apart.
+   * @param refreshIntervalMs cache TTL. 60s default â€” cycles fire ~6 min apart.
    */
   constructor(days = 2, refreshIntervalMs = 60_000) {
     this.days = days;
@@ -85,7 +85,7 @@ export class CycleHistory {
 
   private async refresh(): Promise<EngineCycle[]> {
     try {
-      const apiBase = process.env.PBX_LAB_API_BASE ?? process.env.PBX_API_BASE ?? DEFAULT_API_BASE;
+      const apiBase = process.env.STRATOS_LAB_API_BASE ?? process.env.STRATOS_API_BASE ?? DEFAULT_API_BASE;
       const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/lab/cycles?days=${this.days}`);
       if (!res.ok) {
         console.warn(`[cycle-history] fetch failed: HTTP ${res.status}`);
@@ -154,7 +154,7 @@ export class CycleHistory {
    *
    * `region` must be a short code ('NYC' | 'CHI' | 'TOR'). Because the
    * API returns Chicago/Toronto as full names, CHI/TOR flow is always 0
-   * here — exactly as in the Python decoder (see file header).
+   * here â€” exactly as in the Python decoder (see file header).
    */
   flowFor(region: string, tsSec: number, lookback: number): number {
     const idx = this.indexAt(tsSec);

@@ -27,7 +27,7 @@ import { decryptFile, encryptToFile } from './secrets.js';
 // Lazy so the env-mutating boot path in server/index.ts can set
 // BOTS_DATA_DIR before the Store constructor runs.
 function defaultDataDir(): string {
-  return process.env.BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots');
+  return process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots');
 }
 
 /** Atomic JSON write: tmp + rename. */

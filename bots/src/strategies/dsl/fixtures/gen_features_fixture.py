@@ -4,7 +4,7 @@ Generate the parity fixture for `features.parity.test.ts`.
 
 Fetches a short (default 3-day) window of REAL data from the public PBX
 lab API and runs the EXACT `compute_snapshots` math from
-`lab/runners/wallet-evolve.py` — so the fixture's `snapshots` array is
+`bear-scout/runners/wallet-evolve.py` â€” so the fixture's `snapshots` array is
 the ground truth the live TS `LiveSnapshotBuilder` must reproduce.
 
 The fixture bundles BOTH the raw inputs (so the TS harness can feed the
@@ -37,7 +37,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-API = os.environ.get("PBX_LAB_API_BASE", "https://pbx-mainnet-api.onrender.com").rstrip("/")
+API = os.environ.get("STRATOS_LAB_API_BASE", "https://pbx-mainnet-api.onrender.com").rstrip("/")
 USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 REGION = {
     "C751KzNWYDdhELHvZGChnadMhWxpGT8FCGzNWfJJzfh3": "NYC",
@@ -76,7 +76,7 @@ def main():
         wt_raw = fetch("/api/lab/wallet-trades",
                        {"pubkey": args.pubkey, "days": args.days}).get("trades", [])
 
-    # ── replicate compute_snapshots EXACTLY ──────────────────────────
+    # â”€â”€ replicate compute_snapshots EXACTLY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     prices = {r: [] for r in REGION.values()}
     for vt in vt_raw:
         ai, ao = float(vt["amount_in"]), float(vt["amount_out"])
@@ -197,7 +197,7 @@ def main():
     dest = Path(__file__).resolve().parent / "features_parity_fixture.json"
     with open(dest, "w", encoding="utf-8") as f:
         json.dump(out, f)
-    print(f"wrote {dest} — {len(snapshots)} snapshots, "
+    print(f"wrote {dest} â€” {len(snapshots)} snapshots, "
           f"{len(out['vault_trades'])} vault trades, {len(out['cycles'])} cycles",
           file=sys.stderr)
 

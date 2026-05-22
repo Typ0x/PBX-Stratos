@@ -34,7 +34,7 @@ Run these in parallel (cheap, fast):
 ```bash
 pm2 list
 python PBX-Stratos/bear-watch/health-check.py
-tail -20 ~/.pbx-lab/alerts.jsonl
+tail -20 runtime/lab/alerts.jsonl
 ```
 
 Don't ask the user to do this. You run it. Report back what you see.

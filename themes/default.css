@@ -1,0 +1,111 @@
+/* PBX Stratos — Default theme (slate + indigo + emerald baseline)
+ *
+ * The reference look. Slate-900 canvas, emerald for PnL + actions,
+ * indigo grid backdrop. Designed to get out of the way so the data
+ * leads. Long-session friendly. Other themes inherit this structure
+ * and re-skin the palette.
+ *
+ * Implementation note: Tailwind utility classes carry specificity 10
+ * and would otherwise beat element-level rules. We override the
+ * specific utilities the dashboard's HTML applies (bg-[#0a0d13],
+ * bg-emerald-500, text-zinc-*, etc.) with !important so the theme
+ * wins regardless of class order. Default already shipped with the
+ * dashboard's hard-coded emerald + zinc baseline — these overrides
+ * make sure the reference theme stays consistent if other themes get
+ * disabled.
+ */
+
+:root {
+  --bg-primary:    #0f172a;
+  --bg-secondary:  #131720;
+  --bg-tertiary:   #1e293b;
+  --text-primary:  #e2e8f0;
+  --text-muted:    #94a3b8;
+  --text-accent:   #34d399;
+  --border-color:  #232a36;
+  /* Solid color (no alpha) consumed by inline-style radial gradients
+   * that can't be reached by .bg-emerald-500 overrides — the welcome
+   * hero halo + the gauge entry-zone fill. Opacity is applied at the
+   * wrapper level (e.g. opacity-[0.10] on the hero halo div). */
+  --theme-hero-glow: #10b981;
+}
+
+/* Body + global text. The body carries bg-[#0a0d13] text-zinc-200
+ * inline; we override both. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #0a0d13 !important;
+  color: #e2e8f0 !important;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Header strip — sticky, slightly translucent over the grid. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(10, 13, 19, 0.95) !important; }
+
+/* Sidebar background. */
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #0c1018 !important; }
+
+/* Card surfaces — the workhorse panel. */
+.card { background: linear-gradient(180deg, #131720 0%, #0e1219 100%) !important; border-color: #232a36 !important; }
+
+/* Indigo grid backdrop — the default look's signature. */
+.bg-grid { background-image: radial-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px) !important; }
+
+/* ── Emerald (primary accent) ──────────────────────────────────────── */
+.bg-emerald-500, .bg-emerald-400 { background-color: #10b981 !important; color: #052e16 !important; }
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover { background-color: #34d399 !important; }
+.bg-emerald-500\/5  { background-color: rgba(16, 185, 129, 0.05) !important; }
+.bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(16, 185, 129, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.20) !important; }
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #34d399 !important; }
+.border-emerald-500\/20 { border-color: rgba(16, 185, 129, 0.25) !important; }
+.border-emerald-500\/30 { border-color: rgba(16, 185, 129, 0.35) !important; }
+.border-emerald-500\/40 { border-color: rgba(16, 185, 129, 0.45) !important; }
+.border-emerald-500\/50 { border-color: rgba(16, 185, 129, 0.55) !important; }
+.border-emerald-500\/60 { border-color: rgba(16, 185, 129, 0.65) !important; }
+.bg-emerald-400 { background-color: #10b981 !important; }
+
+/* Text scales for the dashboard's mono + value + muted classes. */
+.muted { color: #94a3b8 !important; }
+.value { color: #f1f5f9 !important; }
+.label { color: #94a3b8 !important; }
+
+/* Inputs with bg-[#0a0d13] — keep distinct from card surface. */
+.bg-\[\#0a0d13\] { background-color: #0a0d13 !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(10, 13, 19, 0.6) !important; }
+
+/* Zinc text scale — explicit baseline. */
+.text-zinc-50  { color: #fafafa !important; }
+.text-zinc-100 { color: #f4f4f5 !important; }
+.text-zinc-200 { color: #e4e4e7 !important; }
+.text-zinc-300 { color: #d4d4d8 !important; }
+.text-zinc-400 { color: #a1a1aa !important; }
+.text-zinc-500 { color: #71717a !important; }
+.text-zinc-600 { color: #52525b !important; }
+.text-zinc-700 { color: #3f3f46 !important; }
+
+/* Zinc backgrounds + borders. */
+.bg-zinc-700 { background-color: #3f3f46 !important; }
+.bg-zinc-800 { background-color: #27272a !important; }
+.bg-zinc-900 { background-color: #18181b !important; }
+.border-zinc-700 { border-color: #3f3f46 !important; }
+.border-zinc-800 { border-color: #27272a !important; }
+.border-zinc-800\/60 { border-color: rgba(39, 39, 42, 0.6) !important; }
+
+/* Sidebar active nav item — emerald (baseline). Themes override. */
+.nav-btn[aria-current="true"] {
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-left-color: #10b981 !important;
+}
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(16, 185, 129, 0.55) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25) !important; }

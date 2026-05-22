@@ -1,0 +1,365 @@
+/* PBX Stratos — Academia theme (cream + serif, paired with Quant Professor)
+ *
+ * Inverted to a LIGHT theme — reads like a working paper rather than a
+ * cockpit. Cream canvas avoids the stark-white glare of fresh LaTeX;
+ * dark-brown ink for body text; serif everywhere except mono for
+ * numbers. Restrained palette — color reserved for things that carry
+ * information.
+ *
+ * The only theme that flips bg/text away from dark mode. All zinc
+ * utility classes are remapped to dark-brown variants so on-cream
+ * text stays readable.
+ */
+
+:root {
+  --bg-primary:    #f4ecd8;
+  --bg-secondary:  #fff8e7;
+  --bg-tertiary:   #efe3c4;
+  --text-primary:  #2a1f0f;
+  --text-muted:    #6b5a3f;
+  --text-accent:   #6b4423;
+  --border-color:  #d4c89a;
+  --ink:           #2a1f0f;
+  --paper:         #f4ecd8;
+  --paper-bright:  #fff8e7;
+  --paper-dark:    #efe3c4;
+  --rule:          #d4c89a;
+  --accent:        #6b4423;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Warm brown ink to match the working-
+   * paper aesthetic, not the default emerald. */
+  --theme-hero-glow: #6b4423;
+}
+
+/* Body — cream canvas, dark-brown serif ink. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #f4ecd8 !important;
+  color: #2a1f0f !important;
+  font-family: Georgia, "Crimson Text", "Times New Roman", serif !important;
+}
+
+/* Paper-textured grid (subtle). */
+.bg-grid { background-image: radial-gradient(rgba(107, 68, 35, 0.06) 1px, transparent 1px) !important; background-size: 22px 22px !important; }
+
+/* Header + sidebar — slightly darker cream so they delineate. */
+header.bg-\[\#0a0d13\]\/95 {
+  background-color: rgba(239, 227, 196, 0.95) !important;
+  border-color: #d4c89a !important;
+}
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #efe3c4 !important; border-color: #d4c89a !important; }
+
+/* Card panels — paper white with cream border, 2px corners. */
+.card {
+  background: #fff8e7 !important;
+  border: 1px solid #d4c89a !important;
+  border-radius: 2px !important;
+  color: #2a1f0f !important;
+}
+
+/* ── Emerald → Academic brown ─────────────────────────────────────── */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #6b4423 !important;
+  color: #fff8e7 !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #8a5a30 !important;
+}
+.bg-emerald-500\/5  { background-color: rgba(107, 68, 35, 0.05) !important; }
+.bg-emerald-500\/10 { background-color: rgba(107, 68, 35, 0.08) !important; }
+.bg-emerald-500\/15 { background-color: rgba(107, 68, 35, 0.12) !important; }
+.bg-emerald-500\/20 { background-color: rgba(107, 68, 35, 0.16) !important; }
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #6b4423 !important; }
+.border-emerald-500\/20 { border-color: rgba(107, 68, 35, 0.25) !important; }
+.border-emerald-500\/30 { border-color: rgba(107, 68, 35, 0.35) !important; }
+.border-emerald-500\/40 { border-color: rgba(107, 68, 35, 0.45) !important; }
+.border-emerald-500\/50 { border-color: rgba(107, 68, 35, 0.55) !important; }
+.border-emerald-500\/60 { border-color: rgba(107, 68, 35, 0.65) !important; }
+/* Pulse-dot — academic forest green. */
+.bg-emerald-400.pulse-dot { background-color: #166534 !important; }
+
+/* Sky (info pill, links) → deep blue ink on cream. */
+.bg-sky-500, .bg-sky-400 { background-color: #1e4ba8 !important; color: #fff8e7 !important; }
+.bg-sky-500\/5  { background-color: rgba(30, 75, 168, 0.05) !important; }
+.bg-sky-500\/10 { background-color: rgba(30, 75, 168, 0.08) !important; }
+.bg-sky-500\/15 { background-color: rgba(30, 75, 168, 0.12) !important; }
+.bg-sky-500\/20 { background-color: rgba(30, 75, 168, 0.16) !important; }
+.text-sky-300, .text-sky-400 { color: #1e4ba8 !important; }
+.border-sky-500\/20, .border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(30, 75, 168, 0.4) !important; }
+a.text-sky-300, a.text-sky-400 { color: #1e4ba8 !important; text-decoration: underline; }
+
+/* Amber alerts — burnt orange that reads on cream. */
+.text-amber-200, .text-amber-300, .text-amber-400 { color: #b45309 !important; }
+.bg-amber-500\/5  { background-color: rgba(180, 83, 9, 0.05) !important; }
+.bg-amber-500\/10 { background-color: rgba(180, 83, 9, 0.08) !important; }
+.bg-amber-500\/15 { background-color: rgba(180, 83, 9, 0.12) !important; }
+.bg-amber-500\/20 { background-color: rgba(180, 83, 9, 0.16) !important; }
+.border-amber-500\/30, .border-amber-500\/40 { border-color: rgba(180, 83, 9, 0.45) !important; }
+
+/* Rose alerts → deep crimson ink (a thesis defense red). */
+.bg-rose-500\/5, .bg-rose-500\/10, .bg-rose-500\/15 { background-color: rgba(153, 27, 27, 0.08) !important; }
+.text-rose-100, .text-rose-200, .text-rose-300, .text-rose-400 { color: #991b1b !important; }
+.border-rose-500\/30, .border-rose-500\/40, .border-rose-500\/60 { border-color: rgba(153, 27, 27, 0.4) !important; }
+
+/* Violet (evolution-invented badge) → academic plum. */
+.text-violet-300, .text-violet-400 { color: #6b21a8 !important; }
+
+/* Muted + value text. */
+.muted { color: #6b5a3f !important; }
+.value { color: #2a1f0f !important; }
+.label { color: #6b5a3f !important; }
+
+/* ── Zinc text scale — INVERTED to dark-brown on cream ───────────── */
+.text-zinc-50  { color: #1a1206 !important; }
+.text-zinc-100 { color: #1a1206 !important; }
+.text-zinc-200 { color: #2a1f0f !important; }
+.text-zinc-300 { color: #4a3a22 !important; }
+.text-zinc-400 { color: #6b5a3f !important; }
+.text-zinc-500 { color: #8a7a5c !important; }
+.text-zinc-600 { color: #a89570 !important; }
+.text-zinc-700 { color: #b8a880 !important; }
+
+/* Zinc backgrounds → cream/paper variants. */
+.bg-zinc-700 { background-color: #efe3c4 !important; color: #2a1f0f !important; }
+.bg-zinc-800 { background-color: #f4ecd8 !important; color: #2a1f0f !important; }
+.bg-zinc-900 { background-color: #efe3c4 !important; color: #2a1f0f !important; }
+.bg-zinc-700\/30 { background-color: rgba(239, 227, 196, 0.5) !important; }
+
+/* Zinc borders → cream borders. */
+.border-zinc-700        { border-color: #d4c89a !important; }
+.border-zinc-700\/60    { border-color: rgba(212, 200, 154, 0.7) !important; }
+.border-zinc-800        { border-color: #d4c89a !important; }
+.border-zinc-800\/40    { border-color: rgba(212, 200, 154, 0.5) !important; }
+.border-zinc-800\/60    { border-color: rgba(212, 200, 154, 0.7) !important; }
+.border-zinc-900        { border-color: #c8b985 !important; }
+.hover\:border-zinc-500:hover { border-color: #8a7a5c !important; }
+
+/* Inputs — slightly darker cream so they read as fields. */
+.bg-\[\#0a0d13\] { background-color: #efe3c4 !important; color: #2a1f0f !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(239, 227, 196, 0.6) !important; }
+.focus\:border-emerald-500:focus { border-color: #6b4423 !important; }
+
+/* Mono — keep for numbers but mute it. */
+.mono { font-family: "JetBrains Mono", "Courier New", Courier, monospace !important; color: inherit; }
+
+/* Body emphasis — italicize the way a paper would. */
+em, i { font-style: italic !important; }
+
+/* Checkbox accent. */
+input[type="checkbox"].accent-emerald-500 { accent-color: #6b4423 !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #991b1b !important; }
+
+/* Sidebar active nav item. */
+.nav-btn[aria-current="true"] {
+  color: #6b4423 !important;
+  background: rgba(107, 68, 35, 0.08) !important;
+  border-left-color: #6b4423 !important;
+}
+.nav-btn { color: #6b5a3f !important; }
+.nav-btn:hover { color: #2a1f0f !important; background: #e8dcb8 !important; }
+.setup-guide-btn { color: #6b5a3f !important; }
+.setup-guide-btn:hover { color: #6b4423 !important; background: rgba(107, 68, 35, 0.08) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #6b4423 !important; color: #6b4423 !important;
+  box-shadow: 0 0 0 2px rgba(107, 68, 35, 0.25) !important;
+}
+.setup-guide-mark { color: #6b5a3f !important; border-color: #d4c89a !important; }
+
+/* Modal backdrop dim — cream-toned not black. */
+/* Academia is the only LIGHT theme — the cream-on-cream `.card`
+ * disappeared into the previous backdrop (rgba(74,58,34,0.55) with
+ * 8px blur). Darkened the dim to a deep ink-brown at 0.78 alpha and
+ * dropped the blur to 3px so the cream Recalibrate modal lifts off
+ * the dim with clear contrast. The card itself gets an explicit
+ * box-shadow below for further lift. (Caught in commit 71bc05d audit.) */
+.modal-bg { background: rgba(42, 31, 15, 0.78) !important; backdrop-filter: blur(3px) !important; }
+
+/* Extra lift on modal panels under academia — without it, the
+ * cream card against the brown wash still looks "stuck to the
+ * background" rather than floating. */
+#recalibrate-card, #onboard-card, #deploy-card {
+  box-shadow: 0 12px 40px rgba(42, 31, 15, 0.35), 0 0 0 1px rgba(212, 180, 100, 0.4) !important;
+}
+
+/* Onboarding tour backdrop — cream-tinted. */
+.onboard-backdrop { background: rgba(74, 58, 34, 0.45) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(107, 68, 35, 0.45), 0 0 36px 6px rgba(107, 68, 35, 0.20); }
+  50%      { box-shadow: 0 0 0 6px rgba(107, 68, 35, 0.70), 0 0 56px 10px rgba(107, 68, 35, 0.35); }
+}
+.onboard-highlight { outline-color: rgba(107, 68, 35, 0.95) !important; }
+.onboard-dot.current { background: #6b4423 !important; }
+.onboard-dot.done    { background: #8a7a5c !important; }
+.onboard-waiting { border-color: rgba(107, 68, 35, 0.45) !important; background: rgba(107, 68, 35, 0.06) !important; color: #2a1f0f !important; }
+.onboard-waiting::before { background: #6b4423 !important; }
+.onboard-livecheck { background: #efe3c4 !important; border-color: #d4c89a !important; color: #2a1f0f !important; }
+.onboard-livecheck .ok  { color: #166534 !important; }
+.onboard-livecheck .bad { color: #991b1b !important; }
+.onboard-livecheck .pending { color: #6b5a3f !important; }
+.onboard-warn { border-color: rgba(180, 83, 9, 0.45) !important; background: rgba(180, 83, 9, 0.06) !important; color: #6b4423 !important; }
+
+/* PnL glows — academic green up, crimson down. */
+.glow-up   { box-shadow: 0 0 0 1px rgba(22, 101, 52, 0.22), 0 0 24px rgba(22, 101, 52, 0.06) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(153, 27, 27, 0.22), 0 0 24px rgba(153, 27, 27, 0.06) !important; }
+
+/* Workflow + Evolution rank-1. */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(107, 68, 35, 0.14), rgba(107, 68, 35, 0.02)) !important;
+  box-shadow: inset 2px 0 0 #6b4423 !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(107, 68, 35, 0.35), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(107, 68, 35, 0.22); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(107, 68, 35, 0.18); } 100% { background-color: transparent; } }
+
+/* Evolution origin badges (cream-tinted). */
+.evo-badge-decoded  { background: rgba(30, 75, 168, .10) !important; color: #1e4ba8 !important; border-color: rgba(30, 75, 168, .35) !important; }
+.evo-badge-invented { background: rgba(107, 33, 168, .10) !important; color: #6b21a8 !important; border-color: rgba(107, 33, 168, .35) !important; }
+.evo-badge-mutated  { background: rgba(180, 83, 9, .10) !important; color: #b45309 !important; border-color: rgba(180, 83, 9, .35) !important; }
+.evo-badge-crossed  { background: rgba(22, 101, 52, .10) !important; color: #166534 !important; border-color: rgba(22, 101, 52, .35) !important; }
+
+/* Evolution panels — paper backgrounds. */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #fff8e7 !important; border-color: #d4c89a !important; color: #2a1f0f !important;
+}
+.evo-metric-val { color: #2a1f0f !important; }
+.evo-metric-val.pos { color: #166534 !important; }
+.evo-metric-val.neg { color: #991b1b !important; }
+.evo-metric-key, .evo-res-label { color: #6b5a3f !important; }
+.evo-strat-row { background: #fff8e7 !important; border-color: #d4c89a !important; color: #2a1f0f !important; }
+.evo-strat-row .evo-res-pred { background: #f4ecd8 !important; }
+.evo-strat-chip-val { color: #2a1f0f !important; }
+.evo-strat-chip-val.pos { color: #166534 !important; }
+.evo-strat-chip-val.neg { color: #991b1b !important; }
+.evo-strat-chip-key, .evo-strat-tag { color: #6b5a3f !important; }
+.evo-strat-deploy { background: #6b4423 !important; border-color: #6b4423 !important; color: #fff8e7 !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #8a5a30 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #6b4423 !important; border-color: rgba(107, 68, 35, .55) !important; }
+.evo-hero { background: rgba(107, 68, 35, .06) !important; border-color: rgba(107, 68, 35, .45) !important; }
+.evo-hero-label { color: #6b4423 !important; }
+.evo-res-status-ok   { color: #166534 !important; }
+.evo-res-status-warn { color: #b45309 !important; }
+.evo-ledger { background: #fff8e7 !important; border-color: #d4c89a !important; color: #2a1f0f !important; }
+.evo-ledger-h2 { color: #2a1f0f !important; }
+.evo-ledger-li, .evo-ledger-p { color: #4a3a22 !important; }
+.evo-ledger-li::before { color: #a89570 !important; }
+.evo-pop-mult { background: rgba(107, 90, 63, .12) !important; color: #4a3a22 !important; border-color: rgba(107, 90, 63, .35) !important; }
+.evo-pop-k, .evo-res-pred .k { color: #4a3a22 !important; }
+.evo-chip-running { background: rgba(107, 68, 35, .12) !important; color: #6b4423 !important; border-color: rgba(107, 68, 35, .35) !important; }
+.evo-chip-done    { background: rgba(30, 75, 168, .10) !important; color: #1e4ba8 !important; border-color: rgba(30, 75, 168, .35) !important; }
+.evo-chip-failed  { background: rgba(153, 27, 27, .10) !important; color: #991b1b !important; border-color: rgba(153, 27, 27, .35) !important; }
+.evo-run-btn-view { background: rgba(107, 68, 35, .12) !important; color: #6b4423 !important; border-color: rgba(107, 68, 35, .35) !important; }
+.evo-run-btn-view:hover:not(:disabled) { background: rgba(107, 68, 35, .22) !important; }
+.evo-run-action-resume   { background: #b45309 !important; color: #fff8e7 !important; }
+.evo-run-action-continue { background: #efe3c4 !important; color: #2a1f0f !important; border-color: #d4c89a !important; }
+.evo-run-action-results  { background: rgba(30, 75, 168, .15) !important; color: #1e4ba8 !important; border-color: rgba(30, 75, 168, .35) !important; }
+.evo-run-action-results:hover:not(:disabled) { background: rgba(30, 75, 168, .25) !important; }
+.evo-drawer { background: #fff8e7 !important; border-color: #d4c89a !important; }
+.evo-drawer-backdrop { background: rgba(74, 58, 34, 0.5) !important; }
+.evo-drawer-close { color: #6b5a3f !important; }
+.evo-drawer-close:hover { color: #2a1f0f !important; background: #efe3c4 !important; }
+
+/* Deploy modal mode-selector chips. */
+.deploy-mode-btn { border-color: #d4c89a !important; background: #f4ecd8 !important; color: #2a1f0f !important; }
+.deploy-mode-btn:hover { border-color: #8a7a5c !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #1e4ba8 !important; box-shadow: 0 0 0 1px rgba(30, 75, 168, .4) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #991b1b !important; box-shadow: 0 0 0 1px rgba(153, 27, 27, .4) !important; }
+
+/* Tab buttons. */
+.tabbtn[aria-selected="true"] { background: #efe3c4 !important; color: #2a1f0f !important; }
+.tabbtn { color: #6b5a3f !important; }
+.tabbtn:hover { color: #2a1f0f !important; }
+
+/* Scrollbar. */
+.scrollbar::-webkit-scrollbar-thumb { background: #d4c89a !important; }
+.scrollbar::-webkit-scrollbar-track { background: #f4ecd8 !important; }
+
+/* Gauge styling for light mode. */
+.gauge { background: #efe3c4 !important; }
+.gauge-zone { opacity: 0.25 !important; }
+.gauge-tick { background: #8a7a5c !important; }
+.gauge-tick-label { color: #6b5a3f !important; }
+
+/* Code/pre blocks: keep monospace dark on cream. */
+pre, code { color: #2a1f0f !important; }
+
+/* Personality avatar circle — re-tint to academic brown regardless of
+ * which personality color was baked in by dashboard.js. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#fbbf24"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #6b4423 !important;
+}
+.bg-emerald-500[style*="width"] { background-color: #6b4423 !important; }
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(107, 68, 35, 0.55) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(107, 68, 35, 0.25) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(107, 68, 35, 0.25) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(107, 68, 35, 0.25) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(107, 68, 35, 0.25) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with academia-specific scholarly motifs:
+ * a Sigma (summation) symbol, an integral sign, and a stylized
+ * open-book silhouette. Peak opacity 0.08 — academia is the only
+ * LIGHT theme, so dark-brown ink at low opacity reads well against
+ * cream paper; pushing higher would feel like ink stains. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: Sigma — uppercase summation, serif. */
+.motif-v1 {
+  width: 22px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'><text x='11' y='19' font-family='Georgia,Times,serif' font-size='22' font-weight='600' fill='%236b4423' text-anchor='middle'>Σ</text></svg>");
+}
+
+/* v2: integral — long curved S, the elegant calculus symbol. */
+.motif-v2 {
+  width: 16px;
+  height: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 28'><text x='8' y='24' font-family='Georgia,Times,serif' font-size='28' fill='%236b4423' text-anchor='middle'>∫</text></svg>");
+}
+
+/* v3: open book — two-page silhouette in line-art. */
+.motif-v3 {
+  width: 32px;
+  height: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 22'><path d='M 2 4 L 15 6 L 15 20 L 2 18 Z' fill='none' stroke='%236b4423' stroke-width='1.3' stroke-linejoin='round'/><path d='M 17 6 L 30 4 L 30 18 L 17 20 Z' fill='none' stroke='%236b4423' stroke-width='1.3' stroke-linejoin='round'/><line x1='15' y1='6' x2='17' y2='6' stroke='%236b4423' stroke-width='1.3'/><line x1='15' y1='20' x2='17' y2='20' stroke='%236b4423' stroke-width='1.3'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.08; }
+  78%  { opacity: 0.08; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.04; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

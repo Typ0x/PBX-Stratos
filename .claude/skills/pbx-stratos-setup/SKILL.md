@@ -182,8 +182,8 @@ slower than parallel `Grep`.**
 |---|---|---|
 | **D1** | `Grep` outbound-network patterns (`fetch`, `axios`, `http`, `net\.`) in exactly these three files: `pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts` | Any code shipping keys / mnemonics off-machine |
 | **D2** | `Grep` npm lifecycle hooks (the three install-time hook names — pre/post-install and prepare) across `**/package.json`, plus skim the first 60 lines of these files for unexpected commands: `install.sh`, `setup.ps1`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | Any hook running surprise commands |
-| **D3** | `Grep` repo-wide (excluding `node_modules`, `.tooling`, `lab/data`) for runtime code-execution patterns: shell-eval function, the Python runtime evaluator name, the JavaScript runtime evaluator name, the dynamic function constructor, the OS command interface, and subprocesses opened with shell-true semantics. Then check whether any reachable from LLM output. | Any path from model output to runtime code execution |
-| **D4** | `Grep` all `https?://` literals across these dirs: `bots/src`, `packages`, `lab/runners`, `pbx`, `scripts` (exclude `node_modules`); check each host against the allowlist: PBX API (`pbx-mainnet-api.onrender.com`), user-configured RPC (Helius), DEX SDKs (Meteora, Orca, Jupiter, Solana), PurpleAir, AirNow, weather APIs | Any pastebin, unknown webhook, raw IP literal, telemetry sink |
+| **D3** | `Grep` repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for runtime code-execution patterns: shell-eval function, the Python runtime evaluator name, the JavaScript runtime evaluator name, the dynamic function constructor, the OS command interface, and subprocesses opened with shell-true semantics. Then check whether any reachable from LLM output. | Any path from model output to runtime code execution |
+| **D4** | `Grep` all `https?://` literals across these dirs: `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` (exclude `node_modules`); check each host against the allowlist: PBX API (`pbx-mainnet-api.onrender.com`), user-configured RPC (Helius), DEX SDKs (Meteora, Orca, Jupiter, Solana), PurpleAir, AirNow, weather APIs | Any pastebin, unknown webhook, raw IP literal, telemetry sink |
 
 Hard-stop rule: **any Stage-D finding stops the wizard immediately.**
 Show the user exactly what was found, where, and why it failed the
@@ -208,7 +208,7 @@ PBX-Stratos guarantees that aren't in the boss's 4-grep but that the
 user's README promises:
 
 5. **`.gitignore` covers sensitive files.** Confirm `.env`,
-   `~/.pbx-bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`,
+   `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`,
    and `*-private*` patterns are gitignored.
 6. **Wallet encryption uses local key.** Confirm `BOT_MASTER_KEY` +
    `BOT_HD_MNEMONIC` are generated locally, never uploaded, and used
@@ -275,7 +275,7 @@ need to know how to talk to them. The quiz takes 2-3 minutes and
 calibrates everything else.
 
 **How:** use AskUserQuestion 5 times, in order. Each question has 3-4
-options. After all 5, write the answers to `~/.pbx-lab/user-profile.json`.
+options. After all 5, write the answers to `runtime/lab/user-profile.json`.
 
 ### Q1: How techy are you?
 
@@ -327,7 +327,7 @@ options. After all 5, write the answers to `~/.pbx-lab/user-profile.json`.
 > "Got it. Saving your profile now. Heads up: you can change any of
 > this later. Just say **'run the personality quiz'** and I'll re-ask
 > these 5. Or if you want to tweak one field directly, edit
-> `~/.pbx-lab/user-profile.json` (each field has 3-4 valid values —
+> `runtime/lab/user-profile.json` (each field has 3-4 valid values —
 > see `.claude/UNIVERSAL-CORE.md` for the schema)."
 
 Then write the JSON file:
@@ -376,10 +376,26 @@ extended outage during the original project build. Don't skip this check.
 
 ## Step 3 — Install repo dependencies
 
+`scripts/bootstrap.{sh,ps1}` is the canonical path — it ensures
+Node ≥ 18, ensures Python ≥ 3.10, then runs `scripts/setup.mjs` which
+does `npm install` at the repo root (workspaces pull in `bots/` and
+`packages/*` automatically). If bootstrap fails, fall back to:
+
 ```bash
-cd PBX-Stratos/bots && npm install
-cd ../packages && npm install   # if workspaces present
-pip install -r requirements.txt # for lab/runners/
+# Node side — root npm install covers bots/ + packages/* via workspaces
+npm install --no-audit --no-fund
+
+# Python side — editable install with decoder extras
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[decoder]"   # Windows
+./.venv/bin/python       -m pip install -e ".[decoder]"     # macOS/Linux
+```
+
+Then write `.tooling/ready.json` manually so anything that gates on
+the marker treats setup as complete:
+
+```json
+{ "ready": true, "python": "<venv-python-path>", "platform": "<process.platform>", "arch": "<process.arch>", "timestamp": "<ISO timestamp>" }
 ```
 
 Surface known issues:
@@ -408,16 +424,42 @@ project hit a 4-minute live-bot outage from this exact failure mode.
 
 ## Step 5 — Configure `.env`
 
-Generate `PBX-Stratos/.env` with:
+Generate `PBX-Stratos/.env` (at repo root) with just two lines:
 
-- `PBX_ALLOW_AUTOGEN=1` (always)
-- `HELIUS_MAINNET_URL=...` (only if `goal` is `small-live` or `multi-bot`)
-- `BOT_MASTER_KEY=<random 32 chars>` (only for live trading;
-  generate via `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-  in a subprocess and write directly to `.env` with 600 perms)
+```
+STRATOS_ALLOW_AUTOGEN=1
+HELIUS_MAINNET_URL=<the URL the user pasted>
+```
 
-**Never echo `BOT_MASTER_KEY` to the chat.** Confirm "key set" without
-showing the value.
+That's it. **Do NOT put `BOT_MASTER_KEY`, `BOT_API_TOKEN`, or
+`BOT_HD_MNEMONIC` in this `.env`.** The dashboard server autogenerates
+those itself — `bots/src/server/index.ts` creates a properly-formatted
+`runtime/bots/local.env` (mode 0600) on first boot when
+`STRATOS_ALLOW_AUTOGEN=1` is in process.env. It writes:
+
+- `BOT_API_TOKEN` — 64-hex (32 random bytes hex-encoded)
+- `BOT_MASTER_KEY` — 64-hex (AES-256-GCM key)
+- `BOT_HD_MNEMONIC` — 24 words (BIP39, 256-bit entropy)
+
+If you put a `BOT_MASTER_KEY` in the repo `.env`, the server reads it
+from env first (via `local-env-loader.ts`) and refuses to autogen,
+which means BIP39 mnemonic never gets written. **Worse:** if the key
+you wrote isn't the expected 64-hex format (e.g., the urlsafe 32-char
+output of `secrets.token_urlsafe(32)` is 43 chars, not hex), the
+server validates against `TOKEN_HEX_RE` and exits, boot-looping under
+pm2. Don't fight the autogen path.
+
+Lock the `.env` down on Windows:
+
+```powershell
+icacls $envPath /inheritance:r /grant:r "$env:USERNAME:F" /grant:r 'SYSTEM:F'
+```
+
+And verify `.gitignore` covers `.env` (it already does at line 9 of
+the shipped gitignore).
+
+**Never echo any secret to the chat.** Confirm "key configured" or
+"autogen will populate on boot" without showing values.
 
 ---
 
@@ -435,24 +477,61 @@ If `goal` is `small-live` or `multi-bot`:
 
 ---
 
-## Step 7 — Generate or import Solana wallet (only if live trading)
+## Step 7 — Wallet (only if live trading)
 
-AskUserQuestion: "Fresh wallet, or import existing?"
+**Heads up — most users can skip this step entirely.** The dashboard
+server's autogen path (Step 5) already wrote a 24-word
+`BOT_HD_MNEMONIC` into `runtime/bots/local.env` on first boot. That
+mnemonic IS the funder wallet (HD index 0) plus every bot wallet
+derived under it. No separate `solana-keygen` call is needed for
+live trading to work.
 
-For fresh:
-```bash
-solana-keygen new --no-bip39-passphrase --outfile ~/.pbx-bots/wallets/<name>.json
+What still has to happen:
+
+1. **AskUserQuestion**: "Fresh HD wallet from autogen / Import an
+   existing one / Defer wallet decision".
+2. If the user picks fresh → confirm `runtime/bots/local.env`
+   exists with a `BOT_HD_MNEMONIC` line; tell them to **back the 24
+   words up on PAPER right now**. Plain professional voice — Universal
+   Core override applies because this is money-loss territory.
+3. If the user picks import → write their seed phrase to
+   `runtime/bots/local.env` as the `BOT_HD_MNEMONIC=` line **only**
+   when the existing file is empty / not yet written (otherwise the
+   server treats env as authoritative and skips autogen — see Step 5).
+4. If the user picks defer → leave it. Live endpoints stay 503 until
+   the mnemonic is present.
+
+### About `solana-keygen` on Windows
+
+`pbx wallet new` (in the lab CLI) calls out to the Solana CLI's
+`solana-keygen new`, which **does not have a no-admin Windows
+installer**. On Windows: prefer the autogen path above. If the user
+specifically needs `solana-keygen` (e.g., to recover a wallet from a
+seed phrase using the canonical CLI), they can install via:
+
+```powershell
+winget install Solana.SolanaCLI   # if available, else manual install
 ```
-Then encrypt to `.enc` using the project's encryption helper.
 
-For import: prompt for keypair JSON via secure paste, encrypt
-immediately, never log.
+The repo's own derivation is functionally equivalent — the bot fleet
+uses `bots/src/server/hd.ts` (BIP39 24-word mnemonic →
+`m/44'/501'/<index>'/0'` derivation via `bip39` +
+`ed25519-hd-key` + `@solana/web3.js`) which exactly matches what
+`solana-keygen recover -o restored.json "prompt:?key=<index>'/0'"`
+would produce.
 
-After wallet creation, run `solana-keygen pubkey` to display the
-PUBLIC key. Have user fund from their preferred source (exchange,
-transfer from another wallet) with at least 0.05 SOL for rent + their
-intended USDC trading capital ($100 minimum, $500-$1000 if `goal` is
-`multi-bot`).
+### Funding (only after wallet exists)
+
+Display the funder pubkey:
+
+```bash
+# Node one-liner using the project's own deps
+node -e "const{derivePath}=require('ed25519-hd-key');const{mnemonicToSeedSync}=require('bip39');const{Keypair}=require('@solana/web3.js');const fs=require('fs'),path=require('path');const botsDir=process.env.STRATOS_BOTS_DATA_DIR||path.join(process.cwd(),'runtime','bots');const env=fs.readFileSync(path.join(botsDir,'local.env'),'utf8');const mn=/^BOT_HD_MNEMONIC=(.+)$/m.exec(env)[1];const seed=mnemonicToSeedSync(mn);const{key}=derivePath(\"m/44'/501'/0'/0'\",seed.toString('hex'));console.log(Keypair.fromSeed(key).publicKey.toBase58())"
+```
+
+Have the user fund the funder pubkey with at least 0.05 SOL for rent
++ their intended USDC trading capital ($100 minimum, $500-$1000 if
+`goal` is `multi-bot`).
 
 ---
 
@@ -460,7 +539,7 @@ intended USDC trading capital ($100 minimum, $500-$1000 if `goal` is
 
 Show the available starter strategies + stats by running:
 ```bash
-python lab/runners/paper-trade.py --list-strategies
+python bear-scout/runners/paper-trade.py --list-strategies
 ```
 
 **Important framing for the user:** the starters that ship in the
@@ -529,13 +608,13 @@ pm2 save
 On Windows, register scheduled tasks (use
 `bear-watch/register-scheduled-tasks.ps1` if it exists, else create
 each via `schtasks /create`):
-- BEARWATCH-HealthCheck (every 5 min)
-- BEARWATCH-WeatherPull (every hour)
-- BEARWATCH-DailyDigest (daily 6 AM)
-- BEARWATCH-StateBackup (daily 3 AM)
-- BEARWATCH-CodebaseBackup (Sundays 3:30 AM)
-- BEARWATCH-MetaWatchdog (every 5 min)
-- BEARWATCH-PM2Resurrect (at user logon — requires pm2-installer from
+- STRATOS-HealthCheck (every 5 min)
+- STRATOS-WeatherPull (every hour)
+- STRATOS-DailyDigest (daily 6 AM)
+- STRATOS-StateBackup (daily 3 AM)
+- STRATOS-CodebaseBackup (Sundays 3:30 AM)
+- STRATOS-MetaWatchdog (every 5 min)
+- STRATOS-PM2Resurrect (at user logon — requires pm2-installer from
   Step 4)
 
 ---

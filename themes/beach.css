@@ -1,0 +1,303 @@
+/* PBX Stratos — Beach theme (coral + teal pastels, paired with Surf Bro)
+ *
+ * Light, breezy, low-stakes. Deep teal canvas (kept dark for chart
+ * legibility), coral as the primary accent — subverts the green-for-up
+ * convention. Soft pastels everywhere, soft 12px rounded corners.
+ * Maintains contrast without being aggressive.
+ */
+
+:root {
+  --bg-primary:    #1a2a2e;
+  --bg-secondary:  #213339;
+  --bg-tertiary:   #294049;
+  --text-primary:  #e8f3f5;
+  --text-muted:    #88a5ad;
+  --text-accent:   #ff7f6b;
+  --border-color:  #2f4751;
+  --coral:         #ff7f6b;
+  --coral-soft:    #ffa190;
+  --teal:          #5eead4;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Coral sunset to match the
+   * subverted-green-is-up beach palette. */
+  --theme-hero-glow: #ff7f6b;
+}
+
+/* Body — deep teal-dark, breezy off-white text. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #1a2a2e !important;
+  color: #e8f3f5 !important;
+  font-family: "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Soft teal grid backdrop. */
+.bg-grid { background-image: radial-gradient(rgba(94, 234, 212, 0.10) 1.2px, transparent 1.2px) !important; background-size: 22px 22px !important; }
+
+/* Header + sidebar — lifted teal panels. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(26, 42, 46, 0.95) !important; border-color: #2f4751 !important; }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #1d3034 !important; border-color: #2f4751 !important; }
+
+/* Card panels — coral-friendly teal surface, soft 12px corners. */
+.card {
+  background: linear-gradient(180deg, #213339 0%, #1a2a2e 100%) !important;
+  border: 1px solid #2f4751 !important;
+  border-radius: 12px !important;
+}
+
+/* ── Emerald → Coral ────────────────────────────────────────────── */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #ff7f6b !important;
+  color: #1a2a2e !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #ffa190 !important;
+}
+.bg-emerald-500\/5  { background-color: rgba(255, 127, 107, 0.06) !important; }
+.bg-emerald-500\/10 { background-color: rgba(255, 127, 107, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(255, 127, 107, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(255, 127, 107, 0.20) !important; }
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #ffb1a3 !important; }
+.border-emerald-500\/20 { border-color: rgba(255, 127, 107, 0.30) !important; }
+.border-emerald-500\/30 { border-color: rgba(255, 127, 107, 0.40) !important; }
+.border-emerald-500\/40 { border-color: rgba(255, 127, 107, 0.50) !important; }
+.border-emerald-500\/50 { border-color: rgba(255, 127, 107, 0.60) !important; }
+.border-emerald-500\/60 { border-color: rgba(255, 127, 107, 0.70) !important; }
+
+/* Teal-blue for info/links/recommended pill (sky utilities). */
+.bg-sky-500, .bg-sky-400 { background-color: #5eead4 !important; color: #1a2a2e !important; }
+.bg-sky-500\/5  { background-color: rgba(94, 234, 212, 0.06) !important; }
+.bg-sky-500\/10 { background-color: rgba(94, 234, 212, 0.12) !important; }
+.bg-sky-500\/15 { background-color: rgba(94, 234, 212, 0.16) !important; }
+.bg-sky-500\/20 { background-color: rgba(94, 234, 212, 0.20) !important; }
+.text-sky-300, .text-sky-400 { color: #5eead4 !important; }
+.border-sky-500\/20, .border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(94, 234, 212, 0.45) !important; }
+a.text-sky-300, a.text-sky-400 { color: #5eead4 !important; }
+
+/* Amber alerts — keep semantic, slightly warmer. */
+.text-amber-200, .text-amber-300, .text-amber-400 { color: #f5d068 !important; }
+.bg-amber-500\/5, .bg-amber-500\/10, .bg-amber-500\/15 { background-color: rgba(245, 208, 104, 0.12) !important; }
+.border-amber-500\/30, .border-amber-500\/40 { border-color: rgba(245, 208, 104, 0.45) !important; }
+
+/* Rose alerts — keep semantic for errors. */
+.bg-rose-500\/5, .bg-rose-500\/10, .bg-rose-500\/15 { background-color: rgba(255, 110, 110, 0.13) !important; }
+.text-rose-200, .text-rose-300, .text-rose-400 { color: #ff8e8e !important; }
+.border-rose-500\/30, .border-rose-500\/40, .border-rose-500\/60 { border-color: rgba(255, 110, 110, 0.45) !important; }
+
+/* Violet (evolution-invented badge) → soft lavender. */
+.text-violet-300, .text-violet-400 { color: #c5a8e6 !important; }
+
+/* Muted + value text. */
+.muted { color: #88a5ad !important; }
+.value { color: #e8f3f5 !important; }
+.label { color: #88a5ad !important; }
+
+/* ── Zinc text scale → seafoam family. ────────────────────────────── */
+.text-zinc-50  { color: #fafdfd !important; }
+.text-zinc-100 { color: #f5fbfc !important; }
+.text-zinc-200 { color: #e8f3f5 !important; }
+.text-zinc-300 { color: #c9dde0 !important; }
+.text-zinc-400 { color: #88a5ad !important; }
+.text-zinc-500 { color: #6e8c93 !important; }
+.text-zinc-600 { color: #58737a !important; }
+.text-zinc-700 { color: #425b62 !important; }
+
+/* Zinc backgrounds → teal variants. */
+.bg-zinc-700 { background-color: #294049 !important; }
+.bg-zinc-800 { background-color: #213339 !important; }
+.bg-zinc-900 { background-color: #1a2a2e !important; }
+.bg-zinc-700\/30 { background-color: rgba(41, 64, 73, 0.45) !important; }
+
+/* Zinc borders → teal. */
+.border-zinc-700        { border-color: #2f4751 !important; }
+.border-zinc-700\/60    { border-color: rgba(47, 71, 81, 0.7) !important; }
+.border-zinc-800        { border-color: #2f4751 !important; }
+.border-zinc-800\/40    { border-color: rgba(47, 71, 81, 0.45) !important; }
+.border-zinc-800\/60    { border-color: rgba(47, 71, 81, 0.65) !important; }
+.border-zinc-900        { border-color: #25393f !important; }
+.hover\:border-zinc-500:hover { border-color: #6e8c93 !important; }
+
+/* Inputs — match the deep-teal base. */
+.bg-\[\#0a0d13\] { background-color: #1a2a2e !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(26, 42, 46, 0.6) !important; }
+.focus\:border-emerald-500:focus { border-color: #ff7f6b !important; }
+
+/* Checkbox accent. */
+input[type="checkbox"].accent-emerald-500 { accent-color: #ff7f6b !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #ff8e8e !important; }
+
+/* Sidebar active nav item — coral, not default emerald. */
+.nav-btn[aria-current="true"] {
+  color: #ff7f6b !important;
+  background: rgba(255, 127, 107, 0.10) !important;
+  border-left-color: #ff7f6b !important;
+}
+.nav-btn:hover { color: #e8f3f5 !important; background: #2a4046 !important; }
+.setup-guide-btn:hover { color: #ff7f6b !important; background: rgba(255, 127, 107, 0.08) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #ff7f6b !important; color: #ff7f6b !important;
+  box-shadow: 0 0 0 2px rgba(255, 127, 107, 0.25), 0 0 14px rgba(255, 127, 107, 0.45) !important;
+}
+
+/* Modal backdrop dim. */
+/* Bumped from 0.85 → 0.92 so the dim is unmistakable. At 0.85 with
+ * beach's bright palette, the dashboard chrome was bleeding through
+ * and the Recalibrate modal looked like it was floating in mid-air
+ * with no backdrop layer at all. (Caught in commit 71bc05d audit.) */
+.modal-bg { background: rgba(10, 22, 26, 0.92) !important; }
+
+/* PnL glows — coral up, soft rose down. */
+.glow-up   { box-shadow: 0 0 0 1px rgba(255, 127, 107, 0.20), 0 0 24px rgba(255, 127, 107, 0.07) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(255, 110, 110, 0.22), 0 0 24px rgba(255, 110, 110, 0.07) !important; }
+
+/* Workflow + Evolution rank-1. */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(255, 127, 107, 0.20), rgba(255, 127, 107, 0.03)) !important;
+  box-shadow: inset 2px 0 0 #ff7f6b !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(255, 161, 144, 0.40), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(255, 127, 107, 0.30); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(255, 127, 107, 0.24); } 100% { background-color: transparent; } }
+
+/* Evolution origin badges. */
+.evo-badge-decoded  { background: rgba(94, 234, 212, .15) !important; color: #5eead4 !important; border-color: rgba(94, 234, 212, .35) !important; }
+.evo-badge-invented { background: rgba(197, 168, 230, .15) !important; color: #c5a8e6 !important; border-color: rgba(197, 168, 230, .35) !important; }
+.evo-badge-mutated  { background: rgba(245, 208, 104, .15) !important; color: #f5d068 !important; border-color: rgba(245, 208, 104, .35) !important; }
+.evo-badge-crossed  { background: rgba(255, 161, 144, .15) !important; color: #ffa190 !important; border-color: rgba(255, 161, 144, .35) !important; }
+
+/* Evolution panels — teal backgrounds. */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #1d3034 !important; border-color: #2f4751 !important;
+}
+.evo-metric-val { color: #e8f3f5 !important; }
+.evo-metric-val.pos { color: #ffa190 !important; }
+.evo-metric-val.neg { color: #ff8e8e !important; }
+.evo-strat-row { background: #1d3034 !important; border-color: #2f4751 !important; }
+.evo-strat-row .evo-res-pred { background: #162428 !important; }
+.evo-strat-chip-val.pos { color: #ffa190 !important; }
+.evo-strat-chip-val.neg { color: #ff8e8e !important; }
+.evo-strat-deploy { background: #ff7f6b !important; border-color: #ff7f6b !important; color: #1a2a2e !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #ffa190 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #ffa190 !important; border-color: rgba(255, 127, 107, .55) !important; }
+.evo-hero { background: rgba(255, 127, 107, .08) !important; border-color: rgba(255, 127, 107, .45) !important; }
+.evo-hero-label { color: #ffa190 !important; }
+.evo-res-status-ok   { color: #5eead4 !important; }
+.evo-res-status-warn { color: #f5d068 !important; }
+.evo-ledger { background: #213339 !important; border-color: #2f4751 !important; color: #c9dde0 !important; }
+.evo-ledger-h2 { color: #f5fbfc !important; }
+.evo-ledger-li, .evo-ledger-p { color: #c9dde0 !important; }
+.evo-pop-mult { background: rgba(136, 165, 173, .15) !important; color: #c9dde0 !important; border-color: rgba(136, 165, 173, .35) !important; }
+.evo-chip-running { background: rgba(255, 127, 107, .15) !important; color: #ffa190 !important; border-color: rgba(255, 127, 107, .35) !important; }
+.evo-chip-done    { background: rgba(94, 234, 212, .15) !important; color: #5eead4 !important; border-color: rgba(94, 234, 212, .35) !important; }
+.evo-chip-failed  { background: rgba(255, 110, 110, .15) !important; color: #ff8e8e !important; border-color: rgba(255, 110, 110, .35) !important; }
+
+/* Deploy modal mode-selector chips. */
+.deploy-mode-btn { border-color: #2f4751 !important; background: #1a2a2e !important; }
+.deploy-mode-btn:hover { border-color: #58737a !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #5eead4 !important; box-shadow: 0 0 0 1px rgba(94, 234, 212, .4) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #ff8e8e !important; box-shadow: 0 0 0 1px rgba(255, 110, 110, .4) !important; }
+
+/* Tab buttons. */
+.tabbtn[aria-selected="true"] { background: #294049 !important; color: #f5fbfc !important; }
+.tabbtn { color: #88a5ad !important; }
+.tabbtn:hover { color: #c9dde0 !important; }
+
+/* Onboarding tour overlays — coral accent. */
+.onboard-backdrop { background: rgba(8, 18, 22, 0.65) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(255, 127, 107, 0.45), 0 0 36px 6px rgba(255, 127, 107, 0.28); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 127, 107, 0.75), 0 0 56px 10px rgba(255, 127, 107, 0.45); }
+}
+.onboard-highlight { outline-color: rgba(255, 127, 107, 0.95) !important; }
+.onboard-dot.current { background: #ff7f6b !important; }
+.onboard-dot.done    { background: #c9dde0 !important; }
+.onboard-waiting { border-color: rgba(255, 127, 107, 0.45) !important; background: rgba(255, 127, 107, 0.10) !important; color: #e8f3f5 !important; }
+.onboard-waiting::before { background: #ff7f6b !important; }
+.onboard-livecheck { background: #1a2a2e !important; border-color: #2f4751 !important; }
+.onboard-livecheck .ok  { color: #ffa190 !important; }
+.onboard-livecheck .bad { color: #ff8e8e !important; }
+.onboard-livecheck .pending { color: #88a5ad !important; }
+
+/* Scrollbar. */
+.scrollbar::-webkit-scrollbar-thumb { background: #2f4751 !important; }
+
+/* Personality avatar circle — re-tint to coral regardless of which
+ * personality color was baked in by dashboard.js. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#fbbf24"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #ff7f6b !important;
+}
+.bg-emerald-500[style*="width"] { background-color: #ff7f6b !important; }
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(255, 127, 107, 0.65) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(255, 127, 107, 0.30) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(255, 127, 107, 0.30) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(255, 127, 107, 0.30) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(255, 127, 107, 0.30) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with beach-specific motifs: a palm-tree
+ * silhouette, a wave-crest curve, and a sun-on-horizon disc. Peak
+ * opacity 0.16 — beach palette is muted (coral on teal-dark) so
+ * the peak needs more brightness to register. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: palm tree — curved trunk + 4 fronds radiating from top. */
+.motif-v1 {
+  width: 28px;
+  height: 36px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 36'><path d='M 14 36 Q 12 28 14 18 Q 15 10 18 5' stroke='%23ff7f6b' stroke-width='1.6' fill='none' stroke-linecap='round'/><path d='M 18 5 Q 24 3 27 9' stroke='%23ff7f6b' stroke-width='1.4' fill='none' stroke-linecap='round'/><path d='M 18 5 Q 12 3 9 9' stroke='%23ff7f6b' stroke-width='1.4' fill='none' stroke-linecap='round'/><path d='M 18 5 Q 25 7 27 14' stroke='%23ff7f6b' stroke-width='1.4' fill='none' stroke-linecap='round'/><path d='M 18 5 Q 11 7 9 14' stroke='%23ff7f6b' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+}
+
+/* v2: wave crest — flowing curve like an ocean swell. */
+.motif-v2 {
+  width: 40px;
+  height: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 14'><path d='M 2 11 Q 7 2 14 8 T 26 8 T 38 8' stroke='%23ff7f6b' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+}
+
+/* v3: sun on horizon — half-set disc with two horizon lines. */
+.motif-v3 {
+  width: 30px;
+  height: 20px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 20'><circle cx='15' cy='13' r='6' fill='%23ff7f6b'/><line x1='2' y1='15' x2='28' y2='15' stroke='%23ff7f6b' stroke-width='1.3' stroke-linecap='round'/><line x1='5' y1='18' x2='25' y2='18' stroke='%23ff7f6b' stroke-width='1' stroke-linecap='round' opacity='0.7'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.16; }
+  78%  { opacity: 0.16; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.07; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

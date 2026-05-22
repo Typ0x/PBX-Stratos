@@ -14,47 +14,47 @@ up per Universal Core.
 
 ## Section 1 — Genesis
 
-### s1.t1 — "claude installed, pro tier"
-> on the box. pro plan auth confirmed (claude code requires it). next: drop the trigger.
+### s1.t1 — "claude installed, bypass on"
+> claude desktop on the box, pro plan auth confirmed, both bypass-permissions toggles flipped ON. without those toggles the install is ~5x slower. happy path enabled. next: clone the repo + drop the trigger.
 
 ### s1.t2 — "trigger sent"
-> onboarding prompt dispatched. claude has root from here. you mostly read + ack. up next: code audit.
+> trigger phrase dispatched. `pbx-stratos-setup` has root from here. you mostly read + ack. up next: 4-stage code audit.
 
 ### s1.t3 — "code audited, clean"
-> nothing phones home, no backdoors, wallet stays local. verified by reading actual source. approved.
+> host check, claude CLI check, clone integrity, 4 security greps — all four stages clean. nothing phones home, no backdoors, no auto fund movement. verified by reading actual source. you approved. shipped.
 
 ### s1.t4 — "profile saved"
-> quiz answers in user-profile.json. claude calibrates from this every session.
+> 5 q's in `~/.pbx-lab/user-profile.json`. tech level, comms style, goal, consent, autonomy. claude calibrates from this every session.
 
-### s1.t5 — "in the gc"
-> connected to the PBX Stratos AI Agent group. voice call scheduled or done. not lurking anymore.
+### s1.t5 — "helius key wired"
+> `.env` at repo root. ACL-locked owner-only. `.gitignore` confirms it's untracked. `HELIUS_MAINNET_URL` set. key never echoed to chat — opsec basic but load-bearing.
 
-### s1.t6 — "thesis understood"
-> claude walked you through the signal mechanics. you can explain how PM2.5 → token price in your own words. not magic, just math + sensors.
+### s1.t6 — "wallet derived"
+> picked fresh / import / defer. server autogen'd `~/.pbx-bots/local.env` at mode 0600. three fields written: `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words). the seed exists on disk now.
 
-### s1.t7 — "toolchain mapped"
-> node, python, git, pm2 — you know what each does and why. no more "stuff that has to be installed", actual understanding.
+### s1.t7 — "Mnemonic Backed Up on Paper"
+> Your 24-word `BOT_HD_MNEMONIC` is written down on paper and stored somewhere fireproof. The file is closed. No screenshot, no unprotected cloud sync. This phrase is the only thing that reconstructs every wallet your fleet derives — losing it means losing every position, permanently. Treat this paper like the deed to your house.
 
-### s1.t8 — "deps + anatomy"
-> claude installed the packages AND walked you through what the main ones do. mental map exists now, not just a black box that "works".
+### s1.t8 — "deps installed"
+> `npm install` at root via workspaces. `pip install -e .[decoder]` in `.venv`. `node_modules/` populated. `pbx_trader_lab` + `sklearn` + `numpy` import clean. `.tooling/ready.json` written. toolchain wired.
 
-### s1.t9 — "pm2 up + justified"
-> process supervisor online. you get why "just run the script" doesn't cut it — auto-restart, lifecycle, multi-process.
+### s1.t9 — "personality + theme set"
+> claude vibe locked, dashboard skin applied. `personality_id` + `theme_id` in profile. `bots/src/server/active-theme.css` overwritten. first pick — deeper customization waits for s3.
 
-### s1.t10 — "starter picked, defensible"
-> one of the starters selected with reasoning. not random. you can articulate what it's trying to do.
+### s1.t10 — "pm2 fleet up"
+> `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in `pm2 list`. `127.0.0.1:8787` listening. `/health` returns `{"ok":true}`. bot's alive.
 
-### s1.t11 — "personality + theme set"
-> claude vibe locked, dashboard skin applied. first pick — you'll customize deeper in s3.
+### s1.t11 — "cron registered"
+> all 6 `BEARWATCH-*` scheduled tasks `Ready` in `schtasks /query` — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog. you don't have to remember to run anything. boring infra handled.
 
 ### s1.t12 — "dashboard toured"
-> claude walked you through every panel at localhost:8787. brain stem visible AND legible.
+> `127.0.0.1:8787/dashboard` open. claude walked you through every panel — positions, AQI, health, alerts, strategy. brain stem visible AND legible.
 
-### s1.t13 — "cron registered + understood"
-> all 7 scheduled tasks on rails. you know what each watches for. boring infra handled.
+### s1.t13 — "healthcheck 5/7 green"
+> `bear-watch/health-check.py` ran. ≥5 of 7 GREEN (server, dashboard, heartbeat, AQI, alerts, disk, RPC). any REDs explained — AQI fills after first weather pull, disk REDs only below 10% free. verified.
 
-### s1.t14 — "all green + comprehended"
-> 7 of 7 healthchecks pass, you can name what each one tests. running. **section 1 done.**
+### s1.t14 — "in the gc"
+> connected to the PBX Stratos AI Agent group. voice call scheduled or done. not lurking anymore. **section 1 done. move to section 2 — pulse.**
 
 ---
 
@@ -402,7 +402,7 @@ up per Universal Core.
 > your discovery documented and shareable.
 
 ### s7.t6 — "aq-price forecaster beats persistence"
-> built a near-term PM2.5 → price model in `lab/aq-price/`. beat persistence baseline on 7 days of held-out data. forecasting next-hour PM2.5 is the upstream of the alpha. owning that pipeline is research-tier.
+> built a near-term PM2.5 → price model in `bear-scout/aq-price/`. beat persistence baseline on 7 days of held-out data. forecasting next-hour PM2.5 is the upstream of the alpha. owning that pipeline is research-tier.
 
 ### s7.t7 — "new sensor integrated"
 > data source the project never knew about.

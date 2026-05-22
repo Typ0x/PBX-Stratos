@@ -6,9 +6,9 @@ import { armProcessTimeout } from './proc-timeout.js';
 
 /** How long a single `claude` decode call may run before it is killed.
  *  A stalled CLI (network wedge, auth prompt) would otherwise hang the
- *  whole orchestrator forever. Override with PBX_CLAUDE_TIMEOUT_MS. */
+ *  whole orchestrator forever. Override with STRATOS_CLAUDE_TIMEOUT_MS. */
 const CLAUDE_DECODE_TIMEOUT_MS = Number(
-  process.env.PBX_CLAUDE_TIMEOUT_MS ?? 6 * 60 * 1000,
+  process.env.STRATOS_CLAUDE_TIMEOUT_MS ?? 6 * 60 * 1000,
 );
 
 /**
@@ -263,6 +263,10 @@ export async function claudeDecodeWallet(
         // Windows: npm installs `claude.cmd`; Node won't spawn a .cmd
         // without a shell. Safe here because args are small + fixed.
         shell: CLAUDE_NEEDS_SHELL,
+        // Hide Windows console popups. Critical here because Claude CLI
+        // spawns can take seconds and the cmd.exe wrapper window would
+        // sit visibly on the user's screen for the full duration.
+        windowsHide: true,
       });
     } catch (err) {
       const e = err as NodeJS.ErrnoException;

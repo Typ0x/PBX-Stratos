@@ -1,0 +1,308 @@
+/* PBX Stratos — Camo theme (military green + amber alerts, paired with Drill Sergeant)
+ *
+ * Functional. Disciplined. No frills. Forest-green canvas, olive panels,
+ * camo-green accents instead of emerald. Amber for alerts is intensified
+ * (drill-sergeant likes urgent callouts). Headings shift to UPPERCASE
+ * with letter-spacing — feels regulation.
+ *
+ * Built to be readable under fluorescent lights, no glare.
+ */
+
+:root {
+  --bg-primary:    #1c2218;
+  --bg-secondary:  #232a1f;
+  --bg-tertiary:   #2d3526;
+  --text-primary:  #e8eadf;
+  --text-muted:    #9aa48f;
+  --text-accent:   #8fa840;
+  --border-color:  #3a4530;
+  --camo-green:    #8fa840;
+  --camo-bright:   #a8c259;
+  /* Solid color (no alpha) for inline-style radial gradients — welcome
+   * hero halo + gauge entry-zone. Olive-camo to match the military
+   * aesthetic, not the default emerald. */
+  --theme-hero-glow: #8fa840;
+}
+
+/* Body — deep forest-dark, parchment text. */
+body, body.bg-\[\#0a0d13\] {
+  background-color: #1c2218 !important;
+  color: #e8eadf !important;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+}
+
+/* Faint camo-green grid backdrop. */
+.bg-grid { background-image: radial-gradient(rgba(143, 168, 64, 0.10) 1px, transparent 1px) !important; background-size: 22px 22px !important; }
+
+/* Header + sidebar — slightly lighter olive. */
+header.bg-\[\#0a0d13\]\/95 { background-color: rgba(28, 34, 24, 0.95) !important; border-color: #3a4530 !important; }
+#sidebar, nav.bg-\[\#0c1018\] { background-color: #1e2419 !important; border-color: #3a4530 !important; }
+
+/* Card panels — olive surface, sharp 2px corners. */
+.card {
+  background: #232a1f !important;
+  border: 1px solid #3a4530 !important;
+  border-radius: 2px !important;
+}
+
+/* ── Emerald → Camo green ─────────────────────────────────────────── */
+.bg-emerald-500, .bg-emerald-400 {
+  background-color: #8fa840 !important;
+  color: #1c2218 !important;
+}
+.bg-emerald-500:hover, .hover\:bg-emerald-400:hover, .bg-emerald-400:hover {
+  background-color: #a8c259 !important;
+}
+.bg-emerald-500\/5  { background-color: rgba(143, 168, 64, 0.07) !important; }
+.bg-emerald-500\/10 { background-color: rgba(143, 168, 64, 0.13) !important; }
+.bg-emerald-500\/15 { background-color: rgba(143, 168, 64, 0.18) !important; }
+.bg-emerald-500\/20 { background-color: rgba(143, 168, 64, 0.22) !important; }
+.text-emerald-200, .text-emerald-300, .text-emerald-400 { color: #a8c259 !important; }
+.border-emerald-500\/20 { border-color: rgba(143, 168, 64, 0.30) !important; }
+.border-emerald-500\/30 { border-color: rgba(143, 168, 64, 0.45) !important; }
+.border-emerald-500\/40 { border-color: rgba(143, 168, 64, 0.55) !important; }
+.border-emerald-500\/50 { border-color: rgba(143, 168, 64, 0.65) !important; }
+.border-emerald-500\/60 { border-color: rgba(143, 168, 64, 0.70) !important; }
+
+/* Amber alerts intensified — sergeants notice these. */
+.text-amber-200, .text-amber-300, .text-amber-400 { color: #fbbf24 !important; }
+.bg-amber-500\/5  { background-color: rgba(245, 158, 11, 0.10) !important; }
+.bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.15) !important; }
+.bg-amber-500\/15 { background-color: rgba(245, 158, 11, 0.22) !important; }
+.bg-amber-500\/20 { background-color: rgba(245, 158, 11, 0.28) !important; }
+.border-amber-500\/30, .border-amber-500\/40 { border-color: rgba(245, 158, 11, 0.55) !important; }
+
+/* Sky (recommended pill, links) → cool teal-blue that reads on olive. */
+.bg-sky-500, .bg-sky-400 { background-color: #5eb3d6 !important; color: #1c2218 !important; }
+.bg-sky-500\/10 { background-color: rgba(94, 179, 214, 0.13) !important; }
+.bg-sky-500\/15 { background-color: rgba(94, 179, 214, 0.18) !important; }
+.text-sky-300, .text-sky-400 { color: #7cc6e8 !important; }
+.border-sky-500\/30, .border-sky-500\/40 { border-color: rgba(94, 179, 214, 0.45) !important; }
+a.text-sky-300, a.text-sky-400 { color: #7cc6e8 !important; }
+
+/* Violet (evolution-invented badge) → dusty mauve. */
+.text-violet-300, .text-violet-400 { color: #b89d7a !important; }
+
+/* Rose (live-mode warnings) → keep semantic but warmer brick. */
+.bg-rose-500\/5, .bg-rose-500\/10, .bg-rose-500\/15 { background-color: rgba(180, 60, 40, 0.15) !important; }
+.text-rose-200, .text-rose-300, .text-rose-400 { color: #d97757 !important; }
+.border-rose-500\/30, .border-rose-500\/40, .border-rose-500\/60 { border-color: rgba(180, 60, 40, 0.45) !important; }
+
+/* Muted + value text. */
+.muted { color: #9aa48f !important; }
+.value { color: #e8eadf !important; }
+.label { color: #9aa48f !important; }
+
+/* ── Zinc text scale → khaki/parchment family. ───────────────────── */
+.text-zinc-50  { color: #f5f6ec !important; }
+.text-zinc-100 { color: #f0f1e8 !important; }
+.text-zinc-200 { color: #e8eadf !important; }
+.text-zinc-300 { color: #ccd1bf !important; }
+.text-zinc-400 { color: #9aa48f !important; }
+.text-zinc-500 { color: #7a8470 !important; }
+.text-zinc-600 { color: #5e6757 !important; }
+.text-zinc-700 { color: #495040 !important; }
+
+/* Zinc backgrounds → olive variants. */
+.bg-zinc-700 { background-color: #2d3526 !important; }
+.bg-zinc-800 { background-color: #232a1f !important; }
+.bg-zinc-900 { background-color: #1c2218 !important; }
+.bg-zinc-700\/30 { background-color: rgba(45, 53, 38, 0.45) !important; }
+
+/* Zinc borders → olive. */
+.border-zinc-700        { border-color: #3a4530 !important; }
+.border-zinc-700\/60    { border-color: rgba(58, 69, 48, 0.7) !important; }
+.border-zinc-800        { border-color: #3a4530 !important; }
+.border-zinc-800\/40    { border-color: rgba(58, 69, 48, 0.45) !important; }
+.border-zinc-800\/60    { border-color: rgba(58, 69, 48, 0.65) !important; }
+.border-zinc-900        { border-color: #2a3120 !important; }
+.hover\:border-zinc-500:hover { border-color: #7a8470 !important; }
+
+/* Inputs — match the olive panel tone. */
+.bg-\[\#0a0d13\] { background-color: #1c2218 !important; }
+.bg-\[\#0a0d13\]\/60 { background-color: rgba(28, 34, 24, 0.6) !important; }
+.focus\:border-emerald-500:focus { border-color: #8fa840 !important; }
+
+/* Headings — REGULATION UPPERCASE. */
+h1, h2, h3, h4 {
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Checkbox accent. */
+input[type="checkbox"].accent-emerald-500 { accent-color: #8fa840 !important; }
+input[type="checkbox"].accent-rose-500    { accent-color: #d97757 !important; }
+
+/* Sidebar active nav item — camo green, not default emerald. */
+.nav-btn[aria-current="true"] {
+  color: #a8c259 !important;
+  background: rgba(143, 168, 64, 0.12) !important;
+  border-left-color: #8fa840 !important;
+}
+.nav-btn:hover { color: #e8eadf !important; background: #2d3526 !important; }
+.setup-guide-btn:hover { color: #a8c259 !important; background: rgba(143, 168, 64, 0.10) !important; }
+.setup-guide-btn:hover .setup-guide-mark {
+  border-color: #8fa840 !important; color: #a8c259 !important;
+  box-shadow: 0 0 0 2px rgba(143, 168, 64, 0.25), 0 0 14px rgba(143, 168, 64, 0.5) !important;
+}
+
+/* Modal backdrop dim. */
+.modal-bg { background: rgba(15, 20, 12, 0.85) !important; }
+
+/* PnL glows. */
+.glow-up   { box-shadow: 0 0 0 1px rgba(168, 194, 89, 0.20), 0 0 24px rgba(143, 168, 64, 0.07) !important; }
+.glow-down { box-shadow: 0 0 0 1px rgba(217, 119, 87, 0.22), 0 0 24px rgba(217, 119, 87, 0.07) !important; }
+
+/* Workflow + Evolution rank-1. */
+.wf-rank-1, .evo-rank-1 {
+  background: linear-gradient(90deg, rgba(143, 168, 64, 0.20), rgba(143, 168, 64, 0.03)) !important;
+  box-shadow: inset 2px 0 0 #8fa840 !important;
+}
+.wf-shimmer, .evo-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(168, 194, 89, 0.40), transparent) !important;
+}
+@keyframes wf-land { 0% { background-color: rgba(143, 168, 64, 0.32); } 100% { background-color: transparent; } }
+@keyframes evo-land { 0% { background-color: rgba(143, 168, 64, 0.26); } 100% { background-color: transparent; } }
+
+/* Evolution origin badges. */
+.evo-badge-decoded  { background: rgba(94, 179, 214, .15) !important; color: #7cc6e8 !important; border-color: rgba(94, 179, 214, .35) !important; }
+.evo-badge-invented { background: rgba(184, 157, 122, .15) !important; color: #b89d7a !important; border-color: rgba(184, 157, 122, .35) !important; }
+.evo-badge-mutated  { background: rgba(251, 191, 36, .15) !important; color: #fbbf24 !important; border-color: rgba(251, 191, 36, .35) !important; }
+.evo-badge-crossed  { background: rgba(168, 194, 89, .15) !important; color: #a8c259 !important; border-color: rgba(168, 194, 89, .35) !important; }
+
+/* Evolution panels — olive backgrounds. */
+.evo-metric-card, .evo-res-pred, .evo-run-row, .evo-feed, .evo-res-ledger-body {
+  background: #1e2419 !important; border-color: #3a4530 !important;
+}
+.evo-metric-val { color: #e8eadf !important; }
+.evo-metric-val.pos { color: #a8c259 !important; }
+.evo-metric-val.neg { color: #d97757 !important; }
+.evo-strat-row { background: #1e2419 !important; border-color: #3a4530 !important; }
+.evo-strat-row .evo-res-pred { background: #181d14 !important; }
+.evo-strat-chip-val.pos { color: #a8c259 !important; }
+.evo-strat-chip-val.neg { color: #d97757 !important; }
+.evo-strat-deploy { background: #8fa840 !important; border-color: #8fa840 !important; color: #1c2218 !important; }
+.evo-strat-deploy:hover:not(:disabled) { background: #a8c259 !important; }
+.evo-strat-deploy.deployed { background: transparent !important; color: #a8c259 !important; border-color: rgba(143, 168, 64, .55) !important; }
+.evo-hero { background: rgba(143, 168, 64, .09) !important; border-color: rgba(143, 168, 64, .45) !important; }
+.evo-hero-label { color: #a8c259 !important; }
+.evo-res-status-ok   { color: #a8c259 !important; }
+.evo-res-status-warn { color: #fbbf24 !important; }
+.evo-ledger { background: #232a1f !important; border-color: #3a4530 !important; color: #ccd1bf !important; }
+.evo-ledger-h2 { color: #f0f1e8 !important; }
+.evo-ledger-li, .evo-ledger-p { color: #ccd1bf !important; }
+.evo-pop-mult { background: rgba(154, 164, 143, .15) !important; color: #ccd1bf !important; border-color: rgba(154, 164, 143, .35) !important; }
+.evo-chip-running { background: rgba(168, 194, 89, .15) !important; color: #a8c259 !important; border-color: rgba(168, 194, 89, .35) !important; }
+.evo-chip-done    { background: rgba(94, 179, 214, .15) !important; color: #7cc6e8 !important; border-color: rgba(94, 179, 214, .35) !important; }
+.evo-chip-failed  { background: rgba(217, 119, 87, .15) !important; color: #d97757 !important; border-color: rgba(217, 119, 87, .35) !important; }
+
+/* Deploy modal mode-selector chips. */
+.deploy-mode-btn { border-color: #3a4530 !important; background: #1c2218 !important; }
+.deploy-mode-btn:hover { border-color: #5e6757 !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="paper"] { border-color: #7cc6e8 !important; box-shadow: 0 0 0 1px rgba(94, 179, 214, .4) !important; }
+.deploy-mode-btn[aria-pressed="true"][data-mode="live"]  { border-color: #d97757 !important; box-shadow: 0 0 0 1px rgba(217, 119, 87, .4) !important; }
+
+/* Tab buttons. */
+.tabbtn[aria-selected="true"] { background: #2d3526 !important; color: #f0f1e8 !important; }
+.tabbtn { color: #9aa48f !important; }
+.tabbtn:hover { color: #ccd1bf !important; }
+
+/* Onboarding tour overlays — camo accent. */
+.onboard-backdrop { background: rgba(15, 20, 12, 0.65) !important; }
+@keyframes onboard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(168, 194, 89, 0.45), 0 0 36px 6px rgba(143, 168, 64, 0.28); }
+  50%      { box-shadow: 0 0 0 6px rgba(168, 194, 89, 0.75), 0 0 56px 10px rgba(143, 168, 64, 0.45); }
+}
+.onboard-highlight { outline-color: rgba(168, 194, 89, 0.95) !important; }
+.onboard-dot.current { background: #8fa840 !important; }
+.onboard-dot.done    { background: #ccd1bf !important; }
+.onboard-waiting { border-color: rgba(143, 168, 64, 0.45) !important; background: rgba(143, 168, 64, 0.10) !important; color: #e8eadf !important; }
+.onboard-waiting::before { background: #8fa840 !important; }
+.onboard-livecheck { background: #1c2218 !important; border-color: #3a4530 !important; }
+.onboard-livecheck .ok  { color: #a8c259 !important; }
+.onboard-livecheck .bad { color: #d97757 !important; }
+.onboard-livecheck .pending { color: #9aa48f !important; }
+.onboard-warn { border-color: rgba(245, 158, 11, 0.45) !important; background: rgba(245, 158, 11, 0.08) !important; color: #fde68a !important; }
+
+/* Scrollbar. */
+.scrollbar::-webkit-scrollbar-thumb { background: #3a4530 !important; }
+
+/* Personality avatar circle — re-tint to camo green regardless of
+ * which personality color was baked in by dashboard.js. */
+span.inline-block.w-10.h-10.rounded-full[style*="#10b981"],
+span.inline-block.w-10.h-10.rounded-full[style*="#22d3ee"],
+span.inline-block.w-10.h-10.rounded-full[style*="#38bdf8"],
+span.inline-block.w-10.h-10.rounded-full[style*="#a78bfa"],
+span.inline-block.w-10.h-10.rounded-full[style*="#fbbf24"],
+span.inline-block.w-10.h-10.rounded-full[style*="#f43f5e"] {
+  background: #8fa840 !important;
+}
+.bg-emerald-500[style*="width"] { background-color: #8fa840 !important; }
+
+/* ── Hover-glow + shadow recolor ──────────────────────────────────────
+   Recolor the emerald hover-glow (defined in dashboard.css) + the
+   shadow-emerald-500/* halo around the welcome hero CTA. Without
+   this, the .shadow-emerald-500/20 around #hero-start leaks green
+   even when the button itself is fully retheme'd. */
+:root, html { --theme-glow: rgba(143, 168, 64, 0.65) !important; }
+.shadow-emerald-500\/10 { box-shadow: 0 4px 12px rgba(143, 168, 64, 0.30) !important; }
+.shadow-emerald-500\/20 { box-shadow: 0 4px 14px rgba(143, 168, 64, 0.30) !important; }
+.shadow-emerald-500\/30 { box-shadow: 0 4px 16px rgba(143, 168, 64, 0.30) !important; }
+.shadow-emerald-500\/40 { box-shadow: 0 6px 18px rgba(143, 168, 64, 0.30) !important; }
+
+/* ── Atmospheric per-element motif layer (shooting-star variant) ─────
+ * See themes/lambo.css for the full architecture comment — same
+ * pattern is applied here with camo-specific tactical motifs: a
+ * compass rose, stacked chevron stripes (rank insignia), and a
+ * hexagonal tactical tile with center dot. Peak opacity 0.12 —
+ * camo is restrained by design, no flashy peaks. */
+:root { --motif-enabled: 1; }
+
+.motif-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+
+.motif {
+  position: absolute;
+  left: var(--mx, 50vw);
+  top:  var(--my, 50vh);
+  opacity: 0;
+  animation: motif-twinkle var(--dur, 12s) ease-in-out var(--d, 0s) infinite;
+  will-change: opacity, transform;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* v1: compass rose — vertical + horizontal lines with arrow tip + center dot. */
+.motif-v1 {
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><line x1='12' y1='2' x2='12' y2='22' stroke='%238fa840' stroke-width='1.4'/><line x1='2' y1='12' x2='22' y2='12' stroke='%238fa840' stroke-width='1.4'/><polygon points='12,1 15,8 12,6 9,8' fill='%238fa840'/><circle cx='12' cy='12' r='2' fill='%238fa840'/></svg>");
+}
+
+/* v2: chevron stripes — three stacked Vs, rank-insignia shape. */
+.motif-v2 {
+  width: 26px;
+  height: 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 18'><polyline points='2,5 13,1 24,5' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/><polyline points='2,10 13,6 24,10' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/><polyline points='2,15 13,11 24,15' stroke='%238fa840' stroke-width='1.8' fill='none' stroke-linejoin='round'/></svg>");
+}
+
+/* v3: hexagonal tactical tile — outlined hex with center dot. */
+.motif-v3 {
+  width: 22px;
+  height: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'><polygon points='11,2 20,7 20,17 11,22 2,17 2,7' fill='none' stroke='%238fa840' stroke-width='1.5'/><circle cx='11' cy='12' r='1.6' fill='%238fa840'/></svg>");
+}
+
+@keyframes motif-twinkle {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  60%  { opacity: 0; }
+  70%  { opacity: 0.12; }
+  78%  { opacity: 0.12; }
+  95%  { opacity: 0; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motif { animation: none; opacity: 0.05; transform: none; }
+}
+
+#sidebar, header, main { position: relative; z-index: 1; }

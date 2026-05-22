@@ -70,6 +70,6 @@ positions.
 
 - The dashboard server itself (HTTP routing, API endpoints) → that's
   ops territory in `bots/src/server/index.ts`
-- Strategy parameter tuning → that's BEAR-SCOUT in `lab/runners/`
+- Strategy parameter tuning → that's BEAR-SCOUT in `bear-scout/runners/`
 - The pm2 supervisor config → that's BEAR-WATCH in `bear-watch/`
 - Per-scope journals + STATUS + design notes → live in `_context/bear-den/`

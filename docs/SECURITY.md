@@ -11,7 +11,7 @@ different security profiles. Read both sections.
 - `~/.pbx-lab/bot-keypair.json` — Solana keypair if you ran
   `pbx wallet new`. File mode 0600. **This IS your wallet — losing it
   means losing access to the funds.**
-- `~/.pbx-lab/data/*.json` — public on-chain data (cycles, trades). Not
+- `~/.pbx-bear-scout/data/*.json` — public on-chain data (cycles, trades). Not
   sensitive.
 - `~/.pbx-lab/achievements.json` — game state. Not sensitive.
 - `~/.pbx-lab/events.jsonl` — local event log for the achievement

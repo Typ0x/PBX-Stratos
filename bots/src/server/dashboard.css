@@ -65,6 +65,18 @@
   #sidebar.nav-collapsed .nav-label { display: none; }
   #sidebar.nav-collapsed .nav-btn { justify-content: center; padding-left: 0; padding-right: 0; }
 
+  /* Setup Guide button — emerald glow on hover, ring around the "?"
+     mark gets a soft outer shadow so the icon visibly lights up
+     (matches the dashboard's "highlight = emerald" pattern). */
+  .setup-guide-btn { color: #94a3b8; }
+  .setup-guide-btn:hover { color: #34d399; background: rgba(16,185,129,0.08); }
+  .setup-guide-btn:hover .setup-guide-mark {
+    border-color: #34d399;
+    color: #34d399;
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.20), 0 0 14px rgba(16,185,129,0.50);
+  }
+  .setup-guide-mark { transition: box-shadow 160ms, border-color 160ms, color 160ms; }
+
   /* ── Evolution live view ───────────────────────────────────────────── */
   /* Locked config inputs while a run is in flight */
   #evolve-card input:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -140,6 +152,23 @@
   .evo-ledger-li   { padding-left: 12px; color: #cbd5e1; line-height: 1.7; }
   .evo-ledger-li::before { content: "—  "; color: #475569; }
   .evo-ledger-p    { color: #cbd5e1; margin: 2px 0; }
+
+  /* ── Hover glow on clickable elements ─────────────────────────────────
+     Subtle outer glow when the user hovers a primary button (emerald-
+     bg CTAs, the welcome-hero #hero-start, the workflow #workflow-start,
+     the Setup Guide ? button) so every clickable surface feels alive.
+     Themes override --theme-glow to recolor (gold for lambo, green for
+     matrix, brown for academia, etc). Pure CSS variable swap — no
+     extra rules per theme. */
+  :root { --theme-glow: rgba(16, 185, 129, 0.55); }
+  .bg-emerald-500:not(:disabled):hover,
+  .hover\:bg-emerald-400:not(:disabled):hover,
+  #hero-start:hover,
+  #workflow-start:hover,
+  button[type="submit"]:not(:disabled):hover {
+    box-shadow: 0 0 18px var(--theme-glow), 0 0 4px var(--theme-glow) !important;
+    transition: box-shadow 180ms ease;
+  }
 
   /* Extension-requests expandable panel */
   .evo-ext-badge {
@@ -408,3 +437,146 @@
     padding: 2px 6px; border-radius: 5px;
   }
   .evo-drawer-close:hover { color: #f1f5f9; background: #27272a; }
+
+  /* ── Onboarding-active body modifications ──────────────────────────── */
+  /* When the tour is open, the modal is bottom-anchored. Full-viewport
+     landing sections (welcome-hero is min-h-[82vh]) would push their
+     CTAs into the modal zone. Shrink them to natural height during the
+     tour so highlighted CTAs sit comfortably above the modal. */
+  body.onboard-active #welcome-hero {
+    min-height: auto !important;
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+  body.onboard-active #welcome-hero > div > .space-y-10 {
+    gap: 1.25rem;
+  }
+
+  /* ── First-time onboarding overlay ─────────────────────────────────── */
+  /* Custom backdrop — a flat dim (no blur). The panel-tour steps need
+     un-highlighted panels to read as fuzzy/dim while the HIGHLIGHTED
+     panel reads as sharp + bright. We deliberately do NOT blur the
+     backdrop so the highlighted panel above it stays crisp. The dim is
+     65% — enough to push focus to the modal + the pulsed highlight
+     without obliterating the surrounding context. */
+  .onboard-backdrop {
+    background: rgba(0,0,0,0.65);
+    /* CRITICAL: backdrop must NOT capture clicks. The tour gates on
+       real button clicks (e.g. Find top traders & decode on step 2);
+       if the backdrop swallows clicks, the user can see the button
+       but can't actually press it. Modal card on z-60 keeps its own
+       pointer-events:auto so Previous/Next/Skip still work. */
+    pointer-events: none;
+  }
+  /* Lift the welcome-hero above the backdrop's z-50 during the tour
+     so its highlighted #hero-start CTA escapes its parent stacking
+     context and renders sharp on top of the dim. Without this the
+     pulse ring is invisible because #welcome-hero with position:
+     relative traps z-index inside its own context. */
+  body.onboard-active #welcome-hero { z-index: 52; }
+  /* Pulse highlight on a panel the current tour step is pointing at.
+     The backdrop sits at z-50; the highlight needs z-index ABOVE that
+     (z-55) AND its own stacking context (position: relative + the
+     z-index) so the outline + glow punch through the dim. The modal
+     card sits at z-60 so it always reads as foremost. The pulse
+     animates the outer box-shadow only — leaves the panel's own
+     internal styles untouched. The brightness/saturate filter pops the
+     highlighted panel against the dim flat backdrop. */
+  @keyframes onboard-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(16,185,129,0.45), 0 0 36px 6px rgba(16,185,129,0.28); }
+    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0.75), 0 0 56px 10px rgba(16,185,129,0.45); }
+  }
+  .onboard-highlight {
+    position: relative;
+    z-index: 55 !important;
+    border-radius: 8px;
+    outline: 2px solid rgba(52,211,153,0.95);
+    outline-offset: 2px;
+    animation: onboard-pulse 1.8s ease-in-out infinite;
+    transition: outline 0.2s ease;
+    /* Punch above the dim backdrop so highlighted panels actually show. */
+    isolation: isolate;
+    /* Render the panel genuinely sharp + bright against the flat dim. */
+    filter: brightness(1.05) saturate(1.05);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .onboard-highlight { animation: none; }
+  }
+  /* Inline "Waiting for: <action>" badge inside the modal body. Used
+     by gated steps in place of the Next button. */
+  .onboard-waiting {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(16,185,129,0.45);
+    background: rgba(16,185,129,0.08);
+    color: #a7f3d0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 11.5px;
+  }
+  .onboard-waiting::before {
+    content: ''; width: 8px; height: 8px; border-radius: 9999px;
+    background: #10b981; animation: pulse 1.4s ease-in-out infinite;
+  }
+  /* Muted "Just continue" escape link under gated steps. */
+  .onboard-skip-gate {
+    display: inline-block; margin-left: 10px;
+    color: #94a3b8; font-size: 11px;
+    text-decoration: underline; text-underline-offset: 2px;
+    cursor: pointer;
+    background: none; border: none; padding: 0;
+  }
+  .onboard-skip-gate:hover { color: #cbd5e1; }
+  /* Sample-data marker pill used on injected paper/live preview cards. */
+  .onboard-sample-pill {
+    display: inline-block;
+    border: 1px solid rgba(245,158,11,0.35);
+    background: rgba(245,158,11,0.08);
+    color: #fcd34d;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Step dots in the modal header. */
+  .onboard-dot {
+    width: 8px; height: 8px; border-radius: 9999px;
+    background: #3f3f46;
+    transition: background 120ms, transform 120ms;
+  }
+  .onboard-dot.done    { background: #a1a1aa; }
+  .onboard-dot.current { background: #10b981; transform: scale(1.35); }
+
+  /* Amber warning block — matches the mnemonic-step risk callout
+     pattern used elsewhere in the dashboard. */
+  .onboard-warn {
+    border: 1px solid rgba(245, 158, 11, 0.30);
+    background: rgba(245, 158, 11, 0.05);
+    color: #fde68a;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .onboard-warn strong { color: #fef3c7; }
+
+  /* Live-data inline pill, e.g. health-check rows rendered into the
+     modal body. */
+  .onboard-livecheck {
+    background: #0a0d13;
+    border: 1px solid #232a36;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 11.5px;
+  }
+  .onboard-livecheck .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 3px 0;
+  }
+  .onboard-livecheck .row + .row { border-top: 1px solid rgba(35,42,54,0.5); }
+  .onboard-livecheck .ok  { color: #34d399; }
+  .onboard-livecheck .bad { color: #fb7185; }
+  .onboard-livecheck .pending { color: #94a3b8; }

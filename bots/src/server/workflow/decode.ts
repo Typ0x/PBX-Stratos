@@ -7,19 +7,19 @@ import { armProcessTimeout } from './proc-timeout.js';
 
 /** Hard cap on a single Python decoder runner (wallet-decoder.py /
  *  wallet-evolve.py). A wedged runner would otherwise hang the
- *  orchestrator forever. Override with PBX_DECODE_TIMEOUT_MS. */
+ *  orchestrator forever. Override with STRATOS_DECODE_TIMEOUT_MS. */
 const DECODE_RUNNER_TIMEOUT_MS = Number(
-  process.env.PBX_DECODE_TIMEOUT_MS ?? 10 * 60 * 1000,
+  process.env.STRATOS_DECODE_TIMEOUT_MS ?? 10 * 60 * 1000,
 );
 
 /**
  * Step 2 of the workflow: spawn the Python wallet-decoder pipeline
- * (lab/runners/wallet-{decoder,evolve}.py) for a single pubkey and
+ * (bear-scout/runners/wallet-{decoder,evolve}.py) for a single pubkey and
  * surface the top decoded hypothesis.
  *
  * The Python runners already source their on-chain data from the
  * public PBX lab API (commit 69484e6), so this wrapper needs neither
- * DB credentials nor a mainnet RPC — just python3 + the wallets/
+ * DB credentials nor a mainnet RPC â€” just python3 + the wallets/
  * directory the runners write to (~/.pbx-lab/wallets/<pubkey>/).
  *
  * Streaming: each line of stdout/stderr from the subprocess is
@@ -27,21 +27,25 @@ const DECODE_RUNNER_TIMEOUT_MS = Number(
  * relay it to the dashboard.
  */
 
-const REPO_ROOT_ENV = 'PBX_REPO_ROOT';
+const REPO_ROOT_ENV = 'STRATOS_REPO_ROOT';
 
 /** wallet-decoder.py exit code meaning "no trades for this wallet in the
- *  window" — an expected skip, not a failure. Kept in sync with the
- *  `sys.exit(3)` in lab/runners/wallet-decoder.py. */
+ *  window" â€” an expected skip, not a failure. Kept in sync with the
+ *  `sys.exit(3)` in bear-scout/runners/wallet-decoder.py. */
 const NO_DATA_EXIT = 3;
 
-/** Resolve the absolute path to lab/runners/. The bot server's cwd is
+/** Resolve the absolute path to bear-scout/runners/. The bot server's cwd is
  *  the `bots/` workspace dir under the repo root, so the runners live
- *  at `../lab/runners/`. Override via PBX_REPO_ROOT for non-standard
+ *  at `../bear-scout/runners/`. Override via STRATOS_REPO_ROOT for non-standard
  *  layouts (e.g. running the server out-of-tree). */
 function runnersDir(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
-  if (envRoot) return resolve(envRoot, 'lab', 'runners');
-  return resolve(process.cwd(), '..', 'lab', 'runners');
+  // Runners moved from lab/runners → bear-scout/runners during the
+  // bear-scout reorg. The comment above already documents this; the
+  // code paths just hadn't been updated, which silently broke every
+  // wallet decode (spawn ENOENT because the CWD didn't exist).
+  if (envRoot) return resolve(envRoot, 'bear-scout', 'runners');
+  return resolve(process.cwd(), '..', 'bear-scout', 'runners');
 }
 
 export interface DecodeProgress {
@@ -59,7 +63,7 @@ export interface DecodeOpts {
   /** Output directory. Default ~/.pbx-lab/wallets/<pubkey>/. */
   outDir?: string;
   onProgress?: (event: DecodeProgress) => void;
-  /** Abort signal — when fired, in-flight subprocess is killed. */
+  /** Abort signal â€” when fired, in-flight subprocess is killed. */
   signal?: AbortSignal;
 }
 
@@ -68,7 +72,7 @@ export interface DecodeResult {
   outDir: string;
   /** Top hypothesis by test-set F1, taken from evolution.json. */
   topHypothesis: TopHypothesis | null;
-  /** Number of buys the wallet made in the window (sanity check —
+  /** Number of buys the wallet made in the window (sanity check â€”
    *  decode results on wallets with <20 buys are statistically noisy). */
   walletBuys: number;
 }
@@ -94,7 +98,7 @@ function isValidPubkey(s: string): boolean {
 }
 
 function defaultOutDir(pubkey: string): string {
-  return join(homedir(), '.pbx-lab', 'wallets', pubkey);
+  return join(process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'), 'wallets', pubkey);
 }
 
 /** Spawn a runner, stream its lines, resolve on exit 0 or reject. */
@@ -110,18 +114,22 @@ function runPython(
       cwd: runnersDir(),
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Hide the Windows console popup that would otherwise flash for
+      // every Python decoder invocation. See index.ts preflight probe
+      // for the canonical comment on this convention.
+      windowsHide: true,
     });
     const onAbort = () => {
       try { proc.kill('SIGTERM'); } catch { /* noop */ }
     };
     if (signal) signal.addEventListener('abort', onAbort, { once: true });
 
-    // Bound the runner's lifetime — a wedged Python process must not
+    // Bound the runner's lifetime â€” a wedged Python process must not
     // hang this Promise (and the whole orchestrator) forever.
     const clearProcTimeout = armProcessTimeout(proc, DECODE_RUNNER_TIMEOUT_MS, () => {
       if (signal) signal.removeEventListener('abort', onAbort);
       rejectExit(new Error(
-        `${script} timed out after ${Math.round(DECODE_RUNNER_TIMEOUT_MS / 1000)}s — killed`,
+        `${script} timed out after ${Math.round(DECODE_RUNNER_TIMEOUT_MS / 1000)}s â€” killed`,
       ));
     });
 
@@ -165,18 +173,18 @@ function runPython(
 }
 
 /** Pull the best hypothesis from evolution.json. The file is emitted by
- *  lab/runners/wallet-evolve.py with this shape:
+ *  bear-scout/runners/wallet-evolve.py with this shape:
  *
  *    { history: [{epoch, label, top: [{name, f1_test, lift_test,
  *                                     precision_test, f1_train, ...}, ...]}],
  *      pubkey, wallet_buys, snapshots, ... }
  *
  *  The runner pre-sorts each epoch's `top` array by test-F1 descending,
- *  but it doesn't merge across epochs — different epochs explore
+ *  but it doesn't merge across epochs â€” different epochs explore
  *  different hypothesis families. We scan all epochs and return the
  *  global max-test-F1 hypothesis.
  *
- *  Hypothesis "params" aren't stored as a structured field — the runner
+ *  Hypothesis "params" aren't stored as a structured field â€” the runner
  *  encodes them in the hypothesis name (e.g. `H_simple.cheapest.spread>=0.1`).
  *  We surface the raw name so the consumer can map it to a strategy
  *  template + parameter set. */
@@ -257,7 +265,7 @@ export async function decodeWallet(opts: DecodeOpts): Promise<DecodeResult> {
     );
   } catch (err) {
     // Exit 3 = the wallet has no trades in the window. That's an expected
-    // outcome, not a failure — return an empty result so the workflow
+    // outcome, not a failure â€” return an empty result so the workflow
     // skips it gracefully instead of showing an error.
     if ((err as { exitCode?: number }).exitCode === NO_DATA_EXIT) {
       return { pubkey: opts.pubkey, outDir, topHypothesis: null, walletBuys: 0 };
