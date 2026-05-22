@@ -64,6 +64,35 @@ Everything else (clone, audit, install, pm2 start, scheduled tasks, theme applic
 
 If you find yourself about to ask the user to "type X" mid-wizard, stop and refactor it into an AskUserQuestion with discrete options instead. Free-text typing breaks the promise.
 
+## 🔒 Skill completion contract (read this BEFORE you start)
+
+**When this skill is invoked, you MUST drive it to one of two terminal states. Returning to the user with "I think we're done" or "let me know if you need anything" is a failure.**
+
+### Terminal state 1 — SUCCESS
+
+All of the following must be true before you declare the install complete:
+
+- [ ] Both `bear-watch-server-stratos` AND `paper-trade-bot-stratos` are online in `pm2 list`
+- [ ] `curl http://localhost:8787/health` returns `{"ok":true}`
+- [ ] `runtime/lab/user-profile.json` exists with all 5 quiz fields populated (`tech_level`, `communication_style`, `goal`, `consent_level`, `autonomy_level`) AND `personality_id` AND `theme_id` set to user's picks
+- [ ] Browser opened to `http://localhost:8787` (best-effort; not blocking if the open command failed but `/health` is green)
+- [ ] Roadmap handoff verbalized in the chosen personality voice (Step 12 — do NOT skip this even if the user seems impatient)
+
+When all five are true, the skill has completed. You may return control.
+
+### Terminal state 2 — EXPLICIT HALT
+
+Something is blocking completion and needs the user's decision. Surface the blocker via `AskUserQuestion` with three options:
+- "Show me exactly what failed" — display the diagnostic
+- "Try the manual fallback for this step" — escalate to the documented fallback
+- "Stop the install — I'll come back to it later" — abort cleanly
+
+There is no third terminal state. Do NOT silently stop, defer, or "leave it as-is and see what the user says." Either land at success, or land at an explicit halt with a question.
+
+### Per-step verification is mandatory
+
+After each step in the wizard, run the **Verify** command documented for that step. If verify fails, retry the step once. If verify still fails, halt and call `AskUserQuestion` per Terminal State 2 — do not proceed past a failed verify on the assumption that "it probably worked anyway."
+
 ## Before Step 0 — confirm bypass-permissions is ON
 
 The README instructs the user to toggle Settings → Claude Code →
@@ -315,6 +344,8 @@ Idempotency:
   install path, or abort.
 - Target dir exists AND is NOT a git repo → STOP. Same options.
 
+**Verify Step -1.E:** `test -f "$HOME/PBX-Stratos/CLAUDE.md" && test -d "$HOME/PBX-Stratos/.claude/skills" && echo CLONE_OK`. If you don't see `CLONE_OK`, the clone didn't land canonical files — retry once; if still failing, halt per Terminal State 2 with the `git clone` exit code.
+
 ### Step -1.F — Hand off to Step 0
 
 Once `cd`'d into the cloned repo, proceed IMMEDIATELY to Step 0 (the
@@ -553,6 +584,8 @@ Then write the JSON file:
 `personality_id` + `theme_id` get updated in Steps 9-10. From here on,
 all your responses should reflect the Q1-Q5 calibration.
 
+**Verify Step 1:** `python -c "import json; p=json.load(open('runtime/lab/user-profile.json')); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If you don't see `PROFILE_OK`, the profile is missing fields — re-ask the missing question(s); if still failing, halt per Terminal State 2.
+
 ---
 
 ## Step 2 — Detect environment
@@ -639,6 +672,8 @@ Surface known issues:
   framework treats it as risk-accepted. Tell the user this exists so
   they can make their own call.
 
+**Verify Step 3:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `install.ps1`/`install.sh` once; if still failing, capture the install script's exit code + last 20 lines of output and halt per Terminal State 2.
+
 ---
 
 ## Step 4 — Install pm2 + (Windows only) pm2-installer
@@ -653,6 +688,8 @@ the user loses their bot every time Windows updates. The original
 project hit a 4-minute live-bot outage from this exact failure mode.
 
 `pm2-installer`: https://github.com/jessety/pm2-installer
+
+**Verify Step 4:** `pm2 --version && echo PM2_OK`. If you don't see `PM2_OK`, the global install didn't land — retry `npm install -g pm2` once; if still failing, halt per Terminal State 2 (likely a `npm` PATH issue or sandbox problem from Step 2).
 
 ---
 
@@ -695,6 +732,8 @@ the shipped gitignore).
 **Never echo any secret to the chat.** Confirm "key configured" or
 "autogen will populate on boot" without showing values.
 
+**Verify Step 5:** `grep -q '^STRATOS_ALLOW_AUTOGEN=1$' .env && echo ENV_OK` AND (only if live mode) `grep -q '^HELIUS_MAINNET_URL=https' .env && echo HELIUS_OK`. If either OK is missing, re-write the `.env` line; if still failing, halt per Terminal State 2. **Never echo the URL value when verifying.**
+
 ---
 
 ## Step 6 — Helius API key (only if live trading)
@@ -708,6 +747,8 @@ If `goal` is `small-live` or `multi-bot`:
    echoing
 5. Remind: `.env` and `pm2.config.cjs` must NEVER be committed (already
    in `.gitignore` — verify)
+
+**Verify Step 6:** same as Step 5's verify — the Helius key write happens through the `.env` file, so the `HELIUS_OK` check covers it.
 
 ---
 
@@ -767,6 +808,8 @@ Have the user fund the funder pubkey with at least 0.05 SOL for rent
 + their intended USDC trading capital ($100 minimum, $500-$1000 if
 `goal` is `multi-bot`).
 
+**Verify Step 7** (only if live mode, after the server has booted at least once via Step 11): `grep -q '^BOT_HD_MNEMONIC=' runtime/bots/local.env && echo MNEMONIC_OK`. If you don't see `MNEMONIC_OK`, the autogen didn't fire — confirm `STRATOS_ALLOW_AUTOGEN=1` is in `.env` (Step 5's verify), restart the server once, recheck; if still failing, halt per Terminal State 2. **Never echo the mnemonic value when verifying — `grep -q` is silent by design.**
+
 ---
 
 ## Step 8 — Strategy selection
@@ -812,6 +855,8 @@ in-character paragraph as a taste-test.
 
 Once user picks: update `personality_id` in the profile JSON.
 
+**Verify Step 9:** `python -c "import json; p=json.load(open('runtime/lab/user-profile.json')); pid=p.get('personality_id'); assert pid in ['default','crypto-bro','drill-sergeant','surf-bro','quant-professor','hacker'], f'bad personality_id: {pid}'; print('PERSONALITY_OK')"`. If you don't see `PERSONALITY_OK`, re-write the profile field with the user's pick; if still failing, halt per Terminal State 2.
+
 ---
 
 ## Step 10 — Pick theme
@@ -828,6 +873,8 @@ Otherwise AskUserQuestion with the 5 shipped themes:
 
 Symlink or copy `themes/<id>.css` to
 `bots/src/server/active-theme.css`. Update `theme_id` in profile JSON.
+
+**Verify Step 10:** `test -f bots/src/server/active-theme.css && diff -q "themes/$(python -c "import json; print(json.load(open('runtime/lab/user-profile.json'))['theme_id'])").css bots/src/server/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-copy the chosen theme over `active-theme.css`; if `diff` still differs, halt per Terminal State 2.
 
 ---
 
@@ -879,6 +926,12 @@ schtasks entry. If `pm2-installer` was skipped, the bot fleet won't
 restart automatically after a Windows reboot; the user has to
 manually run `pm2 resurrect` post-reboot. Strongly recommend
 installing it.
+
+**Verify Step 11:**
+1. `pm2 list | grep -E 'bear-watch-server-stratos.*online' | grep -q online && pm2 list | grep -E 'paper-trade-bot-stratos.*online' | grep -q online && echo PM2_FLEET_OK`
+2. (Windows only) `schtasks /query /fo table 2>nul | findstr STRATOS | find /c "STRATOS-" ` should be `6`
+
+If `PM2_FLEET_OK` is missing, re-run `pm2 start bear-watch/pm2.config.cjs && pm2 save` once; if still missing, halt per Terminal State 2 with the pm2 log paths. If schtasks count is < 6 on Windows, re-run `register-scheduled-tasks.ps1` once; if still < 6, halt and surface which tasks didn't register.
 
 ---
 
