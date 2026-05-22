@@ -1,6 +1,6 @@
 ---
 name: pbx-recover-bot
-description: Use when the user says ANY of "something's wrong with the bot", "the bot is broken", "help me debug", "the dashboard isn't loading", "I got an alert", "health-check is failing", "the bot crashed", or describes any operational problem with their PBX Stratos installation. Walks through the standard diagnostic flow — pm2 status, health-check.py output, last 50 alerts, recent commits, pm2 logs — and prescribes a recovery action. Knows about all common failure modes (file-watch reload spam, MSIX sandbox issues, paper-trade heartbeat stale, pm2 dropped apps after Windows reboot, Helius RPC outages, etc.) and tries the cheapest plausible fix first.
+description: PBX Stratos installation recovery helper. Use ONLY when the user is inside a cloned PBX-Stratos repository AND describes an operational problem with their already-installed PBX Stratos (dashboard not loading at `http://localhost:8787`, pm2 apps stopped, `health-check.py` failing, paper-trade heartbeat stale, alert received). Canonical trigger phrases — "the PBX Stratos bot is broken", "PBX Stratos dashboard isn't loading", "the bot crashed", "I got a STRATOS alert". Walks the standard PBX-Stratos diagnostic flow (pm2 status → `/debug/health` → recent alerts → recent commits → pm2 logs) and prescribes the cheapest plausible fix first. Does not fire on generic "my bot is broken" without PBX-Stratos context.
 ---
 
 # PBX Stratos — Recover Bot

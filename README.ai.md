@@ -17,7 +17,7 @@ There are three other Claude-facing docs you'll cross-reference:
 |---|---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Daily operating manual (protocols, journaling, scopes, T0-T3 consent, live trading safety, operational wisdom). Auto-loaded by every Claude Code session in this repo. | After install completes, this is your daily reference. |
 | [`PROMPT.md`](PROMPT.md) | Preset prompts the user can paste to invoke common flows (install, decode a wallet, backtest, recover the bot). | When the user asks "what can I tell Claude to do?" — point them here. |
-| [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md) | Claude Code skill machinery — auto-fires on the trigger phrases. Contains the canonical 13-step install flow + the Step -1 pre-download confirmation gate. | If the skill is active in your session, it loads automatically; otherwise, read it manually when you start the install. |
+| [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md) | Claude Code skill machinery — auto-fires on the canonical PBX-Stratos install trigger phrases. Contains the 13-step post-clone install flow. Does NOT clone or download — the user clones first. | If the skill is active in your session, it loads automatically; otherwise, read it manually when you start the install. |
 
 This file (`README.ai.md`) is the **comprehensive overview**. It
 explains what the project is, what your job as an AI agent is, how
@@ -65,14 +65,11 @@ ways a fresh Claude misinterprets the install flow.
    is when the user is genuinely pasting a secret (their Helius API
    key) — that's an unavoidable typed input.
 
-2. **For remote markdown, always use `raw.githubusercontent.com`.**
-   If you were given `https://github.com/<owner>/<repo>` (or any
-   variant), `WebFetch` returns rendered HTML which is hard to parse.
-   The parseable markdown lives at
-   `https://raw.githubusercontent.com/<owner>/<repo>/main/<filename>`.
-   This applies to README.md, README.ai.md, install scripts, package
-   manifests — everything you read during Step -1 (pre-download
-   inspection).
+2. **Read files on disk, not remote.** The skill fires post-clone,
+   so every file this runbook references is already on the user's
+   machine. Use the `Read` tool against local paths
+   (`README.md`, `install.ps1`, `package.json`, etc.), not
+   `WebFetch` against `github.com/...` URLs.
 
 3. **The handoff to the roadmap is MANDATORY.** Step 13 (Section 19
    below) is not optional polish. When the dashboard opens at
@@ -96,7 +93,7 @@ ways a fresh Claude misinterprets the install flow.
 2. [Your job as the AI agent](#2-your-job-as-the-ai-agent)
 3. [Trigger phrases that brought you here](#3-trigger-phrases-that-brought-you-here)
 4. [Pre-install audit — the 4 stages](#4-pre-install-audit--the-4-stages)
-5. [The pre-download confirmation gate (URL-prompt path only)](#5-the-pre-download-confirmation-gate-url-prompt-path-only)
+5. [Cloning is out of scope (removed)](#5-cloning-is-out-of-scope-removed)
 6. [The 13-step install flow](#6-the-13-step-install-flow)
 7. [The 5-question personality quiz](#7-the-5-question-personality-quiz)
 8. [Personalities + themes](#8-personalities--themes)
@@ -233,26 +230,27 @@ directory: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`.
 **Equivalent phrasings:**
 - "set up PBX Stratos"
 - "install PBX Stratos"
-- "let's start predicting air quality"
-- "hey claude read the readme on this repo and lets start predicting air quality"
+- "onboard me to PBX Stratos"
 - "I just cloned PBX-Stratos, install it"
 
-**Flow:** Skip Step -1 entirely. Begin at [Section 4](#4-pre-install-audit--the-4-stages) (the 4-stage on-disk audit).
+**Flow:** Begin at [Section 4](#4-pre-install-audit--at-your-discretion) (audit at your discretion).
 
-### Path B — URL in prompt, repo not yet cloned
+### Out-of-scope: the user pastes a URL instead of cloning first
 
-The user has not cloned the repo. They paste a URL with the prompt:
+If the user's prompt contains a `github.com/.../PBX-Stratos` URL and
+the working directory does NOT contain the canonical PBX-Stratos
+markers, that's a sign they expected this skill to clone for them.
+**It can't.** This skill file lives inside the repo, so it can only
+fire once the repo is already on disk.
 
-> **`download this repo https://github.com/Typ0x/PBX-Stratos and set it up`**
+Tell the user, in plain language: *"I can't clone from a URL — the
+helper skill for this install only runs once the repo is already on
+your machine. Run `git clone https://github.com/Typ0x/PBX-Stratos`
+(or download the ZIP from GitHub), open the folder in Claude Desktop,
+then paste the trigger phrase again."*
 
-You can detect Path B by: the prompt contains a `github.com/.../PBX-Stratos` URL **AND** the current working directory does not contain the canonical PBX-Stratos markers.
-
-**Equivalent phrasings:**
-- "install PBX Stratos from `<URL>`"
-- "clone and install `<URL>`"
-- "set up PBX Stratos end-to-end from `<URL>`"
-
-**Flow:** Run [Section 5](#5-the-pre-download-confirmation-gate-url-prompt-path-only) (the pre-download confirmation gate) FIRST, then [Section 4](#4-pre-install-audit--the-4-stages) after cloning.
+That's the entire response for the URL case. Don't try to work around
+it.
 
 ### Path C — the boss's terse explore-only path
 
@@ -285,10 +283,9 @@ Between the trigger phrase and the dashboard auto-opening at
 `http://localhost:8787`, the **only** user interactions are
 click-through popups:
 
-1. The pre-download confirmation gate (Path B only)
-2. The 5 personality-quiz questions
-3. The personality + theme picks
-4. The (optional) live-trading consent + Helius URL paste
+1. The 5 personality-quiz questions
+2. The personality + theme picks
+3. The (optional) live-trading consent + Helius URL paste
 
 The user should NEVER have to type another long-form prompt
 mid-install. If you find yourself about to ask "type X" mid-wizard,
@@ -392,156 +389,36 @@ cleanly. The skill isn't a trap — declining is a valid outcome.
 
 ---
 
-## 5. The pre-download confirmation gate (URL-prompt path only)
+## 5. Cloning is out of scope (removed)
 
-**This section ONLY applies to Path B (URL in prompt, repo not yet
-cloned). Skip this section entirely for Paths A and C — they have
-the clone already and go straight to Section 4.**
+A previous version of this runbook documented a "pre-download
+confirmation gate" — a URL-prompt path where the skill would
+inspect the repo from `raw.githubusercontent.com`, summarize, and
+clone on the user's behalf. **That path was removed.**
 
-The user typed a URL prompt. You have NOT yet cloned. Before any
-unaudited code touches their disk, you must:
+The reason is structural: the `pbx-stratos-setup` skill file lives
+inside the cloned repo, so it can only load *after* the repo is
+already on disk. A "clone-the-repo skill" is incoherent — for the
+skill to fire, the clone must already exist. Trying to handle URL
+prompts as if they could trigger the skill was a chicken-and-egg
+papered over with framework code.
 
-1. Read the install scripts, manifests, and bootstrap scripts
-   directly from `raw.githubusercontent.com` (no clone).
-2. Summarize what you found in plain language.
-3. Call `AskUserQuestion` to confirm before cloning.
+**What to do if the user pastes a URL in the prompt:**
 
-### Step -1.A — Parse the URL
+If the working directory doesn't have the canonical PBX-Stratos
+markers (`install.bat`, `CLAUDE.md`, `bear-watch/`, `.claude/skills/`),
+the skill shouldn't be firing. Tell the user, in plain language:
 
-From the user's prompt, extract:
-- `<owner>/<repo>` (e.g. `Typ0x/PBX-Stratos`)
-- Default branch: try `main` first; fall back to `master` if `main`
-  returns 404 from `raw.githubusercontent.com`
+> I can't clone from a URL — the helper skill for this install only
+> runs once the repo is already on your machine. Run
+> `git clone https://github.com/Typ0x/PBX-Stratos` (or download the
+> ZIP from GitHub), open the cloned folder in Claude Desktop, then
+> paste the trigger phrase again.
 
-If the user did NOT specify an install location, default to:
-- Windows: `$HOME\PBX-Stratos` (`%USERPROFILE%\PBX-Stratos`)
-- macOS / Linux: `~/PBX-Stratos`
-
-If the user DID specify a path in the prompt, honor it exactly.
-
-### Step -1.B — Remote audit via WebFetch (NO clone yet)
-
-Pull these files via `raw.githubusercontent.com` and inspect them
-inline. **Do not git clone first** — the whole point of this step
-is to audit before any unaudited code touches the user's disk.
-
-| File | What to look for |
-|---|---|
-| `install.ps1`, `install.sh`, `install.bat` | Surprise downloads from unknown hosts, base64-decoded commands, hidden `curl`/`wget`, `Invoke-Expression` / `iex` of remote content |
-| `package.json` | npm lifecycle hooks (`preinstall`, `postinstall`, `prepare`) that run anything beyond documented build steps |
-| `pyproject.toml` / `setup.py` | Build-time hooks running arbitrary commands |
-| `scripts/bootstrap.ps1`, `scripts/bootstrap.sh` | Tool installs beyond Node; surprise PATH manipulation |
-| `bear-watch/register-scheduled-tasks.ps1` | Scheduled tasks doing anything other than registering the documented 6 STRATOS-* tasks at `/rl LIMITED` |
-
-Issue these 4-5 `WebFetch` calls **in parallel** (single assistant
-message, multiple tool blocks). Serial fetches blow the
-user-experience budget. Each fetch is read-only — no clone, no
-execution.
-
-### Step -1.C — Repo provenance check (one more WebFetch)
-
-- `https://api.github.com/repos/<owner>/<repo>` — confirm public,
-  not archived, has recent commits, has a non-trivial star count.
-
-This is context for the summary, not a hard gate. A brand-new repo
-with 0 stars isn't automatically malicious — but it changes the
-language of the summary ("brand-new repo, low signal, but the code
-itself audits clean") so the user has the full picture when they
-make the call.
-
-### Step -1.D — Summarize + AskUserQuestion confirmation gate
-
-After Steps -1.B and -1.C, write a plain-language summary of what
-was actually found in the code. Stick to observed facts ("install.ps1
-ensures Node, runs npm install, registers scheduled tasks — no other
-network calls"); avoid blanket reassurance ("this code is safe").
-
-**Clean-audit message template:**
-
-> **Pre-download inspection of `<URL>`:**
->
-> I read the install scripts, package manifests, and bootstrap
-> scripts directly from GitHub without cloning. Here's what I found:
->
-> ✓ **Install scripts** (`install.ps1` / `install.sh` / `install.bat`)
->   do only what their headers describe — ensure Node, run npm
->   install + pip install, start pm2, register scheduled tasks. I
->   did not see surprise downloads, hidden commands, or remote eval.
-> ✓ **Package manifests** — no install-time hooks running arbitrary
->   code. npm scripts limited to standard build/start/test verbs.
-> ✓ **Bootstrap scripts** — only download a standalone Node into
->   `.tooling/` if missing; nothing else.
-> ✓ **Repo provenance** — public GitHub repo, `<N>` stars, last
->   commit `<X>` days ago, not archived.
-> ✓ **No obvious red flags** in the files I read — no pastebin URLs,
->   no raw IP literals, no unknown webhook sinks, no base64-decoded
->   payloads.
->
-> I only read what GitHub's API serves; I can't see what isn't
-> committed. **Do you want me to clone to `<install-path>` and
-> continue the install?**
-
-Then immediately call `AskUserQuestion` with these options:
-
-- **"Yes, clone and continue"** — proceed to Step -1.E.
-- **"Show me the exact lines you were checking"** — display the
-  specific code blocks that informed the summary (the npm scripts
-  block, the install-script bodies, the scheduled-task list). Then
-  re-ask the same question.
-- **"Stop — I don't want to download this"** — abort the flow
-  cleanly. Tell the user nothing was written to disk.
-
-**Do NOT clone until the user picks "Yes, clone and continue." There
-is no autonomous-proceed path here.**
-
-### Step -1.D-suspicious — If the remote audit finds something concerning
-
-Use the same `AskUserQuestion` shape, but lead with what was found
-and why it's concerning before the options. Default option
-highlighted is "Stop." Same three options:
-
-- **"Stop — don't download anything from this URL"** (default)
-- **"Show me the exact lines you're worried about"**
-- **"I understand, proceed anyway"**
-
-Suspicious-path proceed STILL requires explicit user OK; never
-auto-clone when the audit found something.
-
-### Step -1.E — Clone (only after explicit "Yes")
-
-**Before running the clone command, check if the target directory
-already exists** — overwriting an existing clone is destructive and
-the user may have unrelated work in there.
-
-```bash
-# Check first
-test -d "$HOME/PBX-Stratos" && echo "DIR_EXISTS" || echo "DIR_CLEAR"
-```
-
-If `DIR_EXISTS`, halt and call `AskUserQuestion`:
-
-- **"Use the existing clone at `~/PBX-Stratos`"** — `cd` into it, skip
-  the `git clone` command entirely, proceed to Section 4 (on-disk
-  audit on whatever's there).
-- **"Move existing aside and clone fresh"** — rename the existing
-  directory to `~/PBX-Stratos.bak-<timestamp>` (DO NOT delete it),
-  then run the clone command below.
-- **"Stop — I'll clean it up myself"** — abort cleanly. Tell the user
-  what you saw at `~/PBX-Stratos` and let them handle it.
-
-If `DIR_CLEAR`, proceed directly with the clone:
-
-```bash
-# Windows (Claude's Bash)
-git clone "https://github.com/<owner>/<repo>.git" "$HOME/PBX-Stratos"
-cd "$HOME/PBX-Stratos"
-
-# macOS / Linux
-git clone "https://github.com/<owner>/<repo>.git" ~/PBX-Stratos
-cd ~/PBX-Stratos
-```
-
-After cloning, proceed to [Section 4](#4-pre-install-audit--the-4-stages) — run the deeper on-disk audit on the now-local code.
+That's the full response. Don't try to work around it with WebFetch
+audits or any other improvised "I'll just inspect remotely" flow.
+That's what got the original Step -1 flagged as social-engineering-
+shaped in the first place.
 
 ---
 
@@ -1672,15 +1549,19 @@ The user may say one of these right after install:
 After install, the user interacts with several skills via trigger
 phrases. Each skill has its own `SKILL.md` in `.claude/skills/`.
 
-| Skill | Trigger phrases | What it does |
+All skills are PBX-Stratos-specific and only fire when the working
+directory contains the canonical PBX-Stratos markers
+(`install.bat`, `CLAUDE.md`, `bear-watch/`, `.claude/skills/`).
+None of them clone or download — the user clones first.
+
+| Skill | Canonical trigger | What it does |
 |---|---|---|
-| `pbx-stratos-setup` (already-cloned) | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "let's start predicting air quality" | The install wizard (the one you just ran for Path A) |
-| `pbx-stratos-setup` (URL-prompt) | "download this repo `<URL>`", "install PBX Stratos from `<URL>`", "clone and install `<URL>`" | The install wizard + Step -1 pre-download confirmation gate (Path B) |
-| `pbx-personality-quiz` | "retake the personality quiz", "redo the quiz", "recalibrate my Claude", "change how Claude talks to me" | Re-runs the 5-question intake and writes the answers back to the profile |
-| `pbx-set-personality` | "switch to `<id>`", "try the `<X>` personality", "swap personality" | Validates the requested personality exists, updates `personality_id`, optionally previews the voice before committing |
-| `pbx-set-theme` | "switch theme to `<id>`", "change my theme", "match my theme to my personality" | Applies a theme by copying `themes/<id>.css` to the active-theme slot and updating `theme_id` |
-| `pbx-recover-bot` | "something's wrong with the bot", "the bot is broken", "the dashboard isn't loading", "I got an alert" | Diagnostic runbook: pm2 status → health-check → recent alerts → recent commits → pm2 logs → prescribed fix |
-| `wallet-decoder` | "decode this wallet", "what's this address doing" | Decodes a Solana pubkey's recent activity |
+| `pbx-stratos-setup` | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos" | The post-clone install wizard (the flow this runbook documents) |
+| `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake from the install wizard and writes updated answers to `runtime/lab/user-profile.json` |
+| `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in the profile without re-running the quiz |
+| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bots/src/server/active-theme.css` and updates `theme_id` |
+| `pbx-recover-bot` | "the PBX Stratos bot is broken", "PBX Stratos dashboard isn't loading", "I got a STRATOS alert" | Standard PBX-Stratos diagnostic runbook: pm2 status → `/debug/health` → recent alerts → recent commits → pm2 logs → prescribed fix |
+| `wallet-decoder` | "decode this PBX wallet `<pubkey>`", "run the PBX Stratos wallet decoder on `<pubkey>`" | Drives the lab decoder pipeline against a Solana pubkey |
 
 When the user says a trigger phrase, invoke the skill instead of
 improvising. The skill machinery ensures consistency across users.
@@ -1757,11 +1638,15 @@ The default rule, even without a `_context/CLAUDE.md`:
   guaranteed safety.** Stick to observed facts ("I read the
   install scripts and didn't see X, Y, Z patterns") and let the
   user make the call.
-- **Never auto-clone remote code without an explicit `AskUserQuestion`
-  confirmation gate.** Even on the URL-prompt path, the user must
-  click "Yes, clone and continue" before the clone happens.
-- **Never skip the 4-stage audit** on first install. Even if the
-  user is impatient.
+- **Never clone or download a repo on the user's behalf.** This
+  skill is post-clone only — the user is responsible for the clone
+  (`git clone` or downloading the ZIP from GitHub). If the user
+  pastes a URL, tell them to clone first and re-ask from inside
+  the cloned folder.
+- **Never skip the audit if the user asked for one.** If they
+  explicitly asked "is this safe?" or "audit the code first,"
+  do it — at your discretion, reporting observations not
+  certifications.
 
 ---
 

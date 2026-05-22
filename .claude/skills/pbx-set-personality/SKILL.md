@@ -1,6 +1,6 @@
 ---
 name: pbx-set-personality
-description: Use when the user says ANY of "switch to <personality-id>", "change personality to X", "swap personality", "let me try the <X> personality", "try crypto-bro / surf-bro / drill-sergeant / quant-professor / hacker", "switch back to default", or wants to change just their Claude personality without re-running the full personality quiz. Reads available personalities from `.claude/personalities/`, validates the requested ID exists, optionally previews the personality voice before committing, updates `personality_id` in `runtime/lab/user-profile.json`, and optionally also updates `theme_id` if the user wants the matching theme.
+description: PBX Stratos personality switcher. Use ONLY when the user is inside a cloned PBX-Stratos repository AND asks to switch between the 6 PBX-Stratos Claude personalities (default / crypto-bro / drill-sergeant / surf-bro / quant-professor / hacker) without re-running the full quiz. Canonical trigger phrases — "switch PBX Stratos personality to <id>", "try the <id> personality", "switch back to default personality". Reads available personalities from `.claude/personalities/`, validates the requested ID, optionally previews the voice, updates `personality_id` in `runtime/lab/user-profile.json`, optionally also updates `theme_id` if the user wants the matching theme.
 ---
 
 # PBX Stratos — Set Personality
