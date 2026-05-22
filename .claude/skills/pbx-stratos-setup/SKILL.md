@@ -605,17 +605,46 @@ pm2 start bear-watch/pm2.config.cjs
 pm2 save
 ```
 
-On Windows, register scheduled tasks (use
-`bear-watch/register-scheduled-tasks.ps1` if it exists, else create
-each via `schtasks /create`):
-- STRATOS-HealthCheck (every 5 min)
-- STRATOS-WeatherPull (every hour)
-- STRATOS-DailyDigest (daily 6 AM)
-- STRATOS-StateBackup (daily 3 AM)
-- STRATOS-CodebaseBackup (Sundays 3:30 AM)
-- STRATOS-MetaWatchdog (every 5 min)
-- STRATOS-PM2Resurrect (at user logon — requires pm2-installer from
-  Step 4)
+**On Windows, register the scheduled tasks — REQUIRED**, not
+optional. Without these, the dashboard's Scheduled Watchdogs panel
+sits empty and meta-recovery never fires:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File bear-watch\register-scheduled-tasks.ps1
+```
+
+The script registers all 6 STRATOS-* tasks at `/rl LIMITED` (standard
+user privileges — **no admin elevation needed**), each wrapped by
+`silent-run.vbs` so no console window pops on fire. Tasks installed:
+
+- `STRATOS-HealthCheck`     (every 5 min)   → run-health-check.bat → health-check.py
+- `STRATOS-WeatherPull`     (hourly)        → run-weather-pull.bat (stub — see file header)
+- `STRATOS-DailyDigest`     (daily 06:00)   → run-daily-digest.bat (stub)
+- `STRATOS-StateBackup`     (daily 03:00)   → run-backup-state.bat (stub)
+- `STRATOS-CodebaseBackup`  (Sun 03:30)     → run-backup-codebase.bat (stub)
+- `STRATOS-MetaWatchdog`    (every 5 min)   → run-meta-watchdog.bat (real HTTP-based outage detection)
+
+The 4 stub wrappers log a heartbeat to
+`runtime/lab/_scheduled_logs/<task>.log` on each fire and do minimal
+meaningful work. Each .bat's header documents what the real version
+should do — users expand them as part of the bear-watch ops-tooling
+roadmap. The Health dashboard's Scheduled Watchdogs panel shows
+Last Run / Last Result for all 6 once they've fired at least once.
+
+Verify with:
+
+```powershell
+schtasks /query /fo table | findstr STRATOS
+```
+
+Should list 6 rows.
+
+Separately, **PM2 auto-resurrect on logon** is handled by the
+`pm2-installer` Windows Service installed in Step 4 — not a
+schtasks entry. If `pm2-installer` was skipped, the bot fleet won't
+restart automatically after a Windows reboot; the user has to
+manually run `pm2 resurrect` post-reboot. Strongly recommend
+installing it.
 
 ---
 
