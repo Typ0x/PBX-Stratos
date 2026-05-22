@@ -58,7 +58,7 @@ fires WAY before that.
 | ID | Task | Done when |
 |----|------|-----------|
 | `s1.t1` | Install **Claude Desktop** with a Pro Plan account, then toggle **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass permissions" ON** | installer succeeded, signed in with Pro, both toggles ON (without these the install takes ~5× longer) |
-| `s1.t2` | Clone the repo (`git clone https://github.com/Typ0x/PBX-Stratos` or download the ZIP from GitHub), open the folder in Claude Desktop, then paste the trigger phrase: *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* | Claude opens the wizard from inside the cloned folder. |
+| `s1.t2` | Open Claude Desktop and paste one of two prompts. **Seamless:** *"download this repo https://github.com/Typ0x/PBX-Stratos and set it up"* — Claude inspects the install scripts, summarizes once, clones + installs after your confirm. **Already cloned (`git clone` first):** *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* from inside the cloned folder. | Claude has either summarized findings + cloned, OR opened the install wizard inside the existing clone. |
 | `s1.t3` | Sit through the 4-stage on-disk safety audit (host / Claude CLI / clone-integrity / 4 security greps) + approve | Claude reports each stage in plain English, you click "Yes, let's go" |
 | `s1.t4` | Answer the 5-question personality quiz (tech level / comm style / goal / consent / autonomy) | `runtime/lab/user-profile.json` is written with your 5 answers |
 | `s1.t5` | Paste your free **Helius RPC API key** when Claude asks — `.env` is written, ACL-locked, and `.gitignore` confirmed | `.env` exists at repo root, owner-only ACL, `HELIUS_MAINNET_URL` populated (key NEVER echoed) |

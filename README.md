@@ -154,28 +154,47 @@ This is the smoothest path. You need three things first:
    install still works** — you'll just click through more permission
    popups. Either is fine.
 
-Clone the repo yourself first (`git clone https://github.com/Typ0x/PBX-Stratos`
-or download the ZIP from GitHub), open the cloned folder in Claude
-Desktop, then **paste this into the chat box** (the main text input
-at the bottom of the app — not your terminal, browser, or notepad):
+Then pick whichever feels easier:
+
+**Option A — let Claude do everything (seamless):**
+
+Paste this directly into Claude Desktop's chat box (the main text
+input at the bottom of the app — not your terminal, browser, or
+notepad):
+
+```
+download this repo https://github.com/Typ0x/PBX-Stratos and set it up
+```
+
+Claude reads the install scripts from GitHub before downloading,
+summarizes what it saw, asks you to confirm once, then clones to
+`~/PBX-Stratos` and runs the install.
+
+**Option B — clone yourself first, then let Claude run the install:**
+
+```
+git clone https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
+```
+
+Open the cloned folder in Claude Desktop, then paste:
 
 ```
 Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
-Claude will (at its discretion) audit the code on disk, summarize
-what it found, and ask you to confirm before running the installer.
-From there: 5 short personality-quiz questions → installs Node +
-Python deps → asks if you want live trading (yes walks you through
-the Helius API key + wallet generation; no skips straight ahead) →
-picks a starter strategy with you → applies your personality + theme
-→ starts the pm2 fleet → registers scheduled tasks → opens the
-dashboard at `http://localhost:8787` in your browser.
+Either option lands you in the same flow afterward: 5 short
+personality-quiz questions → installs Node + Python deps → asks if
+you want live trading (yes walks you through the Helius API key +
+wallet generation; no skips straight ahead) → picks a starter
+strategy with you → applies your personality + theme → starts the
+pm2 fleet → registers scheduled tasks → opens the dashboard at
+`http://localhost:8787` in your browser.
 
 **Total time:** ~30 minutes on a fresh machine, ~10 minutes if Node
 + Python + pm2 are already installed.
 
-The only interactions between your trigger phrase and the dashboard
+The only interactions between the trigger phrase and the dashboard
 opening are **click-through popups** (the audit confirmation, the 5
 quiz questions, the personality + theme picks, and pasting your
 Helius URL if you opted into live trading). You don't need to type
@@ -782,23 +801,35 @@ in [`README.ai.md`](README.ai.md).
 
 ## Ready?
 
-Clone the repo yourself first:
+Open Claude Desktop (Pro Plan; automode optional but smoother, see
+**How to install** above). Two ways:
+
+**Seamless — Claude does everything:**
+
+```
+download this repo https://github.com/Typ0x/PBX-Stratos and set it up
+```
+
+Claude reads the install scripts from GitHub first, summarizes what
+it saw, asks you to confirm once, then clones to `~/PBX-Stratos`
+and runs the install.
+
+**Or clone first, then trigger the install:**
 
 ```
 git clone https://github.com/Typ0x/PBX-Stratos
 cd PBX-Stratos
 ```
 
-Open the cloned folder in Claude Desktop (Pro Plan; automode
-optional but smoother, see **How to install** above) and paste:
+Open the cloned folder in Claude Desktop and paste:
 
 > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
 
-Claude will (at its discretion) read through the code on disk,
-**summarize what it found in plain language and ask you to confirm**,
-then ask 5 short questions to figure out how you like to work, then
-install everything with your consent at each step. The dashboard
-auto-opens in your browser when it's ready.
+Either way, Claude **summarizes what it found in plain language and
+asks you to confirm** once, then asks 5 short questions to figure
+out how you like to work, then installs everything with your consent
+at each step. The dashboard auto-opens in your browser when ready.
 
 Prefer to skip Claude entirely? Just run `install.bat` (Windows) or
-`bash install.sh` (macOS/Linux) — same end state, no AI involvement.
+`bash install.sh` (macOS/Linux) from a cloned copy — same end state,
+no AI involvement.

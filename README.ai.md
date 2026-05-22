@@ -65,11 +65,16 @@ ways a fresh Claude misinterprets the install flow.
    is when the user is genuinely pasting a secret (their Helius API
    key) — that's an unavoidable typed input.
 
-2. **Read files on disk, not remote.** The skill fires post-clone,
-   so every file this runbook references is already on the user's
-   machine. Use the `Read` tool against local paths
-   (`README.md`, `install.ps1`, `package.json`, etc.), not
-   `WebFetch` against `github.com/...` URLs.
+2. **Disk-first reads, remote when pre-clone.** Once the user has
+   cloned (Path A / Path C), every file this runbook references is
+   already on disk — use `Read` against local paths. The exception
+   is **Path B** (URL prompt, no clone yet): you'll be using
+   `WebFetch` to read README.ai.md and a few install scripts
+   *before* the clone exists. Always fetch the raw URL
+   (`https://raw.githubusercontent.com/<owner>/<repo>/main/<file>`),
+   not the rendered GitHub page (`https://github.com/...`), because
+   only raw returns parseable markdown / source. After the clone,
+   switch to local `Read`.
 
 3. **The handoff to the roadmap is MANDATORY.** Step 13 (Section 19
    below) is not optional polish. When the dashboard opens at
@@ -93,7 +98,7 @@ ways a fresh Claude misinterprets the install flow.
 2. [Your job as the AI agent](#2-your-job-as-the-ai-agent)
 3. [Trigger phrases that brought you here](#3-trigger-phrases-that-brought-you-here)
 4. [Pre-install audit — the 4 stages](#4-pre-install-audit--the-4-stages)
-5. [Cloning is out of scope (removed)](#5-cloning-is-out-of-scope-removed)
+5. [The pre-clone flow (URL-prompt path)](#5-the-pre-clone-flow-url-prompt-path)
 6. [The 13-step install flow](#6-the-13-step-install-flow)
 7. [The 5-question personality quiz](#7-the-5-question-personality-quiz)
 8. [Personalities + themes](#8-personalities--themes)
@@ -235,22 +240,23 @@ directory: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`.
 
 **Flow:** Begin at [Section 4](#4-pre-install-audit--at-your-discretion) (audit at your discretion).
 
-### Out-of-scope: the user pastes a URL instead of cloning first
+### Path B — the user pasted a URL, repo not yet on disk
 
-If the user's prompt contains a `github.com/.../PBX-Stratos` URL and
-the working directory does NOT contain the canonical PBX-Stratos
-markers, that's a sign they expected this skill to clone for them.
-**It can't.** This skill file lives inside the repo, so it can only
-fire once the repo is already on disk.
+The user's prompt contains a `github.com/.../PBX-Stratos` URL AND the
+current working directory does NOT contain the canonical markers.
+Typical phrasings: *"download this repo `<URL>` and set it up"*,
+*"clone and install `<URL>`"*, or any casual request to fetch + set
+up the repo from a link.
 
-Tell the user, in plain language: *"I can't clone from a URL — the
-helper skill for this install only runs once the repo is already on
-your machine. Run `git clone https://github.com/Typ0x/PBX-Stratos`
-(or download the ZIP from GitHub), open the folder in Claude Desktop,
-then paste the trigger phrase again."*
+**Important:** the `pbx-stratos-setup` skill cannot help yet — it
+lives inside the repo and only auto-loads after the clone exists.
+That's fine. **You handle the pre-clone phase using your own native
+tools** (`WebFetch` to read remote files, `Bash` to `git clone`),
+guided by the runbook in [Section 5](#5-the-pre-clone-flow-url-prompt-path).
+Once the clone exists and you `cd` into it, the skill activates and
+takes over the install.
 
-That's the entire response for the URL case. Don't try to work around
-it.
+**Flow:** Follow [Section 5](#5-the-pre-clone-flow-url-prompt-path) (one click-through audit gate, then clone), then [Section 4](#4-pre-install-audit--at-your-discretion) for the on-disk audit, then [Section 6](#6-the-13-step-install-flow) for the install.
 
 ### Path C — the boss's terse explore-only path
 
@@ -283,9 +289,10 @@ Between the trigger phrase and the dashboard auto-opening at
 `http://localhost:8787`, the **only** user interactions are
 click-through popups:
 
-1. The 5 personality-quiz questions
-2. The personality + theme picks
-3. The (optional) live-trading consent + Helius URL paste
+1. The pre-clone audit confirmation gate (Path B only — one click)
+2. The 5 personality-quiz questions
+3. The personality + theme picks
+4. The (optional) live-trading consent + Helius URL paste
 
 The user should NEVER have to type another long-form prompt
 mid-install. If you find yourself about to ask "type X" mid-wizard,
@@ -389,36 +396,134 @@ cleanly. The skill isn't a trap — declining is a valid outcome.
 
 ---
 
-## 5. Cloning is out of scope (removed)
+## 5. The pre-clone flow (URL-prompt path)
 
-A previous version of this runbook documented a "pre-download
-confirmation gate" — a URL-prompt path where the skill would
-inspect the repo from `raw.githubusercontent.com`, summarize, and
-clone on the user's behalf. **That path was removed.**
+**This section ONLY applies to Path B** — the user pasted a
+`github.com/.../PBX-Stratos` URL and the working directory does NOT
+contain the canonical PBX-Stratos markers. Path A (already-cloned)
+skips straight to [Section 4](#4-pre-install-audit--at-your-discretion).
 
-The reason is structural: the `pbx-stratos-setup` skill file lives
-inside the cloned repo, so it can only load *after* the repo is
-already on disk. A "clone-the-repo skill" is incoherent — for the
-skill to fire, the clone must already exist. Trying to handle URL
-prompts as if they could trigger the skill was a chicken-and-egg
-papered over with framework code.
+**Critical framing:** the `pbx-stratos-setup` skill is not loaded
+yet — it lives inside the repo. You're running this section using
+your own native tools (`WebFetch`, `Bash`, `AskUserQuestion`). The
+skill auto-loads after the clone exists and takes over from
+Section 6 onward.
 
-**What to do if the user pastes a URL in the prompt:**
+### Goal of this section
 
-If the working directory doesn't have the canonical PBX-Stratos
-markers (`install.bat`, `CLAUDE.md`, `bear-watch/`, `.claude/skills/`),
-the skill shouldn't be firing. Tell the user, in plain language:
+One audit summary, one confirmation popup, then clone. **No
+back-and-forth.** If the user pasted a URL, they want Claude to
+handle the download; your job is to do it safely and in one
+click-through.
 
-> I can't clone from a URL — the helper skill for this install only
-> runs once the repo is already on your machine. Run
-> `git clone https://github.com/Typ0x/PBX-Stratos` (or download the
-> ZIP from GitHub), open the cloned folder in Claude Desktop, then
-> paste the trigger phrase again.
+### Step -1.A — Parse the URL
 
-That's the full response. Don't try to work around it with WebFetch
-audits or any other improvised "I'll just inspect remotely" flow.
-That's what got the original Step -1 flagged as social-engineering-
-shaped in the first place.
+From the user's prompt, extract:
+- `<owner>/<repo>` (e.g. `Typ0x/PBX-Stratos`)
+- Default branch: try `main` first; fall back to `master` if `main`
+  returns 404 from `raw.githubusercontent.com`
+
+Default install location (no need to ask):
+- Windows: `$HOME\PBX-Stratos` (`%USERPROFILE%\PBX-Stratos`)
+- macOS / Linux: `~/PBX-Stratos`
+
+If the user explicitly specified a different path in the prompt,
+honor it.
+
+### Step -1.B — Light remote inspection (parallel WebFetch)
+
+Pull these files via `raw.githubusercontent.com/<owner>/<repo>/main/<path>`
+and read them inline. **Use parallel `WebFetch` calls** (single
+assistant message, multiple tool blocks) — serial fetches blow the
+UX budget.
+
+| File | What to skim |
+|---|---|
+| `install.ps1`, `install.sh`, `install.bat` | Surprise hosts, base64-decoded commands, hidden `curl`/`wget`, `Invoke-Expression` of remote content |
+| `package.json` (root + `bots/`) | npm lifecycle hooks (`preinstall`/`postinstall`/`prepare`) doing anything beyond standard build |
+| `pyproject.toml` | Build-time hooks running arbitrary commands |
+| `scripts/bootstrap.ps1`, `scripts/bootstrap.sh` | Tool installs beyond bundled Node; surprise PATH manipulation |
+| `bear-watch/register-scheduled-tasks.ps1` | Anything other than registering the documented 6 `STRATOS-*` tasks at `/rl LIMITED` |
+
+This is a light look, not a full code audit. Goal: catch the
+obvious red flags before any code touches the user's disk.
+
+### Step -1.C — Repo provenance (one more WebFetch)
+
+`https://api.github.com/repos/<owner>/<repo>` — confirm public,
+not archived, recent commits, basic provenance. Use as context for
+the summary; not a hard gate. A brand-new repo with 0 stars isn't
+automatically malicious — but if you see something genuinely
+unusual (archived, suspicious commit history), surface it.
+
+### Step -1.D — Summary + ONE AskUserQuestion (the only click)
+
+This is the only click-through gate before the clone. Get it right.
+
+Write a plain-language summary of what you actually observed. Stick
+to facts ("install.ps1 ensures Node, runs npm install, registers
+scheduled tasks, no surprise network calls"); avoid blanket
+reassurances ("this code is safe"). Report observations, not
+certifications.
+
+**Sample message shape (clean audit):**
+
+> I read the install scripts and manifests from GitHub before
+> cloning anything. Here's what I saw:
+>
+> - **Install scripts** do what their headers describe — ensure
+>   Node, run `npm install` + `pip install`, start pm2, register
+>   scheduled tasks. No surprise downloads, no hidden commands.
+> - **Package manifests** — no install-time hooks running anything
+>   beyond standard build steps.
+> - **Bootstrap** — only downloads a standalone Node into
+>   `.tooling/` if your system Node is missing.
+> - **Repo provenance** — public GitHub repo, recent commits, not
+>   archived.
+>
+> I'm reading what GitHub serves; I can't see anything not
+> committed. Want me to clone to `<install-path>` and run the
+> install?
+
+Then immediately call `AskUserQuestion` with three options:
+
+- **"Yes, clone and install"** (default) — proceed to Step -1.E.
+- **"Show me the exact lines you were checking"** — display
+  specific code blocks (npm scripts, install-script bodies,
+  scheduled-task list). Then re-ask the same question.
+- **"Stop — I don't want to download this"** — abort cleanly,
+  tell the user nothing was written to disk.
+
+If your audit found something genuinely concerning, lead with that
+in the summary and make the default option "Stop." But don't
+manufacture concern — clean audit = clean summary = "Yes" default.
+
+**Do NOT clone until the user picks "Yes."** No autonomous-proceed.
+
+### Step -1.E — Clone (after explicit "Yes")
+
+Check first if the target dir already exists:
+
+```bash
+# Bash
+test -d "$HOME/PBX-Stratos" && echo "DIR_EXISTS" || echo "DIR_CLEAR"
+```
+
+- **`DIR_CLEAR`** → clone:
+  ```bash
+  git clone "https://github.com/<owner>/<repo>.git" "$HOME/PBX-Stratos"
+  cd "$HOME/PBX-Stratos"
+  ```
+- **`DIR_EXISTS`** → halt, AskUserQuestion: "use existing clone" /
+  "rename existing to `~/PBX-Stratos.bak-<timestamp>` and clone
+  fresh" / "stop." Don't overwrite a directory the user may have
+  unrelated work in.
+
+After cloning, `cd` into the repo. The `pbx-stratos-setup` skill
+will now auto-load. Proceed to [Section 4](#4-pre-install-audit--at-your-discretion)
+(optional on-disk audit) and then [Section 6](#6-the-13-step-install-flow)
+(the install flow). From this point on the skill is driving — you're
+no longer running pre-clone native tools.
 
 ---
 
