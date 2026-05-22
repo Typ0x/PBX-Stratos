@@ -21,6 +21,8 @@ runtime/
 .env.*
 .env.local
 .env.*.local
+# Allow the documented example file (no real secrets in it).
+!.env.example
 *.key
 *.pem
 *-private*
