@@ -2,63 +2,58 @@
 
 Paste any of these into Claude Code to interact with the lab.
 
-## Install + onboard
+## Install + onboard (after you've cloned the repo)
 
-### Path A — clone first, then audit (recommended)
+**Step 1: clone the repo yourself.**
 
-The safer flow: clone the repo yourself, open the folder in Claude
-Desktop, then paste the canonical trigger phrase. Claude runs the
-4-stage on-disk audit on code you fetched and can inspect yourself,
-summarizes what it found, and asks you to confirm before any install
-action.
-
-```
+```bash
 git clone https://github.com/Typ0x/PBX-Stratos
 cd PBX-Stratos
 ```
 
-Open the folder in Claude Desktop, then:
+(Or download the ZIP from GitHub and unpack it.)
+
+**Step 2: open the folder in Claude Desktop, then paste this:**
 
 ```
 Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
-### Path B — let Claude clone for you (convenience option)
-
-If you'd rather not run `git clone` yourself, hand Claude the URL.
-Claude pulls the install scripts from `raw.githubusercontent.com`
-without cloning, reads them inline, summarizes what it found in plain
-language, and **asks you to confirm before cloning**. Only after you
-click "Yes, clone and continue" does it download to `~/PBX-Stratos`
-and run the install. Between this prompt and the dashboard
-auto-opening at `http://localhost:8787`, the only interactions are
-click-through popups (no second typed prompt).
+Equivalent phrasings (any of these work):
 
 ```
-download this repo https://github.com/Typ0x/PBX-Stratos and set it up
-```
-
-Equivalent phrasings that also trigger Path B:
-
-```
-install PBX Stratos from https://github.com/Typ0x/PBX-Stratos
+set up PBX Stratos
 ```
 
 ```
-clone and install https://github.com/Typ0x/PBX-Stratos
+install PBX Stratos
 ```
 
 ```
-set up PBX Stratos end-to-end from https://github.com/Typ0x/PBX-Stratos
+onboard me to PBX Stratos
 ```
 
-### Path C — the boss's terse 3-turn audit + dashboard launch
-
-Explore-only, no personality quiz, ~5 minutes:
-
 ```
-Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the "For Claude: Onboarding Runbook" section in README. Be brief.
+I just cloned PBX-Stratos — what now
 ```
+
+Claude will (optionally) audit the code at your request, then walk
+you through running `install.bat` / `install.sh`, the 5-question
+personality quiz, theme picker, optional live-trading enablement,
+and open the dashboard at `http://localhost:8787`.
+
+### Skip the gamified flow
+
+If you'd rather just install and skip the personality-quiz / theme
+walkthrough, the double-click installer handles everything:
+
+| Platform | Run this |
+|---|---|
+| Windows | Double-click `install.bat` |
+| macOS / Linux | `bash install.sh` |
+
+When it finishes, the dashboard auto-opens. You can run the
+personality quiz later by saying *"run the personality quiz."*
 
 ## Decode a wallet
 

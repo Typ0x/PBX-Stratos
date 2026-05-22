@@ -133,68 +133,71 @@ them without losing the rigor underneath.
 
 ## How to install
 
-Three install paths. Pick whichever fits.
+**Step 1: get the code on your machine.** Same as any other repo —
+clone or download the ZIP:
 
-### 1. Claude-driven (recommended for non-coders)
+```bash
+git clone https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
+```
 
-This is the smoothest path. You need three things first:
+(Or download the ZIP from the GitHub page and unzip it.)
 
-1. **[Claude Desktop](https://claude.ai/download)** (the desktop app, not the
-   browser version at `claude.ai`) installed and signed in.
-2. A **Claude Pro subscription** (~$20/month, paid). The free tier of
-   Claude won't drive this install — Claude Code is a Pro-tier feature.
-   If you're on free, upgrade in Claude Desktop's settings, or use the
-   double-click installer below (works without Pro).
-3. **(Optional — for advanced users)** Enable **automode** — what
-   Anthropic calls "bypass permissions mode" in Claude Desktop's
-   settings — for the smoothest install. Settings → Claude Code →
-   "Allow bypass permissions mode" ON → "Bypass permissions" ON.
-   With automode on, Claude doesn't get a permission popup for every
-   routine action and the install feels seamless. **With it off, the
-   install still works** — you'll just click through more permission
-   popups. Either is fine.
+**Step 2: install.** Two paths from here — pick whichever fits.
 
-Once those three are set, **paste ONE of the prompts below into Claude
-Desktop's chat box** (the main text input at the bottom of the app — not
-your terminal, browser, or notepad), then press Enter.
+### Option A — double-click installer (no Claude needed, ~5 min)
 
-**Path A — you've already cloned the repo + opened it (recommended):**
+| Platform | Run this |
+|---|---|
+| **Windows** | Double-click [`install.bat`](install.bat) at the repo root |
+| **macOS / Linux** | `bash install.sh` from the repo root |
+
+3-5 minutes on a fresh machine. Idempotent — safe to re-run. Handles
+Node, Python, npm install, pm2, scheduled tasks, dashboard launch.
+When it finishes, the dashboard auto-opens at
+`http://localhost:8787`. If you want to add a personality + theme
+later, open Claude Desktop and say *"run the personality quiz."*
+
+### Option B — Claude-driven (~10-30 min, gamified)
+
+For a guided walkthrough with personality picker, theme, optional
+live-trading enablement, and roadmap intro:
+
+1. **[Claude Desktop](https://claude.ai/download)** with a **Claude
+   Pro subscription** (~$20/month — Claude Code is a Pro feature).
+   Free-tier users: use Option A above instead.
+2. (Optional) Enable **automode** — what Anthropic calls "bypass
+   permissions" mode (Settings → Claude Code → "Allow bypass
+   permissions mode" ON → "Bypass permissions" ON). Smoother
+   install with it on; works without.
+3. Open the cloned `PBX-Stratos` folder in Claude Desktop, then
+   paste this into the chat box (the main text input at the bottom
+   of the app — not your terminal):
 
 ```
 Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
-Claude runs a 4-stage on-disk audit, summarizes what it found, and
-asks you to confirm before installing anything.
+Equivalent phrasings (any of these work): *"set up PBX Stratos"*,
+*"install PBX Stratos"*, *"onboard me to PBX Stratos"*.
 
-**Path B — let Claude clone for you (convenience option):**
+Claude will optionally audit the code at your request (reporting
+observations honestly, not certifying safety on the repo's behalf),
+then walk you through running `install.bat` / `install.sh`, the
+5-question personality quiz, theme picker, optional Helius API key +
+wallet generation if you want live trading, and open the dashboard.
+The only interactions are click-through popups + pasting your
+Helius URL if applicable.
 
-```
-download this repo https://github.com/Typ0x/PBX-Stratos and set it up
-```
+If Claude declines to drive the gamified install (which it might for
+an unfamiliar trading bot — that's reasonable), it should point you
+back at Option A. Both end with the same working dashboard.
 
-Claude reads the install scripts directly from GitHub without
-cloning, summarizes what they do, and asks you to confirm before any
-download. Only after your explicit "yes" does it clone and continue.
+### Option C — full manual setup
 
-**What happens next (either path):**
-
-Claude audits → asks you 5 short personality-quiz questions →
-installs Node + Python deps → asks if you want live trading (yes
-walks you through the Helius API key + wallet generation; no skips
-straight ahead) → picks a starter strategy with you → applies your
-personality + theme → starts the pm2 fleet → registers scheduled
-tasks → opens the dashboard at `http://localhost:8787` in your
-browser.
-
-**Total time:** ~30 minutes on a fresh machine, ~10 minutes if Node
-+ Python + pm2 are already installed.
-
-The only interactions between your trigger phrase and the dashboard
-opening are **click-through popups** (the audit confirmation, the 5
-quiz questions, the personality + theme picks, and pasting your
-Helius URL if you opted into live trading). You don't need to type
-another prompt mid-install.
+See [`INSTALL.md`](INSTALL.md) for the step-by-step manual checklist
+if you want to understand each step. 60-90 minutes if you've done
+this before; 2-3 hours if you haven't.
 
 ### 2. Double-click installer (no Claude needed)
 
@@ -797,22 +800,23 @@ in [`README.ai.md`](README.ai.md).
 
 ## Ready?
 
-Open Claude Desktop (Pro Plan; automode optional but smoother, see
-**How to install** above) and paste ONE of:
+```bash
+git clone https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
+```
 
-**If you've already cloned and opened the folder in Claude Desktop
-(recommended):**
+Then either:
 
-> **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
+- **Double-click `install.bat`** (Windows) or **`bash install.sh`**
+  (macOS/Linux) — the fastest path; no Claude needed.
+- **Or** open the folder in Claude Desktop (Pro Plan) and paste:
+  > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
+  
+  Claude will optionally audit the code at your request (observations,
+  not certifications), then walk you through the gamified install
+  with personality picker + theme + roadmap intro. If Claude declines
+  to drive the gamified flow for an unfamiliar trading bot, it'll
+  point you back at `install.bat` — both land at the same dashboard.
 
-**If you'd rather have Claude do the clone for you:**
-
-> **`download this repo https://github.com/Typ0x/PBX-Stratos and set it up`**
-
-Claude will read through the code (remotely first if you used the
-URL-prompt path so it has something to summarize before downloading,
-then on-disk after the clone), **summarize what it found in plain
-language and ask you to confirm**, then ask 5 short questions to
-figure out how you like to work, then install everything with your
-consent at each step. The dashboard auto-opens in your browser when
-it's ready.
+The dashboard opens at `http://localhost:8787` when either path
+finishes.
