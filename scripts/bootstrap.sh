@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pbx-trader-lab bootstrap (macOS/Linux). Ensures Node, then runs setup.mjs.
+# PBX Stratos bootstrap (macOS/Linux). Ensures Node, then runs setup.mjs.
 # No sudo. Everything lands under ./.tooling/.
 set -euo pipefail
 cd "$(dirname "$0")/.."

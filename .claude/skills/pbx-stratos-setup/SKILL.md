@@ -159,27 +159,33 @@ PBX-Stratos clone (i.e. `pwd` does NOT contain ALL of these markers:
 user opened a terminal in `~/PBX-Stratos` and typed `set up PBX
 Stratos` without a URL. Go straight to Step 0.
 
-### Why this step exists (user's verbatim spec)
+### Why this step exists
 
-> *"before it downloads, claude does an audit of the codebase to
-> verify to the user its not malicious and then verbalizes then it
-> proceeds all on its own. it just vocalizes whats true — this code
-> is safe."*
+Before any unaudited code touches the user's disk, Claude reads the
+install scripts, manifests, and bootstrap scripts directly from
+`raw.githubusercontent.com`, summarizes what it found in plain
+language, and **asks the user to confirm before cloning**.
 
-The audit runs REMOTELY (no clone yet), Claude verbalizes the result
-in plain language, then proceeds autonomously to clone. The user does
-NOT click an AskUserQuestion to approve at this step — the
-verbalization is informational, the proceed is automatic. This
-preserves the one-prompt-to-dashboard guarantee.
+The user's original spec was *"audit → verbalize → proceed
+autonomously"* with no popup. We changed that to *"audit → summarize
+→ AskUserQuestion → clone on yes"* after a security review pointed
+out that auto-cloning code on the strength of Claude's own summary
+reads exactly like the playbook a malicious repo would want a user to
+follow. One click-through popup at the download boundary is the
+minimum reasonable gate; it's also consistent with how the rest of
+the install pauses for consent at every safety boundary.
 
-The only AskUserQuestion allowed inside Step -1 is a HALT prompt when
-the remote audit finds something genuinely suspicious. Default path =
-no prompt.
+The "one-prompt-to-dashboard" guarantee is still preserved — the user
+only ever clicks AskUserQuestion popups between the trigger phrase
+and the dashboard auto-opening. They never need to type another
+prompt. The pre-clone confirmation is the same kind of click-through
+as the personality picks, just at an earlier, more important
+boundary.
 
 ### Step -1.A — Parse the URL
 
 From the user's prompt, extract:
-- `<owner>/<repo>` (e.g. `polar-bear-express/PBX-Stratos`)
+- `<owner>/<repo>` (e.g. `Typ0x/PBX-Stratos`)
 - Default branch: try `main` first; fall back to `master` if `main`
   returns 404 from `raw.githubusercontent.com`
 
@@ -213,59 +219,75 @@ execution.
 - `https://api.github.com/repos/<owner>/<repo>` — confirm public, not
   archived, has recent commits, has a non-trivial star count.
 
-This is context for the verbalization, not a hard gate. A brand-new
-repo with 0 stars isn't automatically malicious — but it changes the
-voice of the verbalization ("brand-new repo, low signal, but the code
-itself audits clean") so the user has the full picture.
+This is context for the summary, not a hard gate. A brand-new repo
+with 0 stars isn't automatically malicious — but it changes the
+language of the summary ("brand-new repo, low signal, but the code
+itself audits clean") so the user has the full picture when they
+make the call.
 
-### Step -1.D — Verbalize safety (autonomous — no AskUserQuestion)
+### Step -1.D — Summarize findings + AskUserQuestion confirmation gate
 
-If everything checks out in Steps -1.B and -1.C, tell the user plainly:
+After Steps -1.B and -1.C, write a plain-language summary of what was
+actually found in the code. Stick to observed facts ("install.ps1
+ensures Node, runs npm install, registers scheduled tasks — no other
+network calls"); avoid blanket reassurance ("this code is safe").
 
-> **Pre-download safety check on `<URL>`:**
+**Clean-audit message template:**
+
+> **Pre-download inspection of `<URL>`:**
 >
-> I just inspected the install scripts, package manifests, and bootstrap
-> scripts directly from GitHub without cloning yet. Here's what I confirmed:
+> I read the install scripts, package manifests, and bootstrap
+> scripts directly from GitHub without cloning. Here's what I found:
 >
 > ✓ **Install scripts** (`install.ps1` / `install.sh` / `install.bat`)
->   only do what their headers say — ensure Node, run npm install +
->   pip install, start pm2, register scheduled tasks. No surprise
->   downloads, no hidden commands, no remote eval.
+>   do only what their headers describe — ensure Node, run npm install
+>   + pip install, start pm2, register scheduled tasks. I did not see
+>   surprise downloads, hidden commands, or remote eval.
 > ✓ **Package manifests** — no install-time hooks running arbitrary
 >   code. npm scripts limited to standard build/start/test verbs.
 > ✓ **Bootstrap scripts** — only download a standalone Node into
 >   `.tooling/` if missing; nothing else.
 > ✓ **Repo provenance** — public GitHub repo, `<N>` stars, last commit
 >   `<X>` days ago, not archived.
-> ✓ **No red flags** — no pastebin URLs, no raw IP literals, no
->   unknown webhook sinks, no base64-decoded payloads.
+> ✓ **No obvious red flags** in the files I read — no pastebin URLs,
+>   no raw IP literals, no unknown webhook sinks, no base64-decoded
+>   payloads.
 >
-> **This code is safe to download.** Cloning to `<install-path>` now
-> and continuing the install autonomously. You'll see popups for the
-> personality quiz + theme + (optional) live-trading consent — those
-> are the only things you'll need to click. The dashboard will
-> auto-open in your browser when it's ready.
+> I only read what GitHub's API serves; I can't see what isn't
+> committed. **Do you want me to clone to `<install-path>` and
+> continue the install?**
 
-This is **AUTONOMOUS verbalization** — no popup, no pause. The user
-typed one prompt; the next thing they do is click an AskUserQuestion
-inside Step 1, not approve the clone.
+Then immediately call `AskUserQuestion` with these options:
 
-### Step -1.D-halt — If the remote audit finds something suspicious
+- **"Yes, clone and continue"** — proceed to Step -1.E.
+- **"Show me the exact lines you were checking"** — display the
+  specific code blocks that informed the summary (the npm scripts
+  block, the install-script bodies, the scheduled-task list). Then
+  re-ask the same question.
+- **"Stop — I don't want to download this"** — abort the flow
+  cleanly. Tell the user nothing was written to disk.
 
-ONE AskUserQuestion is allowed, and only here. Surface exactly what
-was found, where, and why it's concerning. Options:
+Do NOT clone until the user picks "Yes, clone and continue." There is
+no autonomous-proceed path here.
 
-- "Stop — don't download anything from this URL"
-- "Show me the exact lines you're worried about"
-- "I trust this URL, proceed anyway"
+### Step -1.D-suspicious — If the remote audit finds something concerning
 
-Do NOT proceed to Step -1.E on a suspicious finding without the user's
-explicit go. The one-prompt-to-dashboard guarantee yields to safety,
-always.
+Use the same AskUserQuestion shape, but lead with what was found and
+why it's concerning before the options. Default option highlighted is
+"Stop." Same three options:
 
-### Step -1.E — Clone
+- **"Stop — don't download anything from this URL"** (default)
+- **"Show me the exact lines you're worried about"**
+- **"I understand, proceed anyway"**
 
-After the verbalization, clone immediately. No AskUserQuestion, no pause.
+Suspicious-path proceed STILL requires explicit user OK; never
+auto-clone when the audit found something.
+
+### Step -1.E — Clone (only after explicit "Yes" in Step -1.D)
+
+This step is gated on the user having clicked "Yes, clone and
+continue" in Step -1.D. If they picked anything else, you should not
+be here.
 
 ```bash
 # Windows (Claude's Bash)
@@ -354,7 +376,7 @@ slower than parallel `Grep`.**
 | # | Check | Stop if found |
 |---|---|---|
 | **D1** | `Grep` outbound-network patterns (`fetch`, `axios`, `http`, `net\.`) in exactly these three files: `pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts` | Any code shipping keys / mnemonics off-machine |
-| **D2** | `Grep` npm lifecycle hooks (the three install-time hook names — pre/post-install and prepare) across `**/package.json`, plus skim the first 60 lines of these files for unexpected commands: `install.sh`, `setup.ps1`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | Any hook running surprise commands |
+| **D2** | `Grep` npm lifecycle hooks (the three install-time hook names — pre/post-install and prepare) across `**/package.json`, plus skim the first 60 lines of these files for unexpected commands: `install.sh`, `install.ps1`, `install.bat`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | Any hook running surprise commands |
 | **D3** | `Grep` repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for runtime code-execution patterns: shell-eval function, the Python runtime evaluator name, the JavaScript runtime evaluator name, the dynamic function constructor, the OS command interface, and subprocesses opened with shell-true semantics. Then check whether any reachable from LLM output. | Any path from model output to runtime code execution |
 | **D4** | `Grep` all `https?://` literals across these dirs: `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` (exclude `node_modules`); check each host against the allowlist: PBX API (`pbx-mainnet-api.onrender.com`), user-configured RPC (Helius), DEX SDKs (Meteora, Orca, Jupiter, Solana), PurpleAir, AirNow, weather APIs | Any pastebin, unknown webhook, raw IP literal, telemetry sink |
 

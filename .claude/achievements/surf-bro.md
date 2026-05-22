@@ -417,4 +417,4 @@ Universal Core.
 > Public recognition earned.
 
 ### s7.t20 — "Upstream PR Shipped"
-> You opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement, dude — better decoder, smarter evolver, new venue in swap-router, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The lab got sharper for everyone after you. **Section 7 done. You're guiding the framework now. Nice work, dude.**
+> You opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement, dude — better decoder, smarter evolver, new venue in swap-router, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The framework got sharper for everyone after you. **Section 7 done. You're guiding the framework now. Nice work, dude.**

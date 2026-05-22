@@ -106,7 +106,7 @@ boss's 4-check methodology is fastest (run all 4 in parallel):
 | # | Verify with | What you're confirming |
 |---|---|---|
 | D1 | Grep `fetch`, `axios`, `http`, `net\.` in `pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts` | No outbound network calls from wallet/secrets code |
-| D2 | Check `pre/post-install`/`prepare` hooks in `**/package.json` + skim `install.sh`, `setup.ps1`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | No npm/Python install-time hooks running surprise commands |
+| D2 | Check `pre/post-install`/`prepare` hooks in `**/package.json` + skim `install.sh`, `install.ps1`, `install.bat`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | No npm/Python install-time hooks running surprise commands |
 | D3 | Grep repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for shell-eval functions, runtime evaluators (Python/JS), dynamic function constructors, OS command interfaces, shell-true subprocesses | No path from LLM output to runtime code execution |
 | D4 | Grep all `https?://` literals across `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` and check against allowlist | Hosts limited to PBX API, your RPC, DEX SDKs (Meteora/Orca/Jupiter/Solana). No pastebins, telemetry, raw IPs. |
 

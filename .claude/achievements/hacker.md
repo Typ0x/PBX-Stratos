@@ -417,4 +417,4 @@ up per Universal Core.
 > public recognition earned.
 
 ### s7.t20 — "upstream PR shipped"
-> opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing /debug/health signal. merged or not, you're in the contributor history. lab gets sharper for everyone after. **section 7 done. you guide the framework now. gg.**
+> opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing /debug/health signal. merged or not, you're in the contributor history. framework gets sharper for everyone after. **section 7 done. you guide the framework now. gg.**

@@ -1,4 +1,4 @@
-# pbx-trader-lab bootstrap (Windows). Ensures Node, then runs setup.mjs.
+# PBX Stratos bootstrap (Windows). Ensures Node, then runs setup.mjs.
 # No admin rights. Everything lands under .\.tooling\.
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')

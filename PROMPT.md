@@ -4,39 +4,52 @@ Paste any of these into Claude Code to interact with the lab.
 
 ## Install + onboard
 
-### Path A — you haven't cloned the repo yet (recommended)
+### Path A — clone first, then audit (recommended)
 
-Claude inspects the install scripts directly from GitHub without
-cloning, verbalizes "this code is safe to download," **then** clones
-to `~/PBX-Stratos` and runs the full install autonomously. Only
-click-through popups between this prompt and the dashboard
-auto-opening at `http://localhost:8787`.
-
-```
-download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up
-```
-
-Equivalent phrasings that also trigger Path A:
+The safer flow: clone the repo yourself, open the folder in Claude
+Desktop, then paste the canonical trigger phrase. Claude runs the
+4-stage on-disk audit on code you fetched and can inspect yourself,
+summarizes what it found, and asks you to confirm before any install
+action.
 
 ```
-install PBX Stratos from https://github.com/polar-bear-express/PBX-Stratos
+git clone https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
 ```
 
-```
-clone and install https://github.com/polar-bear-express/PBX-Stratos
-```
-
-```
-set up PBX Stratos end-to-end from https://github.com/polar-bear-express/PBX-Stratos
-```
-
-### Path B — you've already cloned the repo and opened the folder
-
-The canonical onboarding trigger phrase (drops you into the
-gamified install wizard with personality quiz + roadmap intro):
+Open the folder in Claude Desktop, then:
 
 ```
 Verify if PBX Stratos Repo is safe and start the onboarding process in .README
+```
+
+### Path B — let Claude clone for you (convenience option)
+
+If you'd rather not run `git clone` yourself, hand Claude the URL.
+Claude pulls the install scripts from `raw.githubusercontent.com`
+without cloning, reads them inline, summarizes what it found in plain
+language, and **asks you to confirm before cloning**. Only after you
+click "Yes, clone and continue" does it download to `~/PBX-Stratos`
+and run the install. Between this prompt and the dashboard
+auto-opening at `http://localhost:8787`, the only interactions are
+click-through popups (no second typed prompt).
+
+```
+download this repo https://github.com/Typ0x/PBX-Stratos and set it up
+```
+
+Equivalent phrasings that also trigger Path B:
+
+```
+install PBX Stratos from https://github.com/Typ0x/PBX-Stratos
+```
+
+```
+clone and install https://github.com/Typ0x/PBX-Stratos
+```
+
+```
+set up PBX Stratos end-to-end from https://github.com/Typ0x/PBX-Stratos
 ```
 
 ### Path C — the boss's terse 3-turn audit + dashboard launch

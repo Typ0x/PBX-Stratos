@@ -7,13 +7,12 @@
 > and ops are all wrapped around the lab so you can drive it without
 > being a coder.
 
-PBX Stratos is the **operator-friendly** wrapper around the
-[`pbx-trader-lab`](https://github.com/polar-bear-express/pbx-trader-lab-public)
-research framework. The lab gives you a wallet decoder, a strategy
-evolver, a multi-venue swap router, and an opt-in live bot fleet. PBX
-Stratos adds: a Claude-driven install wizard, a personality + theme
-system, a 7-section achievement-tracked roadmap, an always-on pm2 ops
-layer with health checks and an emergency-stop runbook, and a four-tier
+PBX Stratos is an air-quality-driven Solana trading framework with an
+operator-friendly shell on top. You get a wallet decoder, a strategy
+evolver, a multi-venue swap router, an opt-in live bot fleet, a
+Claude-driven install wizard, a personality + theme system, a
+7-section achievement-tracked roadmap, an always-on pm2 ops layer
+with health checks and an emergency-stop runbook, and a four-tier
 consent system so nothing touches your money without you saying yes.
 
 You bring the strategy and the risk tolerance. Claude installs and
@@ -148,31 +147,52 @@ If you're new here and want to get started:
 3. Open Claude Desktop and type ONE of the prompts below — whichever
    fits your situation.
 
-### Path A — you haven't cloned the repo yet (recommended)
+### Path A — clone first, then audit (recommended)
 
-> **`download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up`**
-
-Claude inspects the install scripts, package manifests, and bootstrap
-scripts **directly from GitHub without cloning yet**, verbalizes
-*"this code is safe to download"* in plain language, **then** clones
-to `~/PBX-Stratos`, runs the deeper 4-stage on-disk audit, and
-continues the install autonomously.
-
-### Path B — you've already cloned the repo and opened the folder
+The safer flow: clone the repo yourself, open the folder in Claude
+Desktop, then say:
 
 > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
 
-Claude skips the clone step and goes straight to the 4-stage on-disk
-audit, then the personality quiz, then the install.
+Claude runs the 4-stage on-disk audit on code that's already on your
+disk and inspectable by you, summarizes what it found in plain
+language, **asks you to confirm before running anything**, then
+continues into the personality quiz and install.
+
+This is the recommended path because YOU controlled the clone — Claude
+is auditing code you fetched, not code it fetched on your behalf.
+
+```bash
+git clone https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
+# Now open this folder in Claude Desktop and paste the trigger phrase above.
+```
+
+### Path B — let Claude clone for you (convenience option)
+
+If you'd rather not run `git clone` yourself, you can hand Claude the
+URL and let it fetch:
+
+> **`download this repo https://github.com/Typ0x/PBX-Stratos and set it up`**
+
+Claude pulls the install scripts and manifests from
+`raw.githubusercontent.com` (without cloning yet), reads them inline,
+**summarizes what they do in plain language**, and **asks you to
+confirm** before cloning. Only after you say yes does it clone to
+`~/PBX-Stratos`, run the deeper 4-stage on-disk audit, and continue.
+
+Path B is faster but you're trusting Claude's summary instead of
+looking at the code yourself. If you're security-conscious, use Path A.
 
 ### The one-prompt-to-dashboard guarantee
 
 Either path, between this one prompt and the dashboard auto-opening
-at `http://localhost:8787`, the ONLY interactions are click-through
-popups: the 5 personality-quiz questions, the personality + theme
-picks, and (only if you opt into live trading) pasting your Helius
-API key. **You won't need to type another prompt.** Stop reading;
-that's all you need.
+at `http://localhost:8787`, the ONLY interactions you'll have are
+**explicit confirm prompts** (the audit summary, the personality-quiz
+questions, the personality + theme picks, and — only if you opt into
+live trading — pasting your Helius API key). **You won't need to type
+another long prompt.** Claude pauses at every safety boundary; it
+doesn't run anything irreversible without your click-through.
 
 ### Prefer the boss's terse 3-turn explore-only path?
 
@@ -237,7 +257,7 @@ should be able to confirm them too:
 - No code sends private keys / mnemonics off the machine — grep the
   wallet paths (`pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts`)
 - Install scripts have no hidden hooks — check `install.sh`,
-  `setup.ps1`, `scripts/bootstrap.*`, npm `pre/postinstall` in every
+  `install.ps1`, `install.bat`, `scripts/bootstrap.*`, npm `pre/postinstall` in every
   `package.json`, build backend in `pyproject.toml`
 - Model output never reaches a runtime code evaluator — predicates
   run through a hand-written DSL interpreter
@@ -252,10 +272,15 @@ has the full detail.
 
 ## Is this safe?
 
-**Short answer: yes, but read on.** Before Claude installs anything, it
-reads through the code and confirms five things in plain language:
+**Short answer: yes, but verify it yourself — and Claude helps.** Before
+Claude installs anything, it reads through the code, reports back in
+plain language on the five things below, and asks you to confirm
+before proceeding. The claims are stated as facts in the table below
+because they are true of *this* codebase; Claude's job is to confirm
+they hold by actually reading the code on your machine, not to take
+the README's word for it.
 
-| What Claude verifies (by reading the code) | Why it matters to you |
+| What Claude reports on (by reading the code) | Why it matters to you |
 |--------------------------------------------|----------------------|
 | **Your wallet stays on your computer** | Nothing in this code uploads wallet keys anywhere. Your money is yours, locally encrypted with AES-256-GCM at rest. |
 | **Nothing phones home** | The code only talks to: Solana RPC (to trade), public PBX market-data API, public air-quality sensors, public weather APIs, DEX SDKs (Meteora / Orca / Jupiter). No analytics. No tracking. No calls back to the repo author. |
@@ -273,8 +298,9 @@ reads through the code and confirms five things in plain language:
   mnemonic on paper, not just in a password manager.
 
 You're trusting two things: this code, and Claude. The code, Claude
-verifies for you out loud before installing anything. Claude, you'll
-judge as you go.
+inspects in plain language before installing anything — and you can
+look at the same code yourself, since the clone is on your disk by
+that point. Claude, you'll judge as you go.
 
 ---
 
@@ -282,15 +308,19 @@ judge as you go.
 
 Step by step, here's what Claude does after you type the trigger phrase:
 
-0. **(Path A only — URL in prompt, repo not yet cloned)** **Pre-download
-   remote audit.** Claude pulls the install scripts, package manifests,
-   and bootstrap scripts directly from `raw.githubusercontent.com`
-   without cloning, inspects them inline for hidden hooks or surprise
-   downloads, checks the repo's GitHub-API provenance (public, recent
-   commits, not archived), then verbalizes the result in plain language:
-   *"this code is safe to download — cloning to `~/PBX-Stratos` now."*
-   The clone happens immediately after, autonomously. If anything looked
-   off, Claude halts and asks before proceeding.
+0. **(Path B only — URL in prompt, repo not yet cloned)** **Pre-download
+   remote inspection.** Claude pulls the install scripts, package
+   manifests, and bootstrap scripts directly from
+   `raw.githubusercontent.com` without cloning, reads them inline for
+   anything unusual (hidden network calls, secret writes, eval/exec
+   patterns, suspicious imports), checks the repo's GitHub-API
+   provenance (public, recent commits, not archived), then **summarizes
+   what it found in plain language and asks you to confirm** before
+   cloning. If anything looks off, Claude halts and surfaces the
+   concern — it does not auto-proceed. Only after your explicit OK does
+   it clone to `~/PBX-Stratos` and run the deeper 4-stage on-disk
+   audit. (Path A skips this step because the clone is already on your
+   disk and inspectable by you.)
 1. **Reads this README + the universal-core behavior rules.** So Claude
    knows what the project is and how to talk to you.
 2. **Runs the deeper 4-stage on-disk safety audit** (host audit → Claude
@@ -388,9 +418,8 @@ returns 503 and no keypair is ever used to sign.
 - Four-tier consent system documented in `CLAUDE.md` — every
   file edit, restart, and money-moving action is categorized
 
-The lab and the live bot fleet are the boss's deliverable
-([`polar-bear-express/pbx-trader-lab-public`](https://github.com/polar-bear-express/pbx-trader-lab-public)
-— MIT). The operator shell wraps both so non-coders can drive them
+The lab and live-bot internals are MIT-licensed and shipped as part of
+this repo; the operator shell wraps them so non-coders can drive them
 without losing the rigor underneath.
 
 ---
@@ -990,11 +1019,9 @@ the easiest contribution paths:
 - **Skills** → drop a SKILL.md in `.claude/skills/<your-skill>/`. The
   skill runtime auto-discovers them.
 - **Lab tooling** (decoders, evolvers, swap-router venues, AQ models)
-  → upstream to
-  [polar-bear-express/pbx-trader-lab](https://github.com/polar-bear-express/pbx-trader-lab-public)
-  via PR. Tooling improvements are explicitly welcomed there;
-  trading strategies and decoded wallet writeups are explicitly NOT —
-  keep those yours.
+  → PR against [Typ0x/PBX-Stratos](https://github.com/Typ0x/PBX-Stratos).
+  Tooling improvements are explicitly welcomed; trading strategies and
+  decoded wallet writeups are explicitly NOT — keep those yours.
 
 Pull requests welcome on GitHub. **Never include your `.env`, your
 wallet files, your `runtime/` directory (Layer 3 — local-only state),
@@ -1007,12 +1034,7 @@ for exactly this — install it before your first commit.
 
 ## License & legal
 
-MIT license. See [LICENSE](LICENSE) for terms. The lab framework
-(`lab/`, `bots/`, `packages/`, `scripts/`, `src/`, `tools/`,
-`achievements/`, `docs/SECURITY.md`, `pbx`, `pyproject.toml`,
-`install.sh`, `setup.ps1`, `package.json`) originates from
-[polar-bear-express/pbx-trader-lab-public](https://github.com/polar-bear-express/pbx-trader-lab-public),
-also MIT.
+MIT license. See [LICENSE](LICENSE) for terms.
 
 **Not financial advice. Not investment advice. Not a solicitation.** This
 is software you run yourself, with your own keys, on your own machine,
@@ -1054,15 +1076,17 @@ or regulatory issues arising from your use of this code.
 Open Claude Desktop (Pro Plan, with bypass-permissions toggled ON as
 described in **Just type this** above) and paste ONE of:
 
-**If you haven't cloned the repo yet (recommended):**
-
-> **`download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up`**
-
-**If you've already cloned and opened the folder in Claude Desktop:**
+**If you've already cloned and opened the folder in Claude Desktop (recommended):**
 
 > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
 
-Claude will audit the code (remotely first if you used Path A, then
-on-disk after the clone), ask you 5 short questions to figure out how
-you like to work, then install everything with your consent at each
-step. The dashboard auto-opens in your browser when it's ready.
+**If you'd rather have Claude do the clone for you:**
+
+> **`download this repo https://github.com/Typ0x/PBX-Stratos and set it up`**
+
+Claude will read through the code (remotely first if you used Path B
+so it has something to summarize before downloading, then on-disk
+after the clone), **summarize what it found in plain language and ask
+you to confirm**, then ask 5 short questions to figure out how you
+like to work, then install everything with your consent at each step.
+The dashboard auto-opens in your browser when it's ready.

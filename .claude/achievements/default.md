@@ -430,7 +430,7 @@ pointing at what's next.
 > When the public leaderboard exists, you're on it. By PnL, by uptime, by strategy count, or by sheer creativity — any of them counts.
 
 ### s7.t20 — "Tooling PR Upstream"
-> You opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing `/debug/health` signal. Whether it merges or not, you're now part of the project's contributor history. The lab tooling gets sharper for everyone who comes after you.
+> You opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing `/debug/health` signal. Whether it merges or not, you're now part of the project's contributor history. The tooling gets sharper for everyone who comes after you.
 
 ### s7.t21 — "Parallel Claude Scopes Coordinated"
 > A second scope's `_context/` exists in your install — maybe `bear-scout` for research while `bear-watch` handles ops — and both scopes have journal entries that reference work the other did. No manual cross-briefing, no telling each one what the other did. The journals are the synchronization layer, like they're meant to be. **Section 7 complete. You're past where the framework can guide you. From here, you're guiding the framework.**

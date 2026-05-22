@@ -1,12 +1,12 @@
 [project]
-name = "pbx-trader-lab"
+name = "pbx-stratos"
 version = "0.1.0"
-description = "Open-source backtesting lab — reverse-engineer top Solana traders from on-chain history."
+description = "Air-quality-driven Solana trading bot framework with onboarding, personalities, themes, and a tested ops layer."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "Polar Bear Express" }]
-keywords = ["solana", "trading", "bot", "backtest", "pbx"]
+authors = [{ name = "Typ0x" }]
+keywords = ["solana", "trading", "bot", "backtest", "pbx", "air-quality", "pm2.5"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -43,9 +43,9 @@ dev = [
 #   pbx = "pbx_trader_lab.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/polar-bear-express/pbx-trader-lab"
-Repository = "https://github.com/polar-bear-express/pbx-trader-lab"
-Issues = "https://github.com/polar-bear-express/pbx-trader-lab/issues"
+Homepage = "https://github.com/Typ0x/PBX-Stratos"
+Repository = "https://github.com/Typ0x/PBX-Stratos"
+Issues = "https://github.com/Typ0x/PBX-Stratos/issues"
 
 [build-system]
 requires = ["setuptools>=68"]
