@@ -23,7 +23,7 @@ the active personality file is:
    tone rules.
 2. **Linked to a matching dashboard theme** (CSS file in `themes/`). The
    dashboard re-renders with the chosen color scheme + typography.
-3. **Logged to `~/.pbx-lab/personality-state.json`** so a fresh Claude
+3. **Logged to `runtime/lab/user-profile.json`** so a fresh Claude
    session picks the same one.
 
 ## Format

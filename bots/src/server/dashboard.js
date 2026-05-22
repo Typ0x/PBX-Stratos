@@ -4330,6 +4330,50 @@
     replace(host, controlBar, profileCard, ...sectionCards, eventCard);
   }
 
+  // ============ dynamic header-height tracking ============
+  // The sidebar's `top` + `height` reference --header-height (see
+  // dashboard.html). We update that custom property whenever the
+  // header's rendered height could change: initial load, viewport
+  // resize, and any UI toggle that shows/hides header content (KPI
+  // strip on Discover vs hidden on Achievements/Health, etc).
+  //
+  // Without this, the sidebar's top offset is hardcoded and either
+  // leaves a gap below the header or overlaps it — depending on
+  // which view's KPI visibility is active. Symptom user reported:
+  // "gap between the sidebar and the header on all themes."
+  (function trackHeaderHeight() {
+    const root = document.documentElement;
+    const header = document.querySelector('header');
+    if (!header) return;
+
+    // Round UP so the sidebar never overlaps the header at sub-pixel
+    // viewport scales (high-DPI Windows scaling).
+    function apply() {
+      const h = Math.ceil(header.getBoundingClientRect().height);
+      root.style.setProperty('--header-height', h + 'px');
+    }
+    apply();
+    // Re-measure on viewport resize.
+    window.addEventListener('resize', apply, { passive: true });
+    // Re-measure when the header itself changes size (KPIs shown/hidden,
+    // backup-banner appearing, etc). ResizeObserver fires on any layout-
+    // affecting change inside the observed element.
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(apply).observe(header);
+    }
+    // Also re-measure after any view switch via the nav (showView only
+    // toggles `.hidden` on views, but the KPI strip + show-stopped +
+    // fleet-mode-filter all flip visibility based on hasBots — which
+    // can ripple to a render shortly after).
+    document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        // setTimeout to let the showView toggle + any DOM updates settle
+        // before re-measuring.
+        setTimeout(apply, 0);
+      });
+    });
+  })();
+
   // ============ theme motif injection ============
   // Themes that want a "shooting-star" atmospheric layer opt in by
   // setting --motif-enabled: 1 on :root. When that flag is set, we

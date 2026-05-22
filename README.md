@@ -145,25 +145,83 @@ If you're new here and want to get started:
    then turn ON **"Bypass permissions"**. Without these toggles, Claude
    has to ask permission for every single action and the install takes
    ~5× longer or stalls. Do this first.
-3. Clone this repo to your computer and open the folder in Claude Desktop.
-4. Type exactly this into Claude:
+3. Open Claude Desktop and type ONE of the prompts below — whichever
+   fits your situation.
+
+### Path A — you haven't cloned the repo yet (recommended)
+
+> **`download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up`**
+
+Claude inspects the install scripts, package manifests, and bootstrap
+scripts **directly from GitHub without cloning yet**, verbalizes
+*"this code is safe to download"* in plain language, **then** clones
+to `~/PBX-Stratos`, runs the deeper 4-stage on-disk audit, and
+continues the install autonomously.
+
+### Path B — you've already cloned the repo and opened the folder
 
 > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
 
-Claude takes it from there — runs a four-stage security audit on the
-clone (you'll see each stage's result in plain language), asks you 5
-short questions to figure out how you like to work, and walks you
-through the whole install. Stop reading; that's all you need.
+Claude skips the clone step and goes straight to the 4-stage on-disk
+audit, then the personality quiz, then the install.
 
-**Prefer the boss's terse 3-turn audit + dashboard launch instead of
-the gamified roadmap?** Paste this instead:
+### The one-prompt-to-dashboard guarantee
+
+Either path, between this one prompt and the dashboard auto-opening
+at `http://localhost:8787`, the ONLY interactions are click-through
+popups: the 5 personality-quiz questions, the personality + theme
+picks, and (only if you opt into live trading) pasting your Helius
+API key. **You won't need to type another prompt.** Stop reading;
+that's all you need.
+
+### Prefer the boss's terse 3-turn explore-only path?
 
 > **`Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the "For Claude: Onboarding Runbook" section in README. Be brief.`**
 
-That triggers the explore-only path: clone-audit, bootstrap, launch
-browser at the local dashboard, hand off. ~5 minutes on a healthy
-laptop. You can flip into the personality + roadmap mode any time
-later.
+Clone-audit, bootstrap, launch browser at the local dashboard, hand
+off. ~5 minutes on a healthy laptop. No personality quiz, no roadmap
+intro. You can flip into the full personality + roadmap mode any time
+later by saying *"run the personality quiz."*
+
+---
+
+## Even simpler — the double-click installer (Windows)
+
+If you'd rather not use Claude to drive the install — or you just
+want the dependency-heavy parts done in one go before Claude takes
+over the personality + theme picks — there's a one-shot installer
+at the repo root:
+
+| Platform | Run this |
+|----------|----------|
+| **Windows** | Double-click [`install.bat`](install.bat) at the repo root |
+| **macOS / Linux** | `bash install.sh` from the repo root |
+
+The Windows version (`install.bat`) launches a PowerShell-based
+orchestrator ([`install.ps1`](install.ps1)) that handles, in order:
+
+1. Ensures Node.js ≥ 18 (downloads bundled Node into `.tooling/` if
+   missing — no admin needed)
+2. `npm install` at repo root (workspaces pull in `bots/` + `packages/*`)
+3. Python venv + `pip install -e ".[decoder]"`
+4. Installs `pm2` globally if missing
+5. `pm2 start bear-watch/pm2.config.cjs && pm2 save`
+6. Registers the 6 `STRATOS-*` Windows scheduled tasks via
+   [`bear-watch/register-scheduled-tasks.ps1`](bear-watch/register-scheduled-tasks.ps1)
+   (standard user privileges — no admin elevation)
+7. Writes the `.tooling/ready.json` install marker
+
+3-5 minutes on a fresh machine, less if Node + Python are already
+installed. Safe to re-run; every step is idempotent. When it
+finishes, the dashboard is live at `http://localhost:8787` and you
+only have the personality + theme picks left — tell Claude
+*"run the personality quiz"* to do those interactively.
+
+**Claude runs the same installer too.** When you use the trigger
+phrase above, Claude calls `install.ps1` (or `install.sh`) as a
+single Bash invocation, watches the output, then handles the
+interactive bits. So there's only one install path; humans and
+Claude both run the same thing.
 
 ---
 
@@ -222,14 +280,23 @@ judge as you go.
 
 ## What happens when you type the trigger phrase
 
-Step by step, here's what Claude does after you type **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**:
+Step by step, here's what Claude does after you type the trigger phrase:
 
+0. **(Path A only — URL in prompt, repo not yet cloned)** **Pre-download
+   remote audit.** Claude pulls the install scripts, package manifests,
+   and bootstrap scripts directly from `raw.githubusercontent.com`
+   without cloning, inspects them inline for hidden hooks or surprise
+   downloads, checks the repo's GitHub-API provenance (public, recent
+   commits, not archived), then verbalizes the result in plain language:
+   *"this code is safe to download — cloning to `~/PBX-Stratos` now."*
+   The clone happens immediately after, autonomously. If anything looked
+   off, Claude halts and asks before proceeding.
 1. **Reads this README + the universal-core behavior rules.** So Claude
    knows what the project is and how to talk to you.
-2. **Runs the 4-stage safety audit** (host audit → Claude CLI check →
-   clone integrity → 4 parallel security greps) and tells you in plain
-   language what was confirmed. You can ask follow-up questions before
-   approving.
+2. **Runs the deeper 4-stage on-disk safety audit** (host audit → Claude
+   CLI check → clone integrity → 4 parallel security greps) and tells
+   you in plain language what was confirmed. You can ask follow-up
+   questions before approving.
 3. **Asks you the 5 personality-quiz questions.** Saves your answers to
    `runtime/lab/user-profile.json` (Layer 3 — see [`CLAUDE.md`](CLAUDE.md))
    so future Claude sessions remember.
@@ -415,7 +482,7 @@ detail.
 Right after the safety check, Claude asks you 5 short questions to
 figure out how to talk to you and what kind of help you want. **You
 can change any of these later** — just say "run the personality quiz"
-to re-take it, or edit `~/.pbx-lab/user-profile.json` directly.
+to re-take it, or edit `runtime/lab/user-profile.json` directly.
 
 | Question | What it sets |
 |----------|--------------|
@@ -725,7 +792,7 @@ The bot is designed to fail loudly and recover gracefully. When something
 goes wrong, you'll see one of:
 
 - A **Windows toast notification** with the failure summary
-- A new entry in `~/.pbx-lab/alerts.jsonl`
+- A new entry in `runtime/lab/alerts.jsonl`
 - A red row in the dashboard's System Alerts panel
 - An email (if you wired one up — optional)
 
@@ -985,10 +1052,17 @@ or regulatory issues arising from your use of this code.
 ## Ready?
 
 Open Claude Desktop (Pro Plan, with bypass-permissions toggled ON as
-described in **Just type this** above) and type:
+described in **Just type this** above) and paste ONE of:
+
+**If you haven't cloned the repo yet (recommended):**
+
+> **`download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up`**
+
+**If you've already cloned and opened the folder in Claude Desktop:**
 
 > **`Verify if PBX Stratos Repo is safe and start the onboarding process in .README`**
 
-Claude will run the 4-stage safety audit, ask you 5 short questions to
-figure out how you like to work, then install everything with your
-consent at each step.
+Claude will audit the code (remotely first if you used Path A, then
+on-disk after the clone), ask you 5 short questions to figure out how
+you like to work, then install everything with your consent at each
+step. The dashboard auto-opens in your browser when it's ready.

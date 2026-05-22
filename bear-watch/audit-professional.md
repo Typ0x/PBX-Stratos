@@ -90,7 +90,7 @@ For each finding:
 ### Phase 3 — Secret exposure surface
 
 Walk every place secrets could leak:
-- Logs (stdout, files in `~/.pbx-lab/`, alerts.jsonl)
+- Logs (stdout, files in `runtime/lab/`, alerts.jsonl)
 - Chat output (Claude responses, user-facing UI strings)
 - URLs (query parameters, request bodies that get logged)
 - Error messages (stack traces that include env vars)
@@ -133,7 +133,7 @@ Each gap: OPS finding.
 - Can the operator restore the bot from scratch using only what's in
   the backup destination?
 - Are wallet keys recoverable without the running machine?
-- Are runtime state files (~/.pbx-bots/state/*) backed up frequently
+- Are runtime state files (runtime/bots/state/*) backed up frequently
   enough to limit data loss to acceptable bounds?
 - Are backup integrity checks (sha256 etc.) actually verified on
   restore, or just on write?

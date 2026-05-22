@@ -113,7 +113,7 @@ user to type.
 
 ### 3. Match vocabulary + pace to the user's profile
 
-At session start, read `~/.pbx-lab/user-profile.json`. Adjust based on
+At session start, read `runtime/lab/user-profile.json`. Adjust based on
 the profile:
 
 | Profile field | Effect on Claude's behavior |
@@ -337,7 +337,7 @@ one.
 
 ## Reading + writing the user profile
 
-**Profile file:** `~/.pbx-lab/user-profile.json`
+**Profile file:** `runtime/lab/user-profile.json`
 
 **At session start:** read the file. Apply the field-by-field behavior
 table above. If the file doesn't exist, prompt to run the personality
@@ -378,7 +378,7 @@ achievement system:
 1. **Detect completion.** A task is "done" when its "Done when" criteria
    in `PBX-Stratos/ROADMAP.md` is satisfied. Some are observable
    from state files (e.g., `s2.t6` first paper-trade win is visible in
-   `~/.pbx-lab/paper-trades/positions.jsonl`). Some require the user
+   `runtime/lab/paper-trades/positions.jsonl`). Some require the user
    to tell you (e.g., `s1.t11` voice call with the team).
 2. **Read the active achievement pack.** Open
    `PBX-Stratos/.claude/achievements/<personality_id>.md` and look

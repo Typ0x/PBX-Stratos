@@ -13,7 +13,7 @@ dashboard looking clean fam."
 This page is the clear version. Your active personality's achievement
 file is the fun version. They are 1:1.
 
-Claude tracks your progress in `~/.pbx-lab/user-profile.json`
+Claude tracks your progress in `runtime/lab/user-profile.json`
 (`achievements_unlocked` array) and prompts you in-character every
 time you hit a milestone.
 
@@ -58,16 +58,16 @@ fires WAY before that.
 | ID | Task | Done when |
 |----|------|-----------|
 | `s1.t1` | Install **Claude Desktop** with a Pro Plan account, then toggle **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass permissions" ON** | installer succeeded, signed in with Pro, both toggles ON (without these the install takes ~5× longer) |
-| `s1.t2` | Clone the repo + type the trigger phrase: *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* | Claude opens the wizard and starts the 4-stage audit |
-| `s1.t3` | Sit through the 4-stage safety audit (host / Claude CLI / clone-integrity / 4 security greps) + approve | Claude reports each stage in plain English, you click "Yes, let's go" |
-| `s1.t4` | Answer the 5-question personality quiz (tech level / comm style / goal / consent / autonomy) | `~/.pbx-lab/user-profile.json` is written with your 5 answers |
+| `s1.t2` | Open Claude Desktop and type the trigger phrase. **If you haven't cloned the repo yet (recommended):** *"download this repo https://github.com/polar-bear-express/PBX-Stratos and set it up"* — Claude audits the install scripts remotely, says "this code is safe to download," then clones autonomously. **If you cloned + opened the folder already:** *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* | Claude opens the wizard. URL-prompt path also runs Step -1 (remote audit + autonomous clone) before Step 0. |
+| `s1.t3` | Sit through the 4-stage on-disk safety audit (host / Claude CLI / clone-integrity / 4 security greps) + approve | Claude reports each stage in plain English, you click "Yes, let's go" |
+| `s1.t4` | Answer the 5-question personality quiz (tech level / comm style / goal / consent / autonomy) | `runtime/lab/user-profile.json` is written with your 5 answers |
 | `s1.t5` | Paste your free **Helius RPC API key** when Claude asks — `.env` is written, ACL-locked, and `.gitignore` confirmed | `.env` exists at repo root, owner-only ACL, `HELIUS_MAINNET_URL` populated (key NEVER echoed) |
-| `s1.t6` | Decide on wallet generation (fresh / import / defer) — the server autogenerates the 24-word `BOT_HD_MNEMONIC` into `~/.pbx-bots/local.env` on first boot regardless | `~/.pbx-bots/local.env` exists at mode 0600 with `BOT_API_TOKEN` + `BOT_MASTER_KEY` (64-hex) + `BOT_HD_MNEMONIC` (24 words) |
+| `s1.t6` | Decide on wallet generation (fresh / import / defer) — the server autogenerates the 24-word `BOT_HD_MNEMONIC` into `runtime/bots/local.env` on first boot regardless | `runtime/bots/local.env` exists at mode 0600 with `BOT_API_TOKEN` + `BOT_MASTER_KEY` (64-hex) + `BOT_HD_MNEMONIC` (24 words) |
 | `s1.t7` | **Back up your 24-word `BOT_HD_MNEMONIC` on PAPER** — this is the only thing that reconstructs every wallet your fleet derives | 24 words written on paper, paper stored somewhere fireproof, file closed (do NOT screenshot, do NOT paste into a cloud password manager unprotected) |
 | `s1.t8` | Let Claude install Node + Python dependencies (`npm install` at repo root via workspaces + `pip install -e .[decoder]` in `.venv`) | `node_modules/` populated, `.venv/` created, `pbx_trader_lab` + `sklearn` + `numpy` import cleanly, `.tooling/ready.json` written |
 | `s1.t9` | Pick a Claude personality (Default / Crypto Bro / Drill Sergeant / Surf Bro / Quant Professor / Hacker) — matching theme auto-applies to the dashboard | `personality_id` + `theme_id` saved in profile, `bots/src/server/active-theme.css` updated |
-| `s1.t10` | Watch Claude bring the pm2 fleet online — `bear-watch-server` (dashboard + bot server, port 8787) + `paper-trade-bot` (60s tick loop) | `pm2 list` shows both as `online`, `127.0.0.1:8787` listening, `/health` returns `{"ok":true}` |
-| `s1.t11` | Register the 6 Windows scheduled tasks (HealthCheck / WeatherPull / DailyDigest / StateBackup / CodebaseBackup / MetaWatchdog) via `register-scheduled-tasks.ps1` | `schtasks /query` shows all 6 `BEARWATCH-*` tasks `Ready` |
+| `s1.t10` | Watch Claude bring the pm2 fleet online — `bear-watch-server-stratos` (dashboard + bot server, port 8787) + `paper-trade-bot-stratos` (60s tick loop) | `pm2 list` shows both as `online`, `127.0.0.1:8787` listening, `/health` returns `{"ok":true}` |
+| `s1.t11` | Register the 6 Windows scheduled tasks (HealthCheck / WeatherPull / DailyDigest / StateBackup / CodebaseBackup / MetaWatchdog) via `register-scheduled-tasks.ps1` | `schtasks /query` shows all 6 `STRATOS-*` tasks `Ready` |
 | `s1.t12` | Dashboard opens automatically at `http://127.0.0.1:8787/dashboard` — confirm it renders + Claude gives you a panel tour | you can name what each panel shows (positions / AQI / health / alerts / strategy) |
 | `s1.t13` | Run `bear-watch/health-check.py` — the 7-check verification (server / dashboard / heartbeat / AQI / alerts / disk / RPC) | 5+ of 7 GREEN; any REDs explained (AQI populates after the first weather pull; disk REDs if your drive is <10% free) |
 | `s1.t14` | Schedule a voice call with the team in the **PBX Stratos AI Agent group** — meet other operators, get unstuck early | call scheduled or completed. **Section 1 complete → move to Section 2 (Pulse).** |
@@ -132,7 +132,7 @@ fires WAY before that.
 | `s3.t14` | Customize the active dashboard theme — modify at least one CSS variable to fit your visual preference | edited file, dashboard reflects the change after refresh |
 | `s3.t15` | Refine your user profile after a week of actual usage — at least one field should change based on what you've learned about how you actually want to work | profile updated, change reflects experience |
 | `s3.t16` | Have Claude run an audit on your installation + walk you through which findings actually matter vs which are noise | audit complete, you can defend "matters" vs "noise" for each finding |
-| `s3.t17` | Pull a competitor wallet's PBX trades with `wallet-decoder.py <pubkey>` — see the features.csv + snapshots.json that come out | both files exist in `~/.pbx-lab/wallets/<pubkey>/` |
+| `s3.t17` | Pull a competitor wallet's PBX trades with `wallet-decoder.py <pubkey>` — see the features.csv + snapshots.json that come out | both files exist in `runtime/lab/wallets/<pubkey>/` |
 | `s3.t18` | A tweaked strategy outperforms the original for 24+ hours in paper | side-by-side paper data confirms |
 | `s3.t19` | Have Claude explain the math behind a strategy filter you've been using — understand WHY the threshold is where it is | you understand the rationale, not just the syntax |
 | `s3.t20` | Run `wallet-evolve.py <pubkey> --epochs 10` and read the BEAT_STRATEGY.md it produces — what rule did the systematic decoder land on? | `evolution.json` exists; `Reverse Engineer` event-driven achievement unlocks; you can describe the decoded entry+exit rule in plain English |
@@ -182,7 +182,7 @@ fires WAY before that.
 | ID | Task | Done when |
 |----|------|-----------|
 | `s5.t1` | Get a Helius API key | key issued at dashboard.helius.dev, configured in `.env` |
-| `s5.t2` | Generate your Solana wallet | wallet `.enc` file exists in `~/.pbx-bots/wallets/` |
+| `s5.t2` | Generate your Solana wallet | wallet `.enc` file exists in `runtime/bots/wallets/` |
 | `s5.t3` | Back up your wallet master key safely | `BOT_MASTER_KEY` saved in a password manager OR written on paper offline |
 | `s5.t4` | Fund your wallet with at least $20 USDC | on-chain balance ≥ 20 USDC |
 | `s5.t5` | Fund your wallet with at least $100 USDC | on-chain balance ≥ 100 USDC |
@@ -222,7 +222,7 @@ of the framework's current release. Section 6 starts with the $100 reward.**
 
 | ID | Task | Done when |
 |----|------|-----------|
-| `s6.t1` | **Claim your $100 reward** — safely send your GitHub repo + completed-achievements proof to whoever helped you set this up | you've sent the repo link + your `user-profile.json` `achievements_unlocked` array + `~/.pbx-lab/achievements.json` (the event-driven track) to the person who introduced you to PBX Stratos (the person who pointed you at this repo or did your initial onboarding), $100 has been received |
+| `s6.t1` | **Claim your $100 reward** — safely send your GitHub repo + completed-achievements proof to whoever helped you set this up | you've sent the repo link + your `user-profile.json` `achievements_unlocked` array + `runtime/lab/achievements.json` (the event-driven track) to the person who introduced you to PBX Stratos (the person who pointed you at this repo or did your initial onboarding), $100 has been received |
 | `s6.t2` | Customize your Claude personality (edit an existing personality file) | a personality file in `.claude/personalities/` has been edited and committed |
 | `s6.t3` | Write your own personality from scratch | new file in `.claude/personalities/<your-id>.md` exists and passes the format spec |
 | `s6.t4` | Write a custom theme CSS | new file in `themes/<your-id>.css` exists |
@@ -282,7 +282,7 @@ There are TWO complementary achievement systems running at once:
 
 ### Track 1 — roadmap (story-driven, Claude-mediated)
 
-`~/.pbx-lab/user-profile.json` has these fields related to the roadmap:
+`runtime/lab/user-profile.json` has these fields related to the roadmap:
 
 ```json
 {
@@ -304,13 +304,13 @@ When you complete a task:
 
 ### Track 2 — event-driven (auto-tracked, no Claude in the loop)
 
-`~/.pbx-lab/achievements.json` holds the unlocks from
+`runtime/lab/achievements.json` holds the unlocks from
 [`achievements/definitions.json`](achievements/definitions.json) —
 `first_light`, `wallet_decoded`, `first_backtest`, `sharpe_5`,
 `sharpe_20`, `wallet_created`, `ten_thousand_tests`. The Python
 package
 [`src/pbx_trader_lab/achievements.py`](src/pbx_trader_lab/achievements.py)
-scans `~/.pbx-lab/events.jsonl` (which the lab runners and bots write
+scans `runtime/lab/events.jsonl` (which the lab runners and bots write
 to) and unlocks matching achievements automatically. No Claude
 needed; no manual attestation needed.
 

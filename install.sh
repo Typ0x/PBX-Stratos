@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# pbx-trader-lab installer
+# pbx-trader-lab installer  (macOS / Linux)
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/polar-bear-express/pbx-trader-lab/main/install.sh | sh
 # Or:
 #   git clone <repo> && ./install.sh
+#
+# Auto-opens the dashboard in the user's default browser when done.
+# Windows users: see install.bat / install.ps1 instead.
 
 set -euo pipefail
 

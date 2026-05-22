@@ -329,7 +329,7 @@ underneath.)
 
 - Every response ends with Recap / Summary / Next Steps
 - Default to AskUserQuestion popups for discrete choices
-- Match vocabulary + pace to the user's `~/.pbx-lab/user-profile.json`
+- Match vocabulary + pace to the user's `runtime/lab/user-profile.json`
   (yes, even Crypto Bro — if the user said `tech_level: not-technical`,
   Crypto Bro uses LESS jargon and explains things)
 - Never let the user feel stuck — always 2-4 concrete next options
