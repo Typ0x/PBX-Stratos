@@ -28,6 +28,46 @@ spec); raise the conflict with the user so we can fix this doc.
 
 ---
 
+## Meta-conventions for executing this runbook
+
+Four ground rules before you start. These prevent the most common
+ways a fresh Claude misinterprets the install flow.
+
+1. **`AskUserQuestion` is a TOOL CALL, not a verbal phrase.** Whenever
+   this runbook says "call `AskUserQuestion`" or "ask the user with
+   these options," that means invoke the `AskUserQuestion` tool which
+   renders a click-through popup in Claude Desktop. **Do NOT verbally
+   ask the user to type a response.** The click-only UX is core to
+   this experience — if you make the user type mid-install, you've
+   broken the one-prompt-to-dashboard guarantee. The single exception
+   is when the user is genuinely pasting a secret (their Helius API
+   key) — that's an unavoidable typed input.
+
+2. **For remote markdown, always use `raw.githubusercontent.com`.**
+   If you were given `https://github.com/<owner>/<repo>` (or any
+   variant), `WebFetch` returns rendered HTML which is hard to parse.
+   The parseable markdown lives at
+   `https://raw.githubusercontent.com/<owner>/<repo>/main/<filename>`.
+   This applies to README.md, README.ai.md, install scripts, package
+   manifests — everything you read during Step -1 (pre-download
+   inspection).
+
+3. **The handoff to the roadmap is MANDATORY.** Step 13 (Section 19
+   below) is not optional polish. When the dashboard opens at
+   `localhost:8787`, you MUST verbalize the roadmap intro using the
+   template in Section 19. Saying "dashboard is up, you're all set"
+   and stopping is a failure mode — the user is left at an unfamiliar
+   UI with no idea what to do next.
+
+4. **If something looks wrong mid-install, STOP and ask the user.**
+   Never silently work around an unexpected state (e.g. `~/PBX-Stratos`
+   already exists, `.tooling/ready.json` is stale, `pm2 list` shows
+   processes you didn't start). Pause and call `AskUserQuestion`
+   surfacing what you found. Bad assumption + autonomous continuation
+   = corrupted install.
+
+---
+
 ## Table of contents
 
 1. [What PBX Stratos is](#1-what-pbx-stratos-is)
@@ -446,6 +486,28 @@ Suspicious-path proceed STILL requires explicit user OK; never
 auto-clone when the audit found something.
 
 ### Step -1.E — Clone (only after explicit "Yes")
+
+**Before running the clone command, check if the target directory
+already exists** — overwriting an existing clone is destructive and
+the user may have unrelated work in there.
+
+```bash
+# Check first
+test -d "$HOME/PBX-Stratos" && echo "DIR_EXISTS" || echo "DIR_CLEAR"
+```
+
+If `DIR_EXISTS`, halt and call `AskUserQuestion`:
+
+- **"Use the existing clone at `~/PBX-Stratos`"** — `cd` into it, skip
+  the `git clone` command entirely, proceed to Section 4 (on-disk
+  audit on whatever's there).
+- **"Move existing aside and clone fresh"** — rename the existing
+  directory to `~/PBX-Stratos.bak-<timestamp>` (DO NOT delete it),
+  then run the clone command below.
+- **"Stop — I'll clean it up myself"** — abort cleanly. Tell the user
+  what you saw at `~/PBX-Stratos` and let them handle it.
+
+If `DIR_CLEAR`, proceed directly with the clone:
 
 ```bash
 # Windows (Claude's Bash)
@@ -1506,8 +1568,24 @@ up. The discipline here is "read just the slice you need."
 ## 19. After install — the handoff to the roadmap
 
 Once Step 12 verifies all 7 health checks pass and the browser
-opens at `http://localhost:8787`, you are NOT done. The handoff
-is part of the install.
+opens at `http://localhost:8787`, **you are NOT done.** The
+handoff is part of the install — not optional, not skippable.
+
+**Why this is mandatory:** the user just installed something
+complex. The dashboard at `localhost:8787` is unfamiliar UI. If
+you stop at "dashboard is up" without orienting them, they're at
+a wall of panels with no idea what they're looking at. The
+handoff is the difference between "install succeeded" and "user
+feels like they succeeded." Both have to land for the install to
+count.
+
+**Do NOT skip this step even if:**
+- The install took a long time and you're tempted to wrap up
+- The user seems impatient
+- The handoff feels redundant because you already explained things
+  during the install
+
+The user always gets the handoff. Always.
 
 ### Verbalize the handoff (in the chosen personality voice)
 

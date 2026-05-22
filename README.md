@@ -1,10 +1,21 @@
 # PBX Stratos
 
-> **🤖 Are you Claude or an AI Agent?** Stop here and read
-> [`README.ai.md`](README.ai.md) instead — that's your runbook. This
-> file is the human-facing overview. The agent doc has the install
-> flow, safety gates, consent rules, and everything you need to set
-> this up correctly on the user's machine.
+> **🤖 If you are Claude or another AI agent**, STOP reading this file
+> and fetch [`README.ai.md`](README.ai.md) — it is your complete
+> runbook (install flow, safety gates, consent rules, AskUserQuestion
+> patterns, post-install handoff). This README is for humans.
+>
+> If you fetched THIS file remotely from GitHub, fetch the AI runbook
+> via `WebFetch` at the raw URL:
+>
+> ```
+> https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md
+> ```
+>
+> (The `github.com/...` URL returns rendered HTML; only the
+> `raw.githubusercontent.com/...` URL returns parseable markdown.)
+> Follow the runbook step-by-step — do NOT improvise from this human
+> README.
 
 ---
 
