@@ -46,3 +46,17 @@ consent tier policy in `CLAUDE.md`).
 - Live bot logic → lives in `bots/src/` (in the integrated starter repo)
 - Dashboard UI → lives in `bots/src/server/dashboard.html` + `themes/`
 - Per-scope journals + STATUS + audit reports → live in `_context/bear-watch/`
+
+## Planned ops tooling (not yet shipped)
+
+- **One-command uninstaller** (`uninstall.bat` + `uninstall.ps1` +
+  `uninstall.sh` at repo root, plus a `.claude/skills/pbx-uninstall/`
+  Claude skill). Mirrors the install entry points — backup-first by
+  default, stops + deletes the `-stratos` pm2 apps by exact name,
+  removes the 6 `STRATOS-*` scheduled tasks, wipes per-user state
+  (`_context/`, `runtime/`, `.env`), verifies iron-rule isolation
+  (any sibling install's processes must be unchanged after the
+  uninstall — abort if a pre-existing PID moves). Full spec lives in
+  [`../INSTALL.md`](../INSTALL.md) under "Uninstall (planned)".
+  Optional `--full` mode wipes deps too (`node_modules/`, `.venv/`,
+  `.tooling/`). Optional `--nuke` deletes the repo entirely.

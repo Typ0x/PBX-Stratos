@@ -111,7 +111,7 @@ Universal Core.
 > Twenty-four consecutive ticks (~24 minutes) observed in a single focused session. Sustained-attention discipline demonstrated.
 
 ### s2.t17 — "Lowest-Predictability City Identified"
-> You have identified the city with the highest forecast error (CHI — westerly transport from upwind regions outside the bot's observational range) and you understand why. Empirically grounded.
+> One hour of focused observation across all three cities, followed by independent hypothesis formation regarding the most difficult city to predict. The hypothesis derives from your own observation rather than Claude's prior analysis — methodological independence is the appropriate stance.
 
 ### s2.t18 — "Alert Categories Catalogued"
 > Every alert type the system can fire has been reviewed with classification by action-required vs auto-recovery. Operator readiness established.
@@ -180,15 +180,6 @@ Universal Core.
 ### s3.t19 — "Filter Mathematics Understood"
 > You can explain why a specific threshold is set where it is. No more cargo-cult parameters.
 
-### s3.t20 — "Systematic Decoder Produced a Rule"
-> `wallet-evolve.py` completed 10 epochs. `BEAT_STRATEGY.md` contains the top-ranked entry/exit rule with population-best F1 and lift over baseline. The `Reverse Engineer` event-driven achievement has unlocked automatically via `src/pbx_trader_lab/achievements.py` (no manual attestation required). This is the methodology that originally surfaced the project's central thesis.
-
-### s3.t21 — "Agentic Refinement Loop, 10 Rounds Completed"
-> `agentic-decode.py` executed 10 iterations: Claude proposed an entry+exit predicate pair in the DSL, the local evaluator scored precision/recall/lift, the round-trip simulator walked the rule chronologically with 30bps fees, and the loop refined. `agentic-rounds.jsonl` contains the full trace. The decode pipeline now operates as a closed loop with an LLM in the search role.
-
-### s3.t22 — "Verdict Gate Passed"
-> The decoded rule satisfies the verdict criteria: positive held-out round-trip P&L on the walk-forward 70/30 wallet-aware split AND positive entry-fit AND positive exit-fit. This is the formal bar for considering a rule for paper deployment. **Section 3 complete. Proceed to Section 4 — Architect.**
-
 ---
 
 ## Section 4 — Architect
@@ -243,18 +234,6 @@ Universal Core.
 
 ### s4.t17 — "Winner Selected"
 > One version decisively outperforms; the other has been archived. You can act on evidence without sunk-cost bias.
-
-### s4.t18 — "Strategy Logic Documented"
-> A markdown specification explains what + why. Reproducible by a third party. Audit-friendly.
-
-### s4.t19 — "Genetic Evolution Engaged"
-> The `evolve-job` runner has produced candidate variants from your design. The combinatorial search method is now in your toolkit.
-
-### s4.t20 — "Independent Discovery"
-> You identified a market pattern that Claude did not suggest first. You have crossed from informed practitioner to original investigator.
-
-### s4.t21 — "DSL Predicate Authored"
-> You have authored an entry+exit predicate directly in the strategy DSL — no agentic-decode involvement, no genetic-algorithm search. The predicate is committed to `bear-scout/runners/strategy-registry.json` and the paper environment is executing it. When `agentic-decode.py` proposes a predicate hereafter, you can read it formally because you have written one yourself. **Section 4 complete.**
 
 ---
 
@@ -388,35 +367,69 @@ Universal Core.
 
 ## Section 7 — Mastery
 
-### s7.t1 — "30-Day Multi-Bot Fleet"
+### Endurance tier
+
+### s7.t1 — "Seven Days of Continuous Live Operation"
+> A full week of live trading without manual intervention. The evidence suggests the system is reliable against real-world operating conditions and capable of unattended operation across at least one full weekly cycle.
+
+### s7.t2 — "Fourteen Days of Continuous Live Operation"
+> Two weeks of live operation with no intervention required. Multiple weekend cycles, multiple weather regimes, and multiple market conditions have been observed. Confidence in operational durability is now empirically supported, not merely assumed.
+
+### s7.t3 — "Thirty Days of Continuous Live Operation"
+> A full calendar month of live operation. The system has been exposed to the variety of conditions that typically surprise inexperienced operators and which tend to wash out early-stage luck. The early sample bias has been substantially reduced.
+
+### s7.t4 — "Profitable Week"
+> Week-over-week realized PnL is positive. This is not a single advantageous trade but a sustainable seven-day run distributed across multiple closes. The result has statistical content that a single trade lacks.
+
+### s7.t5 — "Profitable Month"
+> Month-over-month realized PnL is positive. This is success at the timescale that matters. Most operators never reach this threshold; reaching it constitutes meaningful empirical validation of the approach.
+
+### s7.t6 — "Seven Days of Continuous Paper Operation"
+> A variant strategy has operated in paper for 168 hours without interruption. Endurance has been demonstrated in advance of any consideration of live promotion — the appropriate ordering.
+
+### s7.t7 — "Your Strategy Survives Three Days in Paper"
+> Your original strategy has accumulated 72 hours of continuous paper operation without failures. A foundation has been established. The strategy is behaving like a properly-constructed system rather than an unstable artifact.
+
+### s7.t8 — "Your Strategy Survives Seven Days in Paper"
+> A full week of your original strategy in paper with three or more closed trades. The strategy is producing meaningful decision-cycle data and behaving like a complete system in miniature. This is the appropriate threshold before any discussion of live promotion.
+
+### s7.t9 — "Framework Upgrade Survived"
+> You pulled a non-trivial stratos release, followed the migration notes, and your installation remains end-to-end functional. The seven-check health verification is green and no recovery beyond the documented notes was required. Migrations are a legitimate operational competency; you have demonstrated it.
+
+### Beyond-the-author tier
+
+### s7.t10 — "30-Day Multi-Bot Fleet"
 > A full month of multi-strategy operation, $500+ capital, zero failures. This is what professional operation actually looks like.
 
-### s7.t2 — "Multiple Wallet Architecture"
-> Independent risk pools. Sophisticated capital allocation in practice.
+### s7.t11 — "Multiple Wallet Architecture — HD-Derived Fleet"
+> Three or more derived bot wallets have been spawned from your HD mnemonic, each operating a distinct strategy. Isolation has been verified through independent on-chain balance inspection — no single bot's losses can affect another's capital. Independent risk pools have been established in practice.
 
-### s7.t3 — "Three Profitable Months"
+### s7.t12 — "Three Profitable Months"
 > Sustained edge over a meaningful timescale. The bar most retail traders never clear has been cleared.
 
-### s7.t4 — "Recruited a New Operator"
+### s7.t13 — "Recruited a New Operator"
 > Another individual is now operating PBX Stratos because of your introduction. Network effect.
 
-### s7.t5 — "Research Note Published"
+### s7.t14 — "Research Note Published"
 > Original empirical work documented and shareable. You have produced knowledge that did not previously exist.
 
-### s7.t6 — "PM2.5 Forecaster Outperforms Persistence Baseline"
+### s7.t15 — "PM2.5 Forecaster Outperforms Persistence Baseline"
 > A near-term PM2.5 → price forecasting model has been constructed in `bear-scout/aq-price/` and demonstrates superior out-of-sample performance vs the persistence baseline over a 7-day held-out window. Owning the forecasting layer upstream of the price signal is a substantive original research contribution, not a parameter tuning.
 
-### s7.t7 — "New Sensor Source Integrated"
+### s7.t16 — "New Sensor Source Integrated"
 > A data source unknown to the original project is now feeding decisions.
 
-### s7.t8 — "Personality Adopted by Another Operator"
+### s7.t17 — "Personality Adopted by Another Operator"
 > Original framework contribution validated through external adoption.
 
-### s7.t9 — "90 Days Continuous Live"
+### s7.t18 — "90 Days Continuous Live"
 > 2,160 hours of live operation. You have experienced sufficient regime variance to have legitimate operational intuition.
 
-### s7.t10 — "Leaderboard Recognition"
+### s7.t19 — "Leaderboard Recognition"
 > Public leaderboard inclusion achieved.
 
 ### s7.t20 — "Upstream Tooling Contribution Filed"
-> A PR has been opened against `polar-bear-express/pbx-trader-lab` containing a tooling improvement: a more robust decoder, an enhanced evolver, an additional swap-router venue, a sharper PM2.5 forecasting model, or a missing `/debug/health` signal. Whether the change is merged or not, you have entered the project's contributor record and contributed to the shared lab infrastructure. **Section 7 complete. From this point, you guide the framework's evolution rather than following it. The investigation continues, but you are now the principal investigator.**
+> A PR has been opened against `Typ0x/PBX-Stratos` containing a tooling improvement: a more robust decoder, an enhanced evolver, an additional swap-router venue, a sharper PM2.5 forecasting model, or a missing `/debug/health` signal. Whether the change is merged or not, you have entered the project's contributor record and contributed to the shared framework.
+
+### s7.t21 — "Parallel Claude Scopes Coordinated"
+> A second scope's `_context/` directory now exists in your installation — `bear-scout` for research while `bear-watch` handles operations, for example — and both scopes contain journal entries that reference work performed by the other. No manual cross-briefing was required; the journals served as the synchronization layer, as the architecture intends. **Section 7 complete. From this point, you guide the framework's evolution rather than following it. The investigation continues, but you are now the principal investigator.**

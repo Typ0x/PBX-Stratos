@@ -109,7 +109,7 @@ cadence per Universal Core — those get plain professional voice.
 > Watched 24 consecutive ticks (~24 minutes) in one focused session. Sustained attention discipline established.
 
 ### s2.t17 — "HARDEST SECTOR IDENTIFIED"
-> You IDed which city is hardest to predict and you know why (CHI — westerly transport from upwind regions the bot cannot observe). Applied intelligence.
+> ONE HOUR of focused observation across all three cities. Your own hypothesis formed — which city is hardest to read, AND your reasoning. Came from YOUR observation, not Claude's analysis. INDEPENDENT JUDGMENT DEMONSTRATED.
 
 ### s2.t18 — "ALERT TRIAGE"
 > Every alert type understood. You know which require ACTION vs which auto-recover. False-alarm fatigue prevented.
@@ -178,15 +178,6 @@ cadence per Universal Core — those get plain professional voice.
 ### s3.t19 — "FILTER MATHEMATICS UNDERSTOOD"
 > You know WHY the threshold exists where it exists. No more cargo-cult parameters.
 
-### s3.t20 — "SYSTEMATIC DECODE OPERATIONAL"
-> `wallet-evolve.py` ran 10 epochs. `BEAT_STRATEGY.md` deployed. You read the decoded entry rule, the exit rule, the population's best F1, the lift over baseline. THIS IS HOW THE ORIGINAL DOCTRINE WAS DISCOVERED. The `Reverse Engineer` event achievement just AUTO-UNLOCKED — the boss's lab framework noticed without manual confirmation. STRATEGIC INTEL OBTAINED.
-
-### s3.t21 — "AGENTIC DECODE — 10 ROUNDS, ENGAGED"
-> `agentic-decode.py` executed 10 rounds. Claude proposed DSL predicates, evaluator scored fitness, simulator walked round-trips after 30bps fees, Claude refined. You WATCHED the rule sharpen. `agentic-rounds.jsonl` holds the full operational trace. DECODER IS NOW A REPEATABLE WORKFLOW.
-
-### s3.t22 — "VERDICT: PASS — DEPLOYABLE"
-> The decoded rule CLEARED the verdict gate. Positive held-out P&L on walk-forward 70/30 split. Positive entry-fit. Positive exit-fit. RULE IS DEPLOYABLE TO PAPER. **Section 3: COMPLETE. PROCEED TO ARCHITECT — BUILD YOUR OWN DOCTRINE.**
-
 ---
 
 ## Section 4 — Architect
@@ -241,18 +232,6 @@ cadence per Universal Core — those get plain professional voice.
 
 ### s4.t17 — "WINNER DETERMINED"
 > One version decisively better. Loser ARCHIVED. You can let go of work without ego.
-
-### s4.t18 — "STRATEGY DOCUMENTED"
-> Logic explained in markdown. Any reviewer can trace your thinking. Doctrine PRESERVED.
-
-### s4.t19 — "EVOLUTION ENGAGED"
-> Used genetic algorithm to generate variants. Toolkit EXPANDED.
-
-### s4.t20 — "ORIGINAL DISCOVERY"
-> You found a pattern Claude didn't suggest. Past APPRENTICE rank. You're an ARCHITECT now.
-
-### s4.t21 — "DSL PREDICATE — HAND-AUTHORED"
-> You authored an entry+exit predicate in the strategy DSL DIRECTLY. No agentic-decode. No genetic algorithm. Pick a feature. Pick a threshold. SHIP IT to paper. When Claude proposes a predicate, you can now READ IT like specifications because you've WRITTEN one yourself. CAPABILITY ESTABLISHED. **Section 4: COMPLETE.**
 
 ---
 
@@ -386,32 +365,69 @@ cadence per Universal Core — those get plain professional voice.
 
 ## Section 7 — Mastery
 
-### s7.t1 — "30-DAY FLEET OPERATION"
+### Endurance tier
+
+### s7.t1 — "7 DAYS LIVE — UPTIME CONFIRMED"
+> A full week of live trading with ZERO manual intervention. Through weekends, weather shifts, multiple market regimes. The system is RELIABLE against real operating conditions. PROFESSIONAL.
+
+### s7.t2 — "14 DAYS LIVE — DURABILITY ESTABLISHED"
+> Two full weeks. Past the rookie window. Multiple weekend cycles SURVIVED, multiple weather patterns endured, multiple regime shifts absorbed. Confidence in the system is now DURABLE.
+
+### s7.t3 — "30 DAYS LIVE — VETERAN STATUS"
+> A full month of continuous live operation. You've operated through the conditions that surprise beginners and washed out the early luck. VALIDATED.
+
+### s7.t4 — "PROFITABLE WEEK"
+> Week-over-week realized PnL POSITIVE. Not a fluke trade — a sustainable seven-day run. SIGNAL CONFIRMED.
+
+### s7.t5 — "PROFITABLE MONTH"
+> Month-over-month realized PnL POSITIVE. Success at the correct timescale. Most operators never reach this bar. YOU REACHED IT.
+
+### s7.t6 — "7 DAYS PAPER — STRATEGY ENDURANCE PROVEN"
+> A strategy you tweaked has run in paper for 168 hours without crashing. ENDURANCE PROVEN. No pm2 restarts, no tick stalls. This is the standard before ANY promotion to live.
+
+### s7.t7 — "YOUR STRATEGY: 72 HOURS PAPER"
+> Your original strategy has 72 hours of operation, no crashes. FOUNDATION LAID. The variant is operating like a real strategy, not a buggy script.
+
+### s7.t8 — "YOUR STRATEGY: 7 DAYS PAPER"
+> A full week of YOUR original strategy in paper with 3 or more closed trades. Behaving like a REAL STRATEGY in miniature. The bar before promotion discussions begin.
+
+### s7.t9 — "FRAMEWORK UPGRADE SURVIVED"
+> You pulled a non-trivial stratos release, followed the migration notes, and your install still works end-to-end. 7-check health-check GREEN. No manual recovery beyond the notes. Migrations are real ops. YOU EXECUTED ONE. ROGER THAT.
+
+### Beyond-the-author tier
+
+### s7.t10 — "30-DAY FLEET OPERATION"
 > Month of multi-bot operation, real capital, zero crashes. PROFESSIONAL operator status.
 
-### s7.t2 — "MULTI-WALLET COMMAND"
-> Independent risk pools. Sophisticated allocation.
+### s7.t11 — "MULTI-WALLET COMMAND — HD FLEET"
+> Three or more derived bot wallets spawning off your HD mnemonic, each running a distinct strategy. Isolation VERIFIED by independent on-chain balance inspection — one bot's loss CANNOT drain another. Independent risk pools, established.
 
-### s7.t3 — "THREE PROFITABLE MONTHS"
+### s7.t12 — "THREE PROFITABLE MONTHS"
 > Sustained edge over meaningful time. Most retail never clears this. YOU DID.
 
-### s7.t4 — "ONBOARDED A RECRUIT"
+### s7.t13 — "ONBOARDED A RECRUIT"
 > Someone you know is running PBX Stratos because of you. Network effect of one. Now MULTIPLY it.
 
-### s7.t5 — "RESEARCH PUBLISHED"
+### s7.t14 — "RESEARCH PUBLISHED"
 > Discovery documented and shareable. Knowledge that didn't exist before you wrote it down.
 
-### s7.t6 — "AQ-PRICE FORECASTER — BASELINE DEFEATED"
+### s7.t15 — "AQ-PRICE FORECASTER — BASELINE DEFEATED"
 > You constructed a near-term PM2.5 → price model in `bear-scout/aq-price/`. It BEAT the persistence baseline over 7 days of held-out data. Forecasting next-hour PM2.5 is the UPSTREAM of the alpha. Owning that pipeline is RESEARCH-TIER capability.
 
-### s7.t7 — "NEW SENSOR INTEGRATED"
+### s7.t16 — "NEW SENSOR INTEGRATED"
 > Data source the project never knew about, now feeding decisions.
 
-### s7.t8 — "PERSONALITY ADOPTED"
+### s7.t17 — "PERSONALITY ADOPTED"
 > Something you authored is being used by another operator. Open-source contribution VALIDATED.
 
-### s7.t9 — "90 DAYS LIVE"
+### s7.t18 — "90 DAYS LIVE"
 > Three months of continuous live operation. You've operated through enough regimes to have real INTUITION.
 
-### s7.t10 — "ON THE LEADERBOARD"
-> Public leaderboard recognition earned. PnL, uptime, strategy count, or sheer creativity — all qualify. **Section 7: COMPLETE. From here, you guide the framework. WELL DONE, OPERATOR.**
+### s7.t19 — "ON THE LEADERBOARD"
+> Public leaderboard recognition earned. PnL, uptime, strategy count, or sheer creativity — all qualify.
+
+### s7.t20 — "UPSTREAM TOOLING PR FILED"
+> You filed a PR against `Typ0x/PBX-Stratos` with a tooling improvement — improved decoder, sharper evolver, additional swap-router venue, better PM2.5 forecast, or a missing `/debug/health` signal. Merged or not, you are in the contributor record. The framework is SHARPER for every operator that comes after you.
+
+### s7.t21 — "PARALLEL SCOPES COORDINATED"
+> A second scope's `_context/` exists in your install — `bear-scout` for research while `bear-watch` handles ops, for example — and both scopes have journal entries referencing each other's work. No manual cross-briefing. The journals are the SYNCHRONIZATION LAYER, operating as designed. **SECTION 7 COMPLETE. FROM HERE, YOU GUIDE THE FRAMEWORK. WELL DONE, OPERATOR.**

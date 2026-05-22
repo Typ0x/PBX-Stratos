@@ -93,8 +93,8 @@ pointing at what's next.
 ### s2.t10 — "Tick Logic Decoded"
 > You asked Claude to walk through one tick decision in full detail. The chain of reasoning is visible end-to-end.
 
-### s2.t11 — "Tick Log Reviewed"
-> You've read 10 consecutive ticks in the log. The bot's minute-by-minute thinking is no longer hidden — it's data you can scan.
+### s2.t11 — "Tick Window Walked"
+> You walked a 5-minute window with Claude and named what shifted between consecutive ticks — price moves, signal flips, why the bot held vs entered. The minute-by-minute reasoning is no longer hidden; it's something you can read.
 
 ### s2.t12 — "Held Through Drawdown"
 > A position went underwater 5%+ and you held. The bot's strategy includes drawdowns; your job is to let the strategy play out.
@@ -108,11 +108,11 @@ pointing at what's next.
 ### s2.t15 — "Daily Digest, Active Reading"
 > You read the morning digest AND identified something that surprised you. Active interpretation, not passive consumption.
 
-### s2.t16 — "24 Ticks in One Sitting"
-> You watched 24 consecutive ticks (~24 minutes). Focus + observation discipline established.
+### s2.t16 — "Disciplined Non-Trade Decoded"
+> You found a tick where the bot was tempted but didn't enter. You can name the filter that blocked it and judge in hindsight whether the no-trade was right. Skipping bad trades is the work.
 
-### s2.t17 — "Hardest City Identified"
-> You spotted which city is hardest to predict and you know why (CHI — westerly transport from regions the bot can't see). Applied science.
+### s2.t17 — "Own City Hypothesis Formed"
+> You watched all three cities for a focused hour and formed your own opinion about which is hardest to read. The hypothesis came from your observation, not from Claude's analysis. Original work begins here.
 
 ### s2.t18 — "Alert Triage Understood"
 > You know every alert type the system fires AND which require action vs which are routine. Operator readiness.
@@ -136,139 +136,118 @@ pointing at what's next.
 ### s3.t4 — "Variant Deployed"
 > Tweak is now operational in paper. Claude explained exactly what changed. A/B comparison is live.
 
-### s3.t5 — "Tweak Underperformed (Learning)"
-> The intervention produced worse outcomes than the baseline. This is high-value evidence — it constrains the design space.
+### s3.t5 — "Hypothesis-Driven Experiments"
+> You ran 5+ parameter experiments where each one had a stated hypothesis, not just "tried numbers." You maintained a learnings table with Claude showing what moved what. This is empirical method, not cargo-culting.
 
-### s3.t6 — "Tweak Outperformed"
-> The intervention produced better outcomes. Your judgment is producing edges.
+### s3.t6 — "Surprise Result Chased"
+> One of your experiments landed with results that genuinely surprised you. You chased WHY — was the hypothesis wrong, or the test design flawed? — and wrote the finding up. Surprises are where the actual learning lives.
 
-### s3.t7 — "Three Experiments Logged"
-> Three distinct interventions completed. The empirical method is in practice.
-
-### s3.t8 — "Five Experiments Logged"
-> Five distinct interventions. The habit is forming.
-
-### s3.t9 — "Ten Experiments Logged"
-> Ten interventions. You have a body of work — most operators stop at 2-3.
-
-### s3.t10 — "Design Space Mapped"
+### s3.t7 — "Design Space Mapped"
 > Three variants of one base strategy. You understand the design space, not merely a single point in it.
 
-### s3.t11 — "Persistence Baseline Compared"
+### s3.t8 — "Persistence Baseline Compared"
 > You've compared your best variant against "do nothing for the next hour" — and the result is honest. Most amateur strategies fail this test; if yours beats it, you have real signal.
 
-### s3.t12 — "Dashboard Customized"
+### s3.t9 — "Dashboard Customized"
 > Dashboard layout reflects your monitoring priorities. The control room is yours.
 
-### s3.t13 — "Personality File Customized"
+### s3.t10 — "Personality File Customized"
 > You edited the active personality file. Not just picked — modified. Claude's voice now reflects YOUR preferences, not just a preset.
 
-### s3.t14 — "Theme File Customized"
+### s3.t11 — "Theme File Customized"
 > You modified at least one CSS variable in the active theme. The dashboard looks the way YOU want it to, not just how the default looked.
 
-### s3.t15 — "Profile Refined From Experience"
+### s3.t12 — "Profile Refined From Experience"
 > After a week of actual usage, you've refined your profile based on what you learned about how you actually work. Self-knowledge applied.
 
-### s3.t16 — "Audit Triage Understood"
+### s3.t13 — "Audit Triage Understood"
 > Claude ran an audit and walked you through which findings actually matter. You can ignore noise without ignoring signal.
 
-### s3.t17 — "First Wallet Pulled"
+### s3.t14 — "First Wallet Pulled"
 > `wallet-decoder.py` finished against the pubkey you pointed it at. `features.csv` + `snapshots.json` exist in `runtime/lab/wallets/<pubkey>/`. You now have one row per trade plus the market state at trade-time — the raw material a decoder needs to find the rule.
 
-### s3.t18 — "Variant Outperforms 24h Live"
+### s3.t15 — "Variant Outperforms 24h Live"
 > Real-time evidence (not just backtest) of variant superiority over 24+ hours. Your judgment is producing durable edges.
 
-### s3.t19 — "Filter Math Understood"
-> You know WHY a specific threshold is where it is. No more cargo-cult parameters.
+### s3.t16 — "Filter Math Understood"
+> You know WHY a specific threshold is where it is — not just what it is. You can defend the chosen value, not just read it. No more cargo-cult parameters.
 
-### s3.t20 — "Systematic Decode Returned a Rule"
+### s3.t17 — "Systematic Decode Returned a Rule"
 > `wallet-evolve.py` finished 10 epochs. `BEAT_STRATEGY.md` exists; you read the entry rule, the exit rule, and the population's best F1 in plain English. The `Reverse Engineer` event-driven achievement just unlocked automatically — that's the boss's lab framework noticing what you did, no Claude in the loop needed.
 
-### s3.t21 — "Agentic Loop Refined the Rule"
+### s3.t18 — "Agentic Loop Refined the Rule"
 > `agentic-decode.py` ran 10 rounds. You watched Claude propose a DSL predicate, see the metrics + sample false positives + round-trip P&L, and refine for the next round. The `agentic-rounds.jsonl` trace shows the rule getting sharper as it goes.
 
-### s3.t22 — "Verdict PASS"
+### s3.t19 — "Verdict PASS"
 > The decoded rule passes the verdict gate: positive held-out P&L on the walk-forward 70/30 split AND positive entry-fit AND positive exit-fit. This is what separates a hypothesis from a deployable strategy. **Section 3 complete. Move to Section 4 — Architect.**
 
 ---
 
 ## Section 4 — Architect
 
-### s4.t1 — "Hypothesis Formed"
-> You have a written guess about how the market behaves. This is the start of original work.
+### s4.t1 — "Testable Hypothesis Articulated"
+> Your hypothesis is sharp enough to test. Specific entry conditions, specific exit conditions, and a falsification check — what data would prove you wrong. Claude pushed back until it became falsifiable. This is the discipline that separates ideas from strategies.
 
-### s4.t2 — "Hypothesis Discussed"
-> Claude helped you sharpen or reject the hypothesis. Iteration on ideas, not just on parameters.
+### s4.t2 — "DSL Predicate Written"
+> Your hypothesis is now machine-readable. Entry trigger, position size logic, exit conditions (lock/trail/max-hold) — all in the DSL. Syntactically valid against the interpreter. The strategy can run.
 
-### s4.t3 — "Entry Rules Defined"
-> Your hypothesis is now a concrete BUY condition. From abstract to executable.
-
-### s4.t4 — "Exit Rules Defined"
-> Your hypothesis is now a concrete SELL condition. The strategy is complete on paper.
-
-### s4.t5 — "Strategy in Registry"
+### s4.t3 — "Strategy in Registry"
 > Your strategy is in the system. The paper trader can run it.
 
-### s4.t6 — "First Backtest of Your Strategy"
+### s4.t4 — "First Backtest of Your Strategy"
 > Historical data has spoken. You have a number for your hypothesis.
 
-### s4.t7 — "First Iteration"
-> Backtest informed a revision. You're tuning your own design, not just deploying.
+### s4.t5 — "Targeted Iteration"
+> You changed ONE parameter on purpose, re-backtested, and confirmed with Claude that the change moved the metric you targeted. Surgical, not scattershot. This is how you tune signal without breaking the rest.
 
-### s4.t8 — "Deployed to Paper"
+### s4.t6 — "Deployed to Paper"
 > Your strategy is live in the paper trader.
 
-### s4.t9 — "First Trade Your Strategy Fires"
+### s4.t7 — "First Trade Your Strategy Fires"
 > A position is open under your strategy's name. This is original output.
 
-### s4.t10 — "Your Strategy Profits"
+### s4.t8 — "Your Strategy Profits"
 > A closed position with positive PnL belongs to YOUR strategy. The idea worked at least once.
 
-### s4.t11 — "Second Trade Fires"
-> Your strategy opened a second position. It's not a one-off — the signal is firing repeatably.
-
-### s4.t12 — "Three Decision Cycles"
+### s4.t9 — "Three Decision Cycles"
 > Your strategy has completed 3 full BUY → manage → exit cycles. Behaving like a real strategy in miniature.
 
-### s4.t13 — "Five Closed Trades"
-> Enough sample size to start reasoning about win rate.
+### s4.t10 — "Five Closed Trades, 50%+ Win Rate"
+> 5+ closed trades — enough sample size to mean something — and the win rate is above 50%. The signal you spotted is real, not luck.
 
-### s4.t14 — "Above 50% Win Rate"
-> Your strategy is in net-positive territory. The signal you spotted is real.
+### s4.t11 — "Strategy v2 with a Named Improvement"
+> A revised version exists, and the improvement is tied to a specific lesson v1 taught you. You're iterating on evidence, not on hope.
 
-### s4.t15 — "Strategy v2"
-> A revised version exists. You're iterating on your own work.
-
-### s4.t16 — "v1 vs v2 Side-by-Side"
+### s4.t12 — "v1 vs v2 Side-by-Side"
 > Both versions paper-trading. Real data will pick the winner.
 
-### s4.t17 — "Winner Picked"
-> One of them is decisively better. The loser archived. You're making confident decisions about your own designs.
+### s4.t13 — "Winner Picked + Reasoned"
+> One version is decisively better, and the WHY is in your journal — was it the filter? the exit? something you didn't predict? Confident decision-making with a paper trail.
 
-### s4.t18 — "Strategy Documented"
-> A markdown file explains what your strategy does and why. Future-you (and any reviewer) can trace your reasoning.
+### s4.t14 — "Strategy Logic Journaled"
+> Your scope's journal explains what your strategy is designed to capture, the rules it uses, and the failure modes you've found. Future-you (and any reviewer) can trace your reasoning.
 
-### s4.t19 — "Evolution Run"
-> You used the evolutionary search to generate strategy variants. The genetic algorithm is now part of your toolkit.
+### s4.t15 — "Evolutionary Search Run"
+> You used `evolve-job` to surface variants your hand-tuning would never have picked. At least one of those variants beat your hand-tuned version on the backtest window. The genetic algorithm is now part of your toolkit.
 
-### s4.t20 — "Original Discovery"
-> You found a market pattern Claude didn't suggest. You're past the apprentice phase.
+### s4.t16 — "Original Discovery"
+> You found a market pattern Claude didn't suggest — something YOU noticed from watching, not from Claude's analysis. You're past the apprentice phase.
 
-### s4.t21 — "DSL Predicate Written By Hand"
+### s4.t17 — "DSL Predicate Written By Hand"
 > You wrote an entry+exit predicate in the strategy DSL yourself — no Claude in the loop, no agentic-decode. Pick a feature, pick a threshold, ship it to paper. You can now read what `agentic-decode.py` produces like prose because you've written one yourself. **Section 4 complete.**
 
 ---
 
 ## Section 5 — Mainnet
 
-### s5.t1 — "Helius Key Configured"
-> Your Solana RPC connection is live. The bot can talk to the chain.
+### s5.t1 — "Funder Pubkey Verified"
+> Three independent views — `pbx wallet show`, the dashboard's funder card, and a block explorer — all show the same pubkey. You know what wallet your bot is actually using.
 
-### s5.t2 — "Solana Wallet Generated"
-> Encrypted wallet file exists locally. You own the keys.
+### s5.t2 — "Funder Cap Verified"
+> Your funder is funded but not over-funded, and the cap tripwire ($1000 USDC / 2 SOL) is intact in your config. Real-money safety net confirmed before any live trade fires.
 
-### s5.t3 — "Master Key + Mnemonic Backed Up"
-> Your `BOT_MASTER_KEY` (AES-256-GCM unlock secret) AND your `BOT_HD_MNEMONIC` (24-word BIP39 phrase) are both stored somewhere you'll find them in a year. Lose either and the wallet is unrecoverable. Back the mnemonic up on paper, not just in a password manager.
+### s5.t3 — "Consent Gates Understood"
+> You read every gate that fires when you try to go live, and you can name what each one is protecting — key access, fund movement, daily caps. Consent isn't ceremonial; you know what each click is approving.
 
 ### s5.t4 — "Wallet Funded with $20"
 > Real money on chain. The bot has something to trade with.
@@ -318,8 +297,8 @@ pointing at what's next.
 ### s5.t19 — "Solscan Verified"
 > You opened one of your live trade signatures on Solscan and saw the swap details directly on chain. You trust the chain, not just the dashboard.
 
-### s5.t20 — "Live Trade Caught in Real Time"
-> You watched a live trade fire on the dashboard as it was happening. The open + exit unfolded in front of you. Confirms the loop end-to-end.
+### s5.t20 — "Live Trade Caught in the Act"
+> You refreshed the dashboard just as a live order was firing. You watched the position appear, the entry price lock in, and the slippage row land in `runtime/lab/data/`. You can name the exact tick, the entry price, and the slippage. The loop is real, end-to-end.
 
 ### s5.t21 — "Wallet Verified Independently"
 > You checked your wallet's actual on-chain balance through `solana balance` or a block explorer — separate from the dashboard. The numbers line up.
@@ -337,13 +316,13 @@ pointing at what's next.
 > Multiple strategies, multiple positions, $500+ active capital. You're operating at scale now.
 
 ### s5.t26 — "Personal Ops Runbook"
-> Your own incident response guide exists, tailored to your setup. When something breaks, your future-self has notes from your past-self.
+> Your own incident response guide exists, written from incidents you've actually hit — not the framework's defaults. When something breaks again, your past-self has the exact playbook.
 
-### s5.t27 — "Real Alert Debugged"
-> A real alert fired, you and Claude diagnosed it, the fix landed. You're an operator, not a tourist.
+### s5.t27 — "Real Alert Debugged End-to-End"
+> A real alert fired, you and Claude traced from "alert" to "root cause" to "fix shipped" — and journaled it. You're an operator, not a tourist.
 
-### s5.t28 — "Strategy Cooled Down"
-> A losing strategy was demoted from live back to paper. You can let go of a bad bet without ego. **Section 5 complete. You're now at the project author's level. The $100 reward is at the start of Section 6.**
+### s5.t28 — "Strategy Cooled Down + Audited"
+> A losing strategy was demoted from live back to paper, the audit of what happened is journaled, and you decided whether to fix or retire it. You can let go of a bad bet without ego. **Section 5 complete. You're now at the project author's level. The $100 reward is at the start of Section 6.**
 
 ---
 
@@ -364,8 +343,8 @@ pointing at what's next.
 ### s6.t5 — "Custom Strategy Added"
 > A novel strategy is in your registry, complete with backtest stats.
 
-### s6.t6 — "Custom Signal Source"
-> A new data feed is wired into the bot — different sensors, different city, different signal.
+### s6.t6 — "Custom Signal Source Wired"
+> A new pillar is in `signal-combine.py` — could be a new PurpleAir cluster, NOAA, a satellite AOD source, anything. It emits signals the strategy fitness can read. You're not just consuming the framework's signals; you're contributing one.
 
 ### s6.t7 — "Dashboard Panel Customized"
 > A panel exists in the dashboard that didn't exist before. The UI is now yours.
@@ -374,7 +353,7 @@ pointing at what's next.
 > You're contributing back. Even if it never merges, you're now part of the project's contributor history.
 
 ### s6.t9 — "Custom Audit Protocol"
-> A new audit doc captures what YOU check for. The audit framework is extensible by design.
+> `bear-watch/audit-<yourname>.md` exists with YOUR definition of "healthy" for this install and the verification steps to check it. The audit framework is extensible by design; you've extended it.
 
 ### s6.t10 — "Off-Machine Backup Set Up"
 > Backups go somewhere other than your laptop. Disaster recovery is real.
@@ -415,16 +394,16 @@ pointing at what's next.
 ### s7.t8 — "Your Strategy Survives 7 Days in Paper"
 > A full week of your original strategy, with three or more closed trades. Behaving like a real strategy.
 
-### s7.t9 — "5 Distinct Days of Dashboard Use"
-> You've checked the dashboard across five different calendar days. Long-arc habit established.
+### s7.t9 — "Framework Upgrade Survived"
+> You pulled a non-trivial stratos release, followed the migration notes, and your install still works end-to-end. The 7-check health-check is green and no manual recovery was needed beyond following the notes. Migrations are real ops; you've done one.
 
 ### Beyond-the-author tier
 
 ### s7.t10 — "30-Day Multi-Bot Fleet"
 > A full month of operating multiple strategies, real capital, no crashes. This is what running an operation actually looks like.
 
-### s7.t11 — "Multiple Wallets"
-> Independent risk pools. Sophisticated risk management.
+### s7.t11 — "HD-Derived Wallet Fleet"
+> Three or more derived bot wallets are spawning off your HD mnemonic, each running a distinct strategy. You've verified the isolation by inspecting on-chain balances independently — one bot's bad trade can't drain another. Independent risk pools, real.
 
 ### s7.t12 — "Three Profitable Months"
 > Sustained edge over a meaningful timeframe. The bar most retail traders never clear.
@@ -451,4 +430,7 @@ pointing at what's next.
 > When the public leaderboard exists, you're on it. By PnL, by uptime, by strategy count, or by sheer creativity — any of them counts.
 
 ### s7.t20 — "Tooling PR Upstream"
-> You opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing `/debug/health` signal. Whether it merges or not, you're now part of the project's contributor history. The lab tooling gets sharper for everyone who comes after you. **Section 7 complete. You're past where the framework can guide you. From here, you're guiding the framework.**
+> You opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing `/debug/health` signal. Whether it merges or not, you're now part of the project's contributor history. The tooling gets sharper for everyone who comes after you.
+
+### s7.t21 — "Parallel Claude Scopes Coordinated"
+> A second scope's `_context/` exists in your install — maybe `bear-scout` for research while `bear-watch` handles ops — and both scopes have journal entries that reference work the other did. No manual cross-briefing, no telling each one what the other did. The journals are the synchronization layer, like they're meant to be. **Section 7 complete. You're past where the framework can guide you. From here, you're guiding the framework.**

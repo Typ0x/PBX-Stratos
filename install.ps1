@@ -4,14 +4,15 @@
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #
 # Orchestrates the full install end-to-end:
-#   1. Ensures Node.js >= 18 (delegates to scripts/bootstrap.ps1 which
-#      downloads a standalone Node into .tooling/ if not on PATH)
-#   2. npm install at repo root (workspaces pull in bots/ + packages/*)
-#   3. Python venv + pip install -e ".[decoder]"
-#   4. pm2 install (global) if not already present
-#   5. pm2 start bear-watch/pm2.config.cjs + pm2 save
-#   6. Registers all 6 STRATOS-* Windows scheduled tasks at /rl LIMITED
-#   7. Writes .tooling/ready.json install marker
+#   1. Ensures Node.js >= 18 + bundled Python + npm install + writes
+#      .tooling/ready.json (delegates to scripts/bootstrap.ps1 -> setup.mjs)
+#   2. Python venv at .venv + pip install -e ".[decoder]"
+#      (uses the validated Python path from ready.json -- never probes
+#      PATH directly, which can hit the Microsoft Store launcher stub)
+#   3. pm2 install (global) if not already present
+#   4. pm2 start bear-watch/pm2.config.cjs + pm2 save
+#   5. Registers all 6 STRATOS-* Windows scheduled tasks at /rl LIMITED
+#   6. Polls /health for up to 20s, then opens dashboard in browser
 #
 # Safe to re-run. Each step skips work that's already done.
 #
@@ -31,7 +32,7 @@ $RepoRoot = $PSScriptRoot
 function Step {
   param([int]$N, [string]$Title)
   Write-Host ""
-  Write-Host ("[{0}/7] {1}" -f $N, $Title) -ForegroundColor Cyan
+  Write-Host ("[{0}/6] {1}" -f $N, $Title) -ForegroundColor Cyan
 }
 
 function Ok {
@@ -44,6 +45,24 @@ function Warn {
   Write-Host ("       WARN: {0}" -f $Msg) -ForegroundColor Yellow
 }
 
+# Probes a python interpreter and returns true ONLY if it's a real Python
+# 3.10+. The Microsoft Store launcher stub at
+# %LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe responds to --version
+# either by silently exiting or printing nothing useful; this guard
+# catches that case so we don't try to use it for venv creation.
+function Test-RealPython {
+  param([string]$ExePath)
+  if (-not $ExePath -or -not (Test-Path $ExePath)) { return $false }
+  try {
+    $verOutput = & $ExePath --version 2>&1 | Out-String
+    if ($verOutput -match 'Python\s+(\d+)\.(\d+)') {
+      $major = [int]$Matches[1]; $minor = [int]$Matches[2]
+      if ($major -gt 3 -or ($major -eq 3 -and $minor -ge 10)) { return $true }
+    }
+  } catch { }
+  return $false
+}
+
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host " PBX Stratos installer" -ForegroundColor Cyan
@@ -51,49 +70,63 @@ Write-Host " repo: $RepoRoot" -ForegroundColor Gray
 Write-Host "================================================================" -ForegroundColor Cyan
 
 # ----------------------------------------------------------------
-Step 1 "Ensuring Node.js >= 18..."
-# bootstrap.ps1 handles: detect Node, download bundled if missing,
-# set PATH for downstream calls. Re-running is cheap (it checks
-# before downloading).
+Step 1 "Ensuring Node.js + Python + npm deps (via scripts/bootstrap.ps1)"
+# bootstrap.ps1 -> setup.mjs handles:
+#   - Detect Node, download bundled standalone Node into .tooling/ if missing
+#   - Bundle Python at .tooling\python\python.exe (Windows always bundles)
+#   - npm install at repo root (workspaces pull in bots/ + packages/*)
+#   - npm install -g @anthropic-ai/claude-code (needed by decode workflow)
+#   - Write .tooling/ready.json with the validated python path
+# Re-running is cheap -- every sub-step checks before doing work.
 & powershell -ExecutionPolicy Bypass -NoProfile -File (Join-Path $RepoRoot 'scripts\bootstrap.ps1')
 if ($LASTEXITCODE -ne 0) {
   Write-Error "scripts/bootstrap.ps1 failed (exit $LASTEXITCODE). Cannot proceed."
   exit 1
 }
-Ok "Node ready"
-
-# ----------------------------------------------------------------
-Step 2 "Installing Node dependencies (workspaces: bots + packages)..."
-Push-Location $RepoRoot
-try {
-  & npm install --no-audit --no-fund
-  if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)" }
-  Ok "node_modules ready"
-} finally {
-  Pop-Location
+$readyJsonPath = Join-Path $RepoRoot '.tooling\ready.json'
+if (-not (Test-Path $readyJsonPath)) {
+  Write-Error "bootstrap.ps1 finished without writing .tooling/ready.json. Cannot determine validated Python path."
+  exit 1
 }
+$readyJson = Get-Content $readyJsonPath -Raw | ConvertFrom-Json
+$validatedPython = $readyJson.python
+Ok "Node + bundled Python + npm deps ready (validated Python: $validatedPython)"
 
 # ----------------------------------------------------------------
-Step 3 "Setting up Python venv + decoder deps..."
+Step 2 "Python venv at .venv + decoder deps (scikit-learn, numpy)"
 Push-Location $RepoRoot
 try {
-  # Find a working Python on PATH (system install — bootstrap.ps1
-  # doesn't bundle Python on Windows by default).
-  $pyExe = $null
-  foreach ($cand in @('python', 'python3')) {
-    $cmd = Get-Command $cand -ErrorAction SilentlyContinue
-    if ($cmd) { $pyExe = $cmd.Source; break }
-  }
-  if (-not $pyExe) {
-    Warn "Python not found on PATH. Skipping venv + decoder deps."
-    Warn "Install Python 3.10+ from python.org and re-run install.bat to add decoder support."
-  } else {
-    Write-Host "       using: $pyExe"
-    if (-not (Test-Path '.venv')) {
-      & $pyExe -m venv .venv
-      if ($LASTEXITCODE -ne 0) { throw "python -m venv .venv failed" }
+  # First, sanity-check the python path from ready.json. setup.mjs already
+  # validated it but we double-check here to catch any drift since.
+  if (-not (Test-RealPython -ExePath $validatedPython)) {
+    # Fall back: try the bundled location explicitly
+    $bundledPython = Join-Path $RepoRoot '.tooling\python\python.exe'
+    if (Test-RealPython -ExePath $bundledPython) {
+      $validatedPython = $bundledPython
+      Warn "ready.json python path didn't probe clean -- using bundled at $bundledPython"
+    } else {
+      Warn "No valid Python found (ready.json said: $validatedPython). Skipping venv + decoder deps."
+      Warn "The dashboard works without them; decoder/backtest workflows won't until you re-run install.bat."
+      $validatedPython = $null
     }
-    $venvPy = Join-Path $RepoRoot '.venv\Scripts\python.exe'
+  }
+
+  if ($validatedPython) {
+    Write-Host "       using: $validatedPython"
+    $venvPath = Join-Path $RepoRoot '.venv'
+    $venvPy = Join-Path $venvPath 'Scripts\python.exe'
+
+    # Create venv if missing. If .venv exists but its python.exe is broken,
+    # nuke and recreate -- partial venvs cause more pain than they save.
+    if (-not (Test-Path $venvPath) -or -not (Test-RealPython -ExePath $venvPy)) {
+      if (Test-Path $venvPath) {
+        Warn "found .venv but its python.exe is missing/broken -- recreating"
+        Remove-Item -Recurse -Force $venvPath
+      }
+      & $validatedPython -m venv .venv
+      if ($LASTEXITCODE -ne 0) { throw "python -m venv .venv failed (exit $LASTEXITCODE)" }
+    }
+
     if (Test-Path $venvPy) {
       & $venvPy -m pip install --quiet --disable-pip-version-check -e ".[decoder]"
       if ($LASTEXITCODE -ne 0) {
@@ -113,7 +146,7 @@ try {
 }
 
 # ----------------------------------------------------------------
-Step 4 "Installing pm2 (global, if missing)..."
+Step 3 "Installing pm2 (global, if missing)"
 $pm2Cmd = Get-Command pm2 -ErrorAction SilentlyContinue
 if (-not $pm2Cmd) {
   & npm install -g pm2
@@ -127,7 +160,7 @@ if (-not $pm2Cmd) {
 }
 
 # ----------------------------------------------------------------
-Step 5 "Starting the bear-watch fleet via pm2..."
+Step 4 "Starting the bear-watch fleet via pm2"
 Push-Location $RepoRoot
 try {
   & pm2 start (Join-Path 'bear-watch' 'pm2.config.cjs') --update-env
@@ -141,7 +174,7 @@ try {
 }
 
 # ----------------------------------------------------------------
-Step 6 "Registering STRATOS-* scheduled tasks..."
+Step 5 "Registering STRATOS-* scheduled tasks"
 & powershell -ExecutionPolicy Bypass -NoProfile -File (Join-Path $RepoRoot 'bear-watch\register-scheduled-tasks.ps1')
 if ($LASTEXITCODE -ne 0) {
   Warn "register-scheduled-tasks.ps1 exited $LASTEXITCODE. You can re-run it manually later."
@@ -150,25 +183,28 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ----------------------------------------------------------------
-Step 7 "Writing install marker..."
-$toolingDir = Join-Path $RepoRoot '.tooling'
-if (-not (Test-Path $toolingDir)) {
-  New-Item -ItemType Directory -Path $toolingDir | Out-Null
+Step 6 "Waiting for /health then opening the dashboard"
+# Server needs a beat to come fully online after pm2 start -- wait until
+# /health returns 200 before launching the browser tab so the user
+# doesn't see a connection-refused page.
+$maxWait = 20
+$elapsed = 0
+while ($elapsed -lt $maxWait) {
+  try {
+    $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
+    if ($r.StatusCode -eq 200) { break }
+  } catch {
+    # Server still booting -- keep waiting.
+  }
+  Start-Sleep -Seconds 1
+  $elapsed++
 }
-$nodeArch = & node -p "process.arch" 2>$null
-if (-not $nodeArch) { $nodeArch = $env:PROCESSOR_ARCHITECTURE }
-$marker = [ordered]@{
-  ready             = $true
-  python            = (Join-Path $RepoRoot '.venv\Scripts\python.exe')
-  platform          = 'win32'
-  arch              = $nodeArch
-  timestamp         = (Get-Date -Format o)
-  installer_version = '1.0'
-} | ConvertTo-Json
-$markerPath = Join-Path $toolingDir 'ready.json'
-# Write without BOM (some tools choke on BOM-prefixed JSON).
-[System.IO.File]::WriteAllText($markerPath, $marker, [System.Text.UTF8Encoding]::new($false))
-Ok "marker: $markerPath"
+if ($elapsed -ge $maxWait) {
+  Warn "Server didn't reach /health within ${maxWait}s. Opening browser anyway -- it may need another moment."
+} else {
+  Ok "/health returned 200 after ${elapsed}s"
+}
+Start-Process 'http://localhost:8787'
 
 # ----------------------------------------------------------------
 Write-Host ""
@@ -185,26 +221,4 @@ Write-Host ""
 Write-Host " Personality + theme picks (interactive):" -ForegroundColor Gray
 Write-Host "   Tell Claude  ""set up PBX Stratos""  or  ""run the personality quiz""" -ForegroundColor Gray
 Write-Host ""
-Write-Host " Opening the dashboard in your default browser..." -ForegroundColor White
-Write-Host ""
-
-# Auto-open the dashboard. Server needs a beat to come fully online
-# after pm2 start — wait until /health returns 200 before launching
-# the browser tab so the user doesn't see a connection-refused page.
-$maxWait = 20
-$elapsed = 0
-while ($elapsed -lt $maxWait) {
-  try {
-    $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
-    if ($r.StatusCode -eq 200) { break }
-  } catch {
-    # Server still booting — keep waiting.
-  }
-  Start-Sleep -Seconds 1
-  $elapsed++
-}
-if ($elapsed -ge $maxWait) {
-  Warn "Server didn't reach /health within ${maxWait}s. Opening browser anyway -- it may need another moment."
-}
-Start-Process 'http://localhost:8787'
 exit 0

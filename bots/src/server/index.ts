@@ -315,8 +315,11 @@ function loadOrGenerateLocalSecrets(dataDir: string): {
   } finally {
     closeSync(fd);
   }
-  console.log(`[server] generated new local secrets at ${localEnvPath} (mode 0600)`);
-  console.log('[server] back up the 24-word BOT_HD_MNEMONIC on paper before funding any wallet');
+  // Startup advisory: emit on stderr (alongside other error/exit prints
+  // earlier in this function) so a log aggregator routes the whole
+  // boot conversation to one place, not split across stdout/stderr.
+  console.error(`[server] generated new local secrets at ${localEnvPath} (mode 0600)`);
+  console.error('[server] back up the 24-word BOT_HD_MNEMONIC on paper before funding any wallet');
   return {
     botApiToken: newToken,
     botMasterKey: newMaster,

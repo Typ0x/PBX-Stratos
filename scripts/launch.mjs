@@ -1,4 +1,4 @@
-// Starts the pbx-trader-lab dashboard in explore-only mode and opens it.
+// Starts the PBX Stratos dashboard in explore-only mode and opens it.
 // Run via: node scripts/launch.mjs
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

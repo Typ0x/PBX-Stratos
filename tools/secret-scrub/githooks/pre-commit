@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pbx-trader-lab secret-scrub pre-commit hook.
+# PBX Stratos secret-scrub pre-commit hook.
 # Scrubs secrets from staged files before they enter a commit.
 # Fails OPEN on an internal error — a tool bug must not brick commits.
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0

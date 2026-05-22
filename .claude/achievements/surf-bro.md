@@ -109,7 +109,7 @@ Universal Core.
 > Watched 24 consecutive ticks (~24 min) in one session. Focus established.
 
 ### s2.t17 — "Hardest City Spotted"
-> You IDed which city is hardest to predict and you know why (CHI — westerly transport from regions the bot can't see). Applied learning.
+> You watched all three cities for a focused hour and formed your own hypothesis about which is hardest to read — totally from your observation, not Claude's prompts. Forming your own take is the move, dude.
 
 ### s2.t18 — "Alerts Triage"
 > You know every alert type and which ones need you vs which auto-recover. No surprises, no panicked over-reactions.
@@ -178,15 +178,6 @@ Universal Core.
 ### s3.t19 — "Filter Math"
 > You know why the threshold is where it is. No more taking things on faith.
 
-### s3.t20 — "Systematic Decode → Rule Surfaced"
-> `wallet-evolve.py` finished 10 epochs and BEAT_STRATEGY.md is in. You read the rule, dude — entry, exit, the lift over baseline. This is how the original thesis got found in the first place, totally classic. The `Reverse Engineer` event achievement just auto-unlocked too — that's the lab framework noticing what you did, no Claude needed.
-
-### s3.t21 — "Claude Vibing With You for 10 Rounds"
-> `agentic-decode.py` ran for 10 rounds. Claude proposed a DSL predicate, the evaluator scored fitness, the round-trip simulator walked it after 30bps fees, Claude refined. You watched the rule get sharper round by round, right on. The `agentic-rounds.jsonl` trace has the full conversation.
-
-### s3.t22 — "Verdict: PASS — Real Edge"
-> The decoded rule cleared the verdict gate. Positive held-out P&L on the walk-forward 70/30 split AND positive entry-fit AND positive exit-fit. This isn't a hopium rule, dude — it survives data the decoder never saw. **Section 3 done. Architect time.**
-
 ---
 
 ## Section 4 — Architect
@@ -241,18 +232,6 @@ Universal Core.
 
 ### s4.t17 — "Winner Picked"
 > One version decisively better, loser archived. You can let go of work without ego.
-
-### s4.t18 — "Strategy Doc'd"
-> Markdown explains the logic. Future-you, future-reviewers all can trace your thinking.
-
-### s4.t19 — "Evolution Loop"
-> Used the genetic algorithm. New tool in your kit.
-
-### s4.t20 — "Original Discovery"
-> Found something I didn't suggest first. You're past the apprentice phase.
-
-### s4.t21 — "DSL Predicate, Hand-Written"
-> You wrote an entry+exit predicate in the strategy DSL yourself, dude. No agentic-decode, no genetic algorithm — just you, a feature, a threshold, and the registry. Now when Claude proposes a rule in agentic-decode, you can read it like the back of your hand because you've shipped one yourself. **Section 4 done.**
 
 ---
 
@@ -386,35 +365,69 @@ Universal Core.
 
 ## Section 7 — Mastery
 
-### s7.t1 — "30-Day Fleet"
+### Endurance tier
+
+### s7.t1 — "7 Days Live"
+> Full week of live trading without you stepping in once, dude. Through weekends, weather flips, multiple regimes — the bot just kept doing its thing. Real uptime, not vibes.
+
+### s7.t2 — "14 Days Live"
+> Two weeks straight, dude. Past the rookie zone. Multiple weekend cycles, multiple weather patterns ridden out. Confidence in the setup is the real kind now.
+
+### s7.t3 — "30 Days Live"
+> Full month of continuous live op, dude. You've ridden through the kind of conditions that wipe out beginners. Totally gnarly milestone.
+
+### s7.t4 — "Profitable Week"
+> Week-over-week PnL net positive. Not just one lucky trade — a sustainable seven-day run with the wins spread out. Real signal, dude.
+
+### s7.t5 — "Profitable Month"
+> Month-over-month positive PnL. Most operators never reach this. This is what success actually looks like at the right timescale. Stoked for you.
+
+### s7.t6 — "7 Days Paper Continuous"
+> A variant you tweaked has paper-traded 168 hours straight, no crashes. Endurance test cleared. Smart move running it long before any real-money talk, dude.
+
+### s7.t7 — "Your Strategy Holds 3 Days"
+> Your own strategy has 72 hours of paper operation, no crashes. Foundation laid. Behaving like a real strategy, not a buggy script.
+
+### s7.t8 — "Your Strategy Holds 7 Days"
+> Full week of YOUR strategy in paper with 3+ closed trades, dude. It's not just running — it's making real decisions, closing positions, generating data you can reason about. That's the bar before going live.
+
+### s7.t9 — "Framework Upgrade Survived"
+> You pulled a non-trivial stratos release, followed the migration notes, and your install is still humming end-to-end. 7-check health is green, no manual recovery beyond what the notes said. Migrations are real ops, dude — you rode one out clean.
+
+### Beyond-the-author tier
+
+### s7.t10 — "30-Day Fleet"
 > Month of multi-bot operation, real capital, zero crashes. Real operation.
 
-### s7.t2 — "Multi-Wallet"
-> Independent risk pools. Pro-tier setup.
+### s7.t11 — "Multi-Wallet HD Fleet"
+> Three or more derived bot wallets spawning off your HD mnemonic, each running its own strategy, dude. You checked the on-chain balances independently and confirmed isolation — one bot taking an L can't drain another. Independent risk pools, for real.
 
-### s7.t3 — "3 Profitable Months"
+### s7.t12 — "3 Profitable Months"
 > Sustained edge over meaningful time. Most retail traders never get here. You did.
 
-### s7.t4 — "Onboarded a Friend"
+### s7.t13 — "Onboarded a Friend"
 > Someone you know is running PBX Stratos because of you. That's the magic.
 
-### s7.t5 — "Research Note Shipped"
-> Your discovery, documented, shareable. Real knowledge.
+### s7.t14 — "Research Note Shipped"
+> Your discovery, documented, shareable. Real knowledge that didn't exist before you wrote it down, dude.
 
-### s7.t6 — "AQ-Price Forecaster Beats Persistence"
+### s7.t15 — "AQ-Price Forecaster Beats Persistence"
 > You built a near-term PM2.5 → price forecasting model in `bear-scout/aq-price/` and it beat the persistence baseline on 7 days of held-out data, totally gnarly. Forecasting next-hour PM2.5 is the upstream of the alpha — owning that pipeline is real research territory, dude.
 
-### s7.t7 — "New Sensor Integrated"
-> Data source the project never knew about.
+### s7.t16 — "New Sensor Integrated"
+> Data source the project never knew about, dude. Now feeding decisions.
 
-### s7.t8 — "Personality Adopted"
+### s7.t17 — "Personality Adopted"
 > Something you wrote is being used by someone else. Open source validated by adoption.
 
-### s7.t9 — "90 Days Live"
-> Three months continuous. Real intuition built.
+### s7.t18 — "90 Days Live"
+> Three months continuous. Real intuition built — you've seen enough regimes to have a real feel for it.
 
-### s7.t10 — "Leaderboard"
-> Public recognition earned.
+### s7.t19 — "Leaderboard"
+> Public recognition earned. PnL, uptime, strategy count, or sheer creativity — any of those count, dude.
 
 ### s7.t20 — "Upstream PR Shipped"
-> You opened a PR against `polar-bear-express/pbx-trader-lab` with a tooling improvement, dude — better decoder, smarter evolver, new venue in swap-router, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The lab got sharper for everyone after you. **Section 7 done. You're guiding the framework now. Nice work, dude.**
+> You opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement, dude — better decoder, smarter evolver, new venue in swap-router, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The framework got sharper for everyone after you.
+
+### s7.t21 — "Parallel Claude Scopes Coordinated"
+> A second scope's `_context/` exists in your install, dude — maybe `bear-scout` for research while `bear-watch` handles ops — and both scopes have journal entries that reference work the other did. No manual cross-briefing, no telling each chat what the other did. The journals are the sync layer, like they're meant to be. **Section 7 done. You're guiding the framework now, dude. Nice work — totally radical.**

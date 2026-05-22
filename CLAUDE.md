@@ -80,7 +80,7 @@ state for this user.
 ## The product domain (what users are actually doing here)
 
 PBX Stratos is the operator-friendly wrapper around the boss's
-[`pbx-trader-lab`](https://github.com/polar-bear-express/pbx-trader-lab-public)
+the lab subsystem (`bear-scout/`, `bots/`, `packages/swap-router/`)
 research framework. The lab gives users a wallet decoder, a strategy
 evolver, a multi-venue swap router, and an opt-in live bot fleet. This
 repo adds the operator shell on top: install wizard, personalities,
@@ -123,7 +123,7 @@ AND exit-fit on held-out test data. Both decoders run locally against
 the public PBX API — no credentials needed, no pre-decoded results
 ship.
 
-### The 7-section / 131-task roadmap
+### The 7-section / 130-task roadmap
 
 Users journey through 7 sections in [`ROADMAP.md`](ROADMAP.md):
 
@@ -145,7 +145,7 @@ contributing back, multi-bot operation.
 ### The two achievement systems (run in parallel)
 
 1. **Roadmap-track** (story-driven, manual or Claude-detected): the
-   131 task IDs in `ROADMAP.md`. Each task has a baseline description
+   130 task IDs in `ROADMAP.md`. Each task has a baseline description
    AND a personality-voiced name in
    `.claude/achievements/<personality-id>.md`. Personality celebrates
    each unlock in voice — Crypto Bro: *"Drip Check — your dashboard
@@ -588,7 +588,7 @@ that cause Claude to invoke the skill flow rather than improvise.
 
 | Skill | Trigger phrases | What it does |
 |-------|-----------------|--------------|
-| `pbx-stratos-setup` (gamified path, URL in prompt) | "download this repo `<URL>`", "install PBX Stratos from `<URL>`", "clone and install `<URL>`", "set up PBX Stratos end-to-end from `<URL>`", or any "set up / install" phrase paired with a `github.com/.../PBX-Stratos` URL | Same wizard as the no-URL gamified path, but Claude is NOT yet inside a clone. Triggers **Step -1** (pre-download audit + autonomous clone) before Step 0. Claude pulls the install scripts + manifests + bootstrap scripts via WebFetch on `raw.githubusercontent.com`, inspects them inline, verbalizes "this code is safe to download" in plain language with NO popup gate, then clones to `~/PBX-Stratos` and hands off to Step 0. The one-prompt-to-dashboard guarantee: between the trigger and the dashboard auto-opening, the user only clicks AskUserQuestion popups (no second typed prompt required). |
+| `pbx-stratos-setup` (gamified path, URL in prompt — convenience) | "download this repo `<URL>`", "install PBX Stratos from `<URL>`", "clone and install `<URL>`", "set up PBX Stratos end-to-end from `<URL>`", or any "set up / install" phrase paired with a `github.com/.../PBX-Stratos` URL | Same wizard as the no-URL gamified path, but Claude is NOT yet inside a clone. Triggers **Step -1** (pre-download remote inspection + AskUserQuestion confirmation gate) before Step 0. Claude pulls the install scripts + manifests + bootstrap scripts via WebFetch on `raw.githubusercontent.com`, reads them inline, summarizes what it found in plain language, **calls AskUserQuestion to confirm the clone**, and only clones to `~/PBX-Stratos` after the user picks "Yes, clone and continue." The clone-first path is safer (the user controls the download) and is recommended over this URL-prompt path; this is the convenience option for users who'd rather not run `git clone` themselves. The one-prompt-to-dashboard guarantee still holds: between the trigger phrase and the dashboard auto-opening, the user only clicks AskUserQuestion popups (no second typed prompt required). |
 | `pbx-stratos-setup` (gamified path, already cloned) | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "let's start predicting air quality" | The install wizard, skipping Step -1 because Claude is already inside the clone (canonical markers: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`). Two views of the same flow: **(a) internal — 13 steps + 1 conditional clone pre-step defined in [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md)**, which is what Claude actually executes. **(b) user-facing — numbered points in [`README.md`](README.md) "What happens when you type the trigger phrase"**, which is the condensed presentation. Both are accurate; use whichever fits the audience. |
 | `pbx-stratos-setup` (boss's terse path) | "Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the 'For Claude: Onboarding Runbook' section in README. Be brief." | The explore-only path: clone-audit → bootstrap → launch browser at the local dashboard → hand off. ~5 minutes on a healthy laptop. No personality quiz, no roadmap intro. User can flip into the gamified mode any time later. |
 | `pbx-personality-quiz` | "retake the personality quiz", "redo the quiz", "recalibrate my Claude", "change how Claude talks to me" | Re-runs the 5-question intake and writes the answers back to the profile. |
@@ -884,7 +884,7 @@ works.
 
 | Layer | Path | Edit policy |
 |-------|------|-------------|
-| L1 | `CLAUDE.md`, `.claude/`, `themes/`, `bots/`, `bear-watch/`, `bear-scout/`, `bear-den/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `ROADMAP.md`, `INSTALL.md`, `README.md`, `package.json`, `pyproject.toml`, `LICENSE` | Framework — edit only as releases |
+| L1 | `CLAUDE.md`, `.claude/`, `themes/`, `bots/`, `bear-watch/`, `bear-scout/`, `bear-den/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `ROADMAP.md`, `INSTALL.md`, `README.md`, `README.ai.md`, `package.json`, `pyproject.toml`, `LICENSE` | Framework — edit only as releases |
 | L2 | `_context/CLAUDE.md`, `_context/MANIFEST.md`, `_context/<scope>/STATUS.md`, `_context/<scope>/journal/*.md` | Per-user adaptive memory; gitignored |
 | L3 | `runtime/lab/user-profile.json`, `runtime/lab/achievements.json`, `runtime/lab/events.jsonl`, `runtime/lab/alerts.jsonl`, `runtime/bots/local.env`, `runtime/bots/wallets/`, `runtime/pm2/` | Operational data; gitignored |
 
@@ -933,18 +933,19 @@ the human-facing version; this is the Claude-facing operational version.
 
 | Need | File |
 |------|------|
-| Architecture + protocols (this file) | [`CLAUDE.md`](CLAUDE.md) |
+| Architecture + protocols (this file — for ongoing operations) | [`CLAUDE.md`](CLAUDE.md) |
+| AI agent setup runbook (the install flow + everything an agent needs to drive setup consistently) | [`README.ai.md`](README.ai.md) |
 | Universal Core behavior (mission, voice, response shape, AskUserQuestion discipline) | [`.claude/UNIVERSAL-CORE.md`](.claude/UNIVERSAL-CORE.md) |
 | Active personality voice + vocabulary | `.claude/personalities/<id>.md` (id from `runtime/lab/user-profile.json`) |
-| The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims | [`README.md`](README.md) |
-| The 7-section / 131-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
+| The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims (human overview) | [`README.md`](README.md) |
+| The 7-section / 130-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
 | Three principles + file-locations table | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Manual install path (skipping Claude) | [`INSTALL.md`](INSTALL.md) |
 | Copy-paste prompts for common tasks | [`PROMPT.md`](PROMPT.md) |
 | Key handling + network policy + encryption | [`docs/SECURITY.md`](docs/SECURITY.md) |
 | Emergency-stop escalation ladder | [`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md) |
 | Codebase audit protocols (handoff templates) | [`bear-watch/audit-brief.md`](bear-watch/audit-brief.md), [`bear-watch/audit-professional.md`](bear-watch/audit-professional.md) |
-| Decoder framework (runners, outputs) | `lab/README.md` |
+| Decoder framework (runners, outputs) | `bear-scout/README.md` |
 | Live bot fleet CLI + multi-bot ops | `bots/README.md` |
 | Event-driven achievement spec | `achievements/definitions.json` |
 | Per-scope state (read on session start) | `_context/<scope>/STATUS.md` + today's `journal/<YYYY-MM-DD>.md` |

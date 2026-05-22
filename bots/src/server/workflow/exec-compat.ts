@@ -75,7 +75,7 @@ let _python: string | null = null;
 export function resolvePython(): string {
   if (_python) return _python;
 
-  // 1. The project virtualenv, if present. install.sh / setup.ps1 put
+  // 1. The project virtualenv, if present. install.sh / install.ps1 put
   //    the decoder deps (scikit-learn, numpy) here — a bare system
   //    `python3` won't have them. This is the interpreter to use.
   const venvPython = IS_WINDOWS

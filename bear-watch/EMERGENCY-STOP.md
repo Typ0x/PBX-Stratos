@@ -112,46 +112,96 @@ stopped longer than you have to.
 and you don't trust the bot to do it (or the bot is fully stopped per
 Level 2 and the position is at risk).
 
-**Effect:** You step around the bot entirely and close the position
-yourself using a wallet UI directly against the DEX.
+**Effect:** You step around the bot entirely and sell the token
+yourself using a normal wallet app (Phantom, Backpack, Solflare),
+swapping the bot's open position back to USDC at current market
+prices on whichever DEX your bot was using.
 
-**How:**
+**How (in plain English):**
 
-1. Do Level 2 first if the bot is still running — you don't want it
-   re-opening the position you're closing.
+1. **Stop the bot first** if it's still running. Do everything in
+   Level 2 above. You don't want the bot re-opening the position
+   you're closing.
 
-2. Look up the position from your state file:
+2. **Look up what the bot is holding.** Open the file that records
+   the bot's current state:
 
    ```bash
    cat runtime/bots/state/<your-bot-name>.json
    ```
 
-   Note the token mint address and the position size.
+   In that file you'll see the **token mint address** (a long string
+   of letters and numbers — the unique on-chain identifier of the
+   coin the bot bought) and the **position size** (how much of it
+   the bot owns). Copy both to a notepad — you'll need them in step 4.
 
-3. Open a wallet that holds the bot's keypair in a UI that connects
-   to the DEX your bot was trading on (Jupiter, Phantom + Meteora, etc).
+3. **Open a regular Solana wallet app** that has the bot's keys
+   loaded into it. The simplest path:
+   - Install [Phantom](https://phantom.app) (free Chrome extension or
+     phone app) if you don't already have it.
+   - In Phantom, **"Add / Connect Wallet → Import Private Key"** and
+     paste the bot's private key (or import the 24-word seed phrase
+     that the bot was derived from — your `BOT_HD_MNEMONIC`).
+   - Phantom now controls the same wallet the bot was controlling.
 
-4. Manually execute the swap to close the position. Use a tight
-   slippage tolerance — you're in a hurry but a 50% slippage swap is
-   worse than a missed trade.
+4. **Do the manual sell.** Inside Phantom, you'll see the bot's token
+   balance. Use Phantom's built-in "Swap" tab (it routes through
+   Jupiter, which is one of the same DEXes the bot was using).
+   - **From:** the token mint from step 2
+   - **To:** USDC (Phantom shows it by name)
+   - **Slippage:** start at 1% (the default). If the swap fails for
+     "high price impact," raise to 3%. Don't go above 5% unless you
+     have no choice — a bad slippage swap can lose more than the
+     position is worth.
+   - Click "Swap." Phantom asks you to confirm. The trade lands in a
+     few seconds.
 
-5. After the on-chain confirmation, update the bot's state file to
-   reflect the manual close:
+5. **Verify it landed.** Phantom shows the transaction with a
+   "View on Solscan" link. Solscan is a public block explorer
+   (`https://solscan.io`) — it shows the swap actually happened
+   on-chain. Save the **transaction signature** (a long hex string
+   shown on the Solscan page) — you'll need it in step 6.
+
+6. **Tell the bot what you did**, so when it restarts it doesn't try
+   to manage a position that's already closed.
 
    ```bash
    # Edit runtime/bots/state/<your-bot-name>.json
-   # Set the position to closed with the manual swap signature
+   # Find the open position you just closed; change the "status"
+   # field from "open" to "closed_manual", and add the transaction
+   # signature from step 5 as "manual_close_sig".
    ```
 
-6. When the bot restarts, it will read the corrected state file and
-   not try to re-manage a position that no longer exists on-chain.
+   If you're uncomfortable editing JSON, leave the bot stopped
+   instead — that's safer than a half-correct edit.
+
+7. **When you're ready, restart the bot** following Level 2's recovery
+   steps. The bot reads the corrected state file and skips trying
+   to manage the now-closed position.
+
+**Glossary for the panicked operator:**
+
+- **DEX** ("decentralized exchange") = where the bot is buying/selling
+  tokens. Jupiter, Meteora, and Orca are the three the bot uses.
+- **token mint** = a token's unique ID on Solana (a long string). One
+  mint per token.
+- **slippage** = how much the price is allowed to move while your
+  swap is in flight. Higher slippage = more likely to fill, but
+  more risk of a bad price.
+- **state file** = the bot's local memory of its open positions.
+  Stored at `runtime/bots/state/<bot-name>.json`. Plain JSON; safe
+  to read; risky to edit without knowing what you're doing.
+- **transaction signature** = the receipt for an on-chain trade. A
+  long hex string Solscan can look up.
 
 **To recover:** restart the bot per Level 2 recovery. Your bot is now
 flat (or holding only the remaining positions) and operating normally.
 
 **Risk:** Manual edits to the state file can desync from on-chain
-reality. Triple-check the file before letting the bot restart. If in
-doubt, leave the bot stopped and ask for help.
+reality. Triple-check the file before letting the bot restart. If
+in doubt, leave the bot stopped and ask Claude (or just stay
+stopped) — being parked safely is better than being live with a
+broken state file.
 
 ---
 

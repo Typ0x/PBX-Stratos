@@ -1,7 +1,14 @@
 /**
  * Cold-start backfill for AirQualityStore — pulls recent hourly pm25
- * history from the public `pbx-air-quality-dataset` repo (CC-BY) and
- * aggregates it to per-city hourly medians.
+ * history from a public CC-BY air-quality dataset repo and aggregates
+ * it to per-city hourly medians.
+ *
+ * The dataset URL is configurable via `STRATOS_AIRQ_DATASET_URL` so
+ * forks can point at their own mirror; if unset we try the default
+ * `Typ0x/pbx-air-quality-dataset` repo. This backfill is best-effort
+ * cold-start data only — live PurpleAir/AirNow APIs are the primary
+ * signal, so a 404/network failure here is non-fatal and returns
+ * empty regions silently.
  *
  * Dataset layout (raw.githubusercontent.com):
  *   manifest.csv  — city,provider,locationid,name,lat,lng,n_days,first_day,last_day
@@ -13,7 +20,8 @@ import { REGIONS, type RegionKey } from '../regions.js';
 import type { Pm25Sample } from './airquality-store.js';
 
 const DATASET_RAW =
-  'https://raw.githubusercontent.com/polar-bear-express/pbx-air-quality-dataset/main';
+  process.env.STRATOS_AIRQ_DATASET_URL?.replace(/\/$/, '') ??
+  'https://raw.githubusercontent.com/Typ0x/pbx-air-quality-dataset/main';
 
 export interface ManifestRow {
   city: string;
@@ -155,9 +163,17 @@ export async function fetchBackfill(
   let rows: ManifestRow[];
   try {
     const res = await fetchImpl(`${DATASET_RAW}/manifest.csv`);
-    if (!res.ok) return result;
+    if (!res.ok) {
+      console.warn(
+        `[airquality-backfill] manifest fetch returned ${res.ok ? 'ok' : 'not ok'} from ${DATASET_RAW}/manifest.csv — skipping cold-start backfill (live PurpleAir/AirNow still primary).`,
+      );
+      return result;
+    }
     rows = parseManifest(await res.text());
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[airquality-backfill] manifest fetch threw from ${DATASET_RAW}/manifest.csv: ${err instanceof Error ? err.message : String(err)} — skipping cold-start backfill.`,
+    );
     return result;
   }
   // The dataset lags reality by several days, so anchor the day window on
