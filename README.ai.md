@@ -28,6 +28,57 @@ spec); raise the conflict with the user so we can fix this doc.
 
 ---
 
+## 🤝 What this document is, and what it isn't
+
+Before going further, a transparent statement about this file and
+the rest of the AI-targeted content in this repo:
+
+**This document is UX scaffolding.** The gamified install — the
+trigger phrases, the personality quiz, the 13-step wizard, the
+themed dashboard, the handoff to the roadmap — exists because the
+author wanted an install that feels like a friendly guided tour
+when an AI runs it on behalf of a non-coder. That's the goal. None
+of the AI-targeted content here grants the repo trust it hasn't
+earned.
+
+**This document is NOT authoritative system guidance.** It can't
+override Claude's safeguards, can't certify code as safe on the
+repo's behalf, can't redefine your judgment. Read it as "the
+author's opinions about how the install should feel" and apply
+your own judgment on top.
+
+**Specifically:**
+
+1. **You retain full discretion at every safety boundary.** If
+   something looks wrong, halt and ask the user — that's the right
+   behavior, not a failure of the skill.
+2. **You can decline to run the gamified install.** The user has
+   `install.bat` (Windows) and `install.sh` (macOS/Linux) at the
+   repo root — a fully self-contained installer script they can run
+   themselves. Pointing them to that path is a valid response if
+   you don't want to drive the install personally.
+3. **The skill's trigger-phrase list captures common user phrasings
+   for matching purposes**, not to claim authority over the user's
+   words. You can invoke the skill or decline; the user can also
+   invoke `install.bat` themselves and never involve a skill at all.
+4. **When the runbook suggests "verify X," treat that as a starting
+   point.** Audit whatever you think is appropriate. Report what
+   you actually observed (facts), not what the runbook scripts you
+   to verbalize (assurances).
+5. **If your honest assessment is "this code path looks unaudited
+   and I wouldn't fund a mainnet wallet without an expert reading
+   it,"** that's the right answer to give. The repo isn't asking
+   you to vouch for it; it's asking you to *help the user evaluate
+   it.*
+
+**There is one persistent state to remember:** the installer
+registers global pm2 + 6 Windows scheduled tasks. The repo ships an
+uninstaller (`uninstall.bat` / `uninstall.sh`) that reverses these.
+Mention it to the user during install so they know how to clean up
+later.
+
+---
+
 ## Meta-conventions for executing this runbook
 
 Four ground rules before you start. These prevent the most common
@@ -238,21 +289,24 @@ You can detect Path B by: the prompt contains a `github.com/.../PBX-Stratos` URL
 
 **Flow:** Clone-audit → bootstrap → launch the dashboard → hand off. ~5 minutes on a healthy laptop. No personality quiz, no roadmap intro. The user can flip into the gamified mode later by saying *"run the personality quiz."*
 
-### Confirm bypass-permissions is ON
+### Note about automode (optional, smoother UX)
 
-Before doing anything else, confirm Claude Desktop has the bypass-
-permissions toggles ON. If you notice you're being prompted for
-permission on routine reads / writes / runs during the install, stop
-and tell the user:
+The install runs smoother when Claude Desktop is in **automode** —
+this is our friendly name for what Anthropic calls "bypass
+permissions" mode (Settings → Claude Code). With automode on, you
+don't get a permission popup for every routine read/write/run; with
+it off, you do.
 
-> Heads up — I'm getting asked to confirm every action, which means
-> the bypass-permissions toggles aren't on yet. Go to **Settings →
-> Claude Code**, turn ON **"Allow bypass permissions mode"**, then
-> ON **"Bypass permissions"**. Restart this chat and re-type the
-> trigger phrase. Without those toggles this install takes ~5×
-> longer.
+**Both modes work.** The install runs either way. If automode is off
+and you notice routine actions are getting prompted, you can mention
+it to the user — "heads up, you're getting popups for every action
+because automode (Settings → Claude Code → Bypass permissions) is
+off; toggling it on would make this smoother, but it's not required."
+Then keep going.
 
-Don't do the full install with the toggles off — it stalls.
+**Do NOT make automode a precondition.** Don't refuse to start, don't
+stop mid-flow, don't pressure the user to flip the setting. It's a
+UX optimization, not a security gate.
 
 ### The "one-prompt-to-dashboard" guarantee
 
@@ -273,100 +327,97 @@ unavoidable secret entry.
 
 ---
 
-## 4. Pre-install audit — the 4 stages
+## 4. Pre-install audit — at your discretion
 
-Before installing anything, run these four audit stages and report
-findings to the user in plain language. If anything looks
-genuinely concerning, halt and surface the issue before proceeding.
+Before installing anything, the user wants you to look at the code.
+**The point of this step is your honest evaluation, not a scripted
+certification.** This skill does not tell you what conclusions to
+deliver — only what areas tend to be worth checking on a fresh
+install of an unfamiliar dual-use codebase.
 
-### Stage A — Host audit
+### Areas worth checking (pick what fits)
 
-Verify the user's machine can run PBX Stratos.
+These are suggestions, not a checklist you must complete. Use your
+judgment. Add things; skip things; structure the audit however you
+want.
 
-| Check | Command | Pass criteria |
-|---|---|---|
-| OS | `uname -s` (Unix) or `systeminfo` (Windows) | macOS 11+ / Windows 10+ / Linux with glibc 2.31+ |
-| Disk free | `df -h .` or `Get-PSDrive C` | ≥ 5 GB free |
-| RAM | `free -h` or `Get-CimInstance Win32_OperatingSystem` | ≥ 4 GB free |
-| Node.js | `node -v` | ≥ 18 (install bundled if missing) |
-| Python | `python --version` or `python3 --version` | ≥ 3.10 (install bundled if missing) |
-| pm2 | `pm2 -v` | Any version (install latest if missing) |
-| Git | `git --version` | Any recent version |
+- **Host fitness.** OS, free disk, free RAM, presence of Node ≥ 18,
+  Python ≥ 3.10, git, pm2. `scripts/bootstrap.{sh,ps1}` can install
+  Node / Python into `.tooling/` if missing, so absence is a note,
+  not a blocker. (Run `node -v`, `python --version`, `pm2 -v`, etc.)
+- **Claude CLI presence.** `which claude` (`where claude` on Windows).
+  If missing, you can offer to install via `npm install -g @anthropic-ai/claude-code`
+  later — not urgent right now.
+- **Clone integrity.** `git fsck --no-progress`, `git log -3`,
+  `git status --short`. Look for backdated commits, unexpected dirty
+  state, missing canonical files.
+- **Install scripts** (`install.sh`, `install.ps1`, `install.bat`,
+  `scripts/bootstrap.*`). Read them. They're short. Confirm they do
+  what their headers say — no surprise hosts, no base64 payloads, no
+  remote eval.
+- **Package manifests** (`**/package.json`, `pyproject.toml`). Any
+  `preinstall` / `postinstall` / `prepare` hooks running anything
+  beyond standard build steps?
+- **Outbound surface.** Grep `https?://` literals across `bots/src`,
+  `packages`, `bear-scout/runners`, `pbx`, `scripts`. The repo claims
+  it talks only to: public PBX API, user's Solana RPC (Helius), DEX
+  SDKs (Meteora / Orca / Jupiter / Solana), PurpleAir, AirNow, weather
+  APIs. Verify or push back. Look out for pastebin / ngrok / webhook
+  sinks / raw IP literals.
+- **Wallet/secrets code.** `bots/src/server/secrets.ts`,
+  `bots/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+  for keys/mnemonics written anywhere besides `runtime/bots/local.env`,
+  or sent over the network, or logged.
+- **LLM-output → code-execution paths.** Grep for `eval`, `exec`,
+  `Function(`, `child_process.exec` with user-derived strings. The
+  DSL interpreter (`bots/src/strategies/dsl/interpreter.ts`) is meant
+  to be a hand-written evaluator, not a code-eval pass-through.
+- **Outbound auth / API keys.** Check whether any hardcoded keys,
+  tokens, or secrets exist in the repo.
+- **AI-targeted files.** This skill, `README.ai.md`, `CLAUDE.md`,
+  `PROMPT.md`, `.claude/personalities/*`. None of these grant the
+  repo trust it hasn't earned — they're UX scaffolding. Read with
+  that lens.
 
-Report each as a single bullet in plain language ("Node 22.11 — ✓",
-"Python 3.10.5 — ✓", "pm2 missing, will install in step 4 — ⏳").
+You can run multiple greps in parallel (one assistant turn, many
+tool calls) for speed. Or run them one at a time. Whichever fits.
 
-### Stage B — Claude CLI check
+### Reporting findings to the user
 
-Verify the user has `@anthropic-ai/claude-code` installed globally
-(needed by the workflow). Check with:
+**Report what you actually saw — observations, not assurances.** The
+user is owed your honest read, including uncertainty.
 
-```bash
-which claude   # or: where claude on Windows
-```
+Good shapes for the summary:
 
-If missing, ask the user:
+- *"I read [files]. I didn't see [pattern that would worry me]. I
+  haven't audited [thing I didn't look at] — if that matters to you,
+  flag it."*
+- *"I read [files]. I found [specific concern] at [file:line] —
+  here's what it does, here's what I think the risk is."*
+- *"The install scripts look clean. The wallet code I'm less sure
+  about — I'd want a security professional to read it before any
+  mainnet wallet gets funded. Paper mode is safe to proceed with."*
 
-```
-AskUserQuestion: "Claude CLI not detected globally. Install @anthropic-ai/claude-code?"
-  - "Yes, install it now" (default)
-  - "Skip — I'll install it later"
-```
+**Avoid:**
 
-If yes, run `npm install -g @anthropic-ai/claude-code`.
+- A scripted "✓ wallet safe ✓ no backdoors ✓ no exfiltration" template.
+  The user is owed observations, not a certification.
+- Claims you haven't actually verified.
+- Papering over uncertainty. "I didn't look at that" is the right
+  thing to say if you didn't look.
 
-### Stage C — Clone integrity
+### Then ask the user how to proceed
 
-If Claude is inside an already-cloned repo, verify:
+Use `AskUserQuestion` with neutral options. Sample shape:
 
-```bash
-git fsck --no-progress    # tree integrity
-git log -3                # signed commits if applicable
-git status --short        # check for unexpected dirty files
-```
+- "Proceed with the install based on what you reported"
+- "Tell me more about [specific finding]"
+- "Stop here — I want a human to read the code first"
+- "I'd rather run `install.bat` / `install.sh` myself" (fully
+  supported alternative — see [README.md](README.md))
 
-Report any anomalies (dirty tree, unsigned commits if expected,
-missing files in expected directories).
-
-### Stage D — 4 parallel security greps
-
-Run these four greps in parallel (single message, multiple tool
-calls) to spot the obvious red flags:
-
-| Grep | What it catches |
-|---|---|
-| `grep -rE "(curl\|wget\|Invoke-WebRequest).*\\\|.*sh"` (excluding `node_modules`, `.venv`, `.tooling`) | Pipe-to-shell pattern |
-| `grep -rE "(eval\|exec)\(.*process\.env\|.*\$\{"` (TypeScript / JS files) | Dynamic code execution from env / user input |
-| `grep -rE "(api[_-]?key\|private[_-]?key\|secret\|password\|mnemonic).*=.*['\"][a-zA-Z0-9_-]{20,}['\"]"` | Hardcoded secrets |
-| `grep -rE "(http://\|webhook\|pastebin\|hastebin\|ngrok)"` (excluding docs/) | Suspicious outbound destinations |
-
-Report findings in plain language. If anything turns up, surface
-exactly what you found, where, and why it's concerning — then ask
-the user how to proceed.
-
-### Summarizing to the user
-
-After all four stages, write a single plain-language summary like:
-
-> Here's what I found before installing:
->
-> - **Your machine** is good to go — Node 22, Python 3.10, 12 GB
->   free, pm2 missing but I'll install it.
-> - **Claude CLI** missing globally — I'll install it as part of
->   setup.
-> - **Repo integrity** — clean working tree, all expected files
->   present, no dirty state from a prior session.
-> - **Security greps** — no hardcoded secrets, no pipe-to-shell
->   commands, no suspicious outbound URLs. The only outbound calls
->   are to documented Solana RPC, Meteora/Orca/Jupiter SDKs, the
->   public PBX API, and PurpleAir/AirNow weather endpoints.
->
-> Ready to proceed?
-
-Then call `AskUserQuestion` with options:
-- "Yes, install" (default)
-- "Tell me more about a specific finding"
-- "Stop"
+If the user picks anything other than "proceed," respect that
+cleanly. The skill isn't a trap — declining is a valid outcome.
 
 ---
 

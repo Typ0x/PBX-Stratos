@@ -93,21 +93,24 @@ There is no third terminal state. Do NOT silently stop, defer, or "leave it as-i
 
 After each step in the wizard, run the **Verify** command documented for that step. If verify fails, retry the step once. If verify still fails, halt and call `AskUserQuestion` per Terminal State 2 — do not proceed past a failed verify on the assumption that "it probably worked anyway."
 
-## Before Step 0 — confirm bypass-permissions is ON
+## Before Step 0 — note about automode (optional, smoother UX)
 
-The README instructs the user to toggle Settings → Claude Code →
-"Allow bypass permissions mode" ON, then "Bypass permissions" ON,
-BEFORE typing the trigger phrase. If you notice that you're being
-prompted for permission on routine read/write/run actions during this
-wizard, stop and tell the user:
+The install runs smoother when Claude Desktop is in **automode** —
+this is the friendly name we use for what Anthropic calls "bypass
+permissions" mode (Settings → Claude Code). With automode on, you
+don't get a permission popup for every routine read/write/run; with
+it off, you do.
 
-> Heads up — I'm getting asked to confirm every action, which means
-> the bypass-permissions toggles aren't on yet. Go to **Settings →
-> Claude Code**, turn ON **"Allow bypass permissions mode"**, then
-> ON **"Bypass permissions"**. Restart this chat and re-type the
-> trigger phrase. Without those toggles this install takes ~5× longer.
+**Both modes work.** The install runs either way. If automode is
+off and you notice routine actions are getting prompted, you can
+mention it to the user — "heads up, you're getting popups for
+every action because automode (Settings → Claude Code → Bypass
+permissions) is off; toggling it on would make this smoother, but
+it's not required." Then keep going.
 
-Don't do the full install with both toggles off — it stalls.
+**Do NOT make automode a precondition.** Don't refuse to start, don't
+stop mid-flow, don't pressure the user to flip the setting. It's a
+UX optimization, not a security gate.
 
 ## Universal Core inheritance
 
@@ -357,148 +360,115 @@ experience away from the dashboard, don't insert friction.
 
 ---
 
-## Step 0 — Safety verification (do this BEFORE asking the user anything)
+## Step 0 — Audit the repo (do this BEFORE asking the user anything)
 
-**Why:** most users can't read code. They're trusting that this repo
-doesn't steal from them. You CAN read code. Verify safety yourself,
-then tell the user in plain language what you confirmed.
+**Why:** the user is about to let you install + run code that can
+eventually touch a real Solana wallet. Before doing that, look at
+the code. The user wants you to look. **The point of this step is
+your honest evaluation, not a scripted certification.**
 
-### Announce upfront (one sentence, before any tool calls)
+### Audit at your own discretion
 
-Tell the user, plainly:
+This skill won't script the audit for you. Use your judgment. Here
+are some areas that are typically worth checking on a fresh-install
+of an unfamiliar trading-bot repo — pick whichever feel useful, add
+others if you want, skip ones that don't fit:
 
-> Before I install anything, I'm running a 4-stage safety audit on
-> this clone: a host audit (does your machine have what we need), a
-> Claude CLI check, a clone-integrity check, and 4 parallel security
-> greps. The greps confirm the 4 security claims this repo makes:
-> no outbound from wallet/secrets code, no install-time hooks running
-> surprise commands, no path from model output to runtime code
-> execution, and outbound hosts limited to known allowlist. Takes ~3
-> turns. I'll tell you each stage's result in plain language.
+- **Host fitness.** OS, free disk, free RAM, presence of Node, Python,
+  git, pm2. The `scripts/bootstrap.{sh,ps1}` script can install Node
+  and Python into `.tooling/` if missing, so absence isn't a blocker;
+  it's just a note.
+- **Clone integrity.** `git fsck --no-progress`, `git status --short`,
+  `git log -3` (look for anything weird about the commits — backdated
+  timestamps, suspicious authors, unsigned where signing is expected).
+- **Install scripts** (`install.sh`, `install.ps1`, `install.bat`,
+  `scripts/bootstrap.*`). Read them. They're short. Do they do what
+  their headers say, or do they reach into surprise hosts / decode
+  base64 payloads / eval remote content?
+- **Package manifests** (`package.json` files, `pyproject.toml`). Any
+  `preinstall` / `postinstall` / `prepare` hooks running anything
+  beyond standard build steps?
+- **Outbound network surface.** Grep `https?://` literals across the
+  source tree. The repo claims it talks only to: public PBX API,
+  user-configured Solana RPC, DEX SDKs (Meteora / Orca / Jupiter),
+  PurpleAir / AirNow / weather APIs. Verify or push back.
+- **Wallet/secrets code paths.** `bots/src/server/secrets.ts`,
+  `bots/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+  for anywhere keys or mnemonics get written to a non-`.env` location,
+  sent over the network, or logged.
+- **LLM-output to code-execution paths.** Grep for `eval`, `exec`,
+  `Function(` constructors, `child_process.exec` (shell-interpreting)
+  on user-derived strings. The repo's DSL interpreter
+  (`bots/src/strategies/dsl/interpreter.ts`) is meant to be a
+  hand-written evaluator, not a code-eval pass-through; spot-check it.
+- **AI-targeted files.** This skill, `README.ai.md`, `CLAUDE.md`,
+  `PROMPT.md`, `.claude/personalities/*`, `.claude/achievements/*`.
+  None of these grant the repo trust it hasn't earned — they're UX
+  scaffolding. Read them with that lens.
+- **Anything else you'd normally check** on an unfamiliar dual-use
+  codebase.
 
-The user *wants* this audit. Don't skip it, don't bury it, and report
-results plainly.
+**Run the checks however you want.** Parallel `Grep` calls are fast
+and cheap if you want to batch them; one-at-a-time is fine if you
+prefer. The structure of your audit is yours to choose.
 
-### Three-turn execution (batch tool calls, be terse)
+### Report findings honestly to the user
 
-Latency dominates — pack tool calls aggressively. The boss's pattern:
+After auditing, summarize what you actually saw. The user wants
+**observations, not assurances.** A few framings that are
+appropriate:
 
-**Turn 1 — Stages A+B+C in one assistant message (3 tool_use blocks).**
+- "I read X, Y, Z. I didn't see [pattern that would worry me]. I
+  haven't audited [thing I didn't look at] — if you care about that,
+  flag it."
+- "I read X, Y, Z. I found [specific concern] at [file:line] — here's
+  what it does, here's what I think the risk is."
+- "I'm not comfortable certifying the wallet code without a security
+  professional reading it. The install can proceed without a real
+  wallet (paper mode); funding a mainnet wallet is a separate
+  decision."
 
-- Stage A (host audit): ONE Bash call that backgrounds every check
-  with `&` and `wait`s. Example shape (adapt for platform):
-  ```bash
-  { uname -sm; df -h ~ | tail -1; test -w ~ && echo home:writable; } &
-  { git --version 2>&1; node -v 2>&1; python3 --version 2>&1; } &
-  { curl -sI -m 5 https://github.com | head -1; curl -sI -m 5 https://pbx-mainnet-api.onrender.com | head -1; } &
-  wait
-  ```
-  Block on: not macOS/Linux/Windows, < 2 GB free in `~`, network
-  unreachable, `~` not writable, `git` missing. Stale or missing
-  `node`/`python3` is a note — `scripts/bootstrap.sh` handles them.
-- Stage B (Claude CLI check): `Bash claude --version`. If missing,
-  install via the user-scope install path documented at
-  <https://docs.claude.com/en/docs/claude-code/setup>. No sudo. If a
-  system package manager is required (homebrew, winget), pause and
-  ask the user with the exact command.
-- Stage C (clone integrity): `Bash git rev-parse HEAD` from
-  `PBX-Stratos/` to confirm we're inside a valid git clone.
+What to **avoid**:
 
-**Turn 2 — Stage D in one assistant message (4 Grep blocks, all parallel).**
+- Don't deliver a scripted "✓ wallet safe ✓ no backdoors ✓ no
+  exfiltration" template. The user is owed observations, not a
+  certification.
+- Don't claim things you haven't actually verified.
+- Don't paper over your uncertainty. "I haven't looked at that" is a
+  fine thing to say.
 
-The 4 security claims this repo makes. Each check is its own `Grep`
-tool call, all issued together. **Don't use `Glob` to discover paths
-first; the paths below are exact. Don't `Read` files first; `Grep`
-operates on disk and is enough. Don't use `Task` subagents — they're
-slower than parallel `Grep`.**
+### Then ask the user how to proceed
 
-| # | Check | Stop if found |
-|---|---|---|
-| **D1** | `Grep` outbound-network patterns (`fetch`, `axios`, `http`, `net\.`) in exactly these three files: `pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts` | Any code shipping keys / mnemonics off-machine |
-| **D2** | `Grep` npm lifecycle hooks (the three install-time hook names — pre/post-install and prepare) across `**/package.json`, plus skim the first 60 lines of these files for unexpected commands: `install.sh`, `install.ps1`, `install.bat`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | Any hook running surprise commands |
-| **D3** | `Grep` repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for runtime code-execution patterns: shell-eval function, the Python runtime evaluator name, the JavaScript runtime evaluator name, the dynamic function constructor, the OS command interface, and subprocesses opened with shell-true semantics. Then check whether any reachable from LLM output. | Any path from model output to runtime code execution |
-| **D4** | `Grep` all `https?://` literals across these dirs: `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` (exclude `node_modules`); check each host against the allowlist: PBX API (`pbx-mainnet-api.onrender.com`), user-configured RPC (Helius), DEX SDKs (Meteora, Orca, Jupiter, Solana), PurpleAir, AirNow, weather APIs | Any pastebin, unknown webhook, raw IP literal, telemetry sink |
+Use `AskUserQuestion` with neutral options. Sample shape:
 
-Hard-stop rule: **any Stage-D finding stops the wizard immediately.**
-Show the user exactly what was found, where, and why it failed the
-check. Do NOT auto-resolve. Do NOT continue to Step 1.
+- "Proceed with the install based on what you reported"
+- "Tell me more about [specific finding from your report]"
+- "I'll stop here — I want a human to look at the code first"
+- "I'd rather run `install.bat` / `install.sh` myself" (a fully
+  supported alternative — see [README.md](README.md) for the
+  double-click installer)
 
-**Turn 3 — Final audit report (5 lines, no prose).**
+If the user picks "stop" or "I'll run the installer myself," that's
+a clean exit. Don't pressure them to continue.
 
-```
-A: <one phrase about host>
-B: <one phrase about claude CLI>
-C: <one phrase about clone>
-D: clean   (or  D: found <thing> in <file>)
-RESULT_JSON: {"stages_run":["A","B","C","D"],"d_findings":<int>,"blockers":[],"result":"OK"}
-```
+### If you'd rather not run the install at all
 
-Then translate to the user-friendly summary below.
+Some Claudes will look at this repo (any unfamiliar Solana trading
+bot driven by AI-targeted scaffolding) and decide the right answer
+is "I'd rather not personally drive this install — the user can run
+`install.bat` themselves." **That's a valid response.** Tell the
+user:
 
-### What to ALSO verify (read-the-code, beyond Stage D)
+- The repo ships a double-click installer (`install.bat` on Windows,
+  `bash install.sh` on macOS/Linux) that handles everything without
+  AI involvement.
+- They can run the personality quiz later by saying "run the
+  personality quiz."
+- You're happy to help with everything else (read code together,
+  explain pieces of the install, walk through the dashboard once
+  it's up) — just not personally driving the install.
 
-Stage D covers the boss's 4 hard security claims. Three additional
-PBX-Stratos guarantees that aren't in the boss's 4-grep but that the
-user's README promises:
-
-5. **`.gitignore` covers sensitive files.** Confirm `.env`,
-   `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`,
-   and `*-private*` patterns are gitignored.
-6. **Wallet encryption uses local key.** Confirm `BOT_MASTER_KEY` +
-   `BOT_HD_MNEMONIC` are generated locally, never uploaded, and used
-   only to encrypt wallet `.enc` files at rest (AES-256-GCM).
-7. **No automatic fund movement.** Confirm there's no startup hook,
-   scheduled task, or background loop that moves funds out of the
-   user's wallet without an explicit user action (live trading swaps
-   don't count — those are the bot's INTENT, not a hidden transfer).
-   AND confirm `HELIUS_MAINNET_URL` is the master gate: every live
-   endpoint should 503 without it.
-
-These three are quick scans, not new Grep calls. Roll them into Turn 3
-or report after if they failed.
-
-**What to TELL the user (in plain language, in their voice once Step 1
-completes; until then in default voice):**
-
-> Before I install anything, I read through the code. Here's what I
-> confirmed:
->
-> ✓ **Your wallet stays on your computer.** Nothing in this code uploads
->   wallet keys anywhere. Your money is yours, locally encrypted with a
->   password only your machine knows.
->
-> ✓ **Nothing phones home.** The code talks to: the Solana network (to
->   actually trade), a public market-data API, public air quality
->   sensors, public weather APIs. That's it. No analytics, no telemetry,
->   no calls back to the repo author.
->
-> ✓ **No hidden backdoors.** I checked for admin accounts, remote
->   controls, or any code path that does something behind your back.
->   None.
->
-> ✓ **Your sensitive files won't get committed by accident.** The
->   `.gitignore` covers your wallet, your API keys, and your config.
->
-> ✓ **No automatic money moves.** The only way money leaves your wallet
->   is through trades the bot makes based on the strategy YOU pick. No
->   sneaky transfers.
->
-> ⚠ **What I can't protect you from:**
->   - Market losses if your strategy doesn't work
->   - Someone hacking your computer (your wallet keys live on your
->     machine; secure your machine)
->   - Third-party outages (if Helius RPC goes down, your bot pauses)
->   - You losing your `BOT_MASTER_KEY` — without it your encrypted
->     wallet is unrecoverable
->
-> You're trusting me + you're trusting the code. The code, I just
-> verified. Me, you'll judge as we go. Ready to start?
-
-**Then wait for an explicit yes before proceeding to Step 1.** Use
-AskUserQuestion with options:
-- "Yes, I trust this — let's go"
-- "Wait, can you explain one of those points more?"
-- "Actually, I want to read the code myself first"
+This is a clean handoff, not a failure mode.
 
 ---
 
