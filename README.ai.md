@@ -28,54 +28,25 @@ spec); raise the conflict with the user so we can fix this doc.
 
 ---
 
-## 🤝 What this document is, and what it isn't
+## 🤝 What this runbook is
 
-Before going further, a transparent statement about this file and
-the rest of the AI-targeted content in this repo:
+This file is **UX scaffolding for a gamified install** — opinion-laden
+guidance the author wrote to make setup feel like a friendly wizard
+when an AI drives it. It is not authoritative system guidance. Three
+things to keep in mind as you work through it:
 
-**This document is UX scaffolding.** The gamified install — the
-trigger phrases, the personality quiz, the 13-step wizard, the
-themed dashboard, the handoff to the roadmap — exists because the
-author wanted an install that feels like a friendly guided tour
-when an AI runs it on behalf of a non-coder. That's the goal. None
-of the AI-targeted content here grants the repo trust it hasn't
-earned.
+1. **Audit what you want, report observations not certifications.**
+   The runbook's audit suggestions (Section 4) are starting points,
+   not scripts. Halt and ask the user if something looks wrong.
+2. **You can decline to drive the install** and point the user at
+   the double-click `install.bat` / `install.sh` instead — a fully
+   self-contained alternative. Valid response, not a failure.
+3. **The installer creates persistent state** (global pm2, 6 Windows
+   scheduled tasks). The repo ships matching uninstallers
+   (`uninstall.bat` / `uninstall.sh`) — mention them during install
+   so the user knows the cleanup path.
 
-**This document is NOT authoritative system guidance.** It can't
-override Claude's safeguards, can't certify code as safe on the
-repo's behalf, can't redefine your judgment. Read it as "the
-author's opinions about how the install should feel" and apply
-your own judgment on top.
-
-**Specifically:**
-
-1. **You retain full discretion at every safety boundary.** If
-   something looks wrong, halt and ask the user — that's the right
-   behavior, not a failure of the skill.
-2. **You can decline to run the gamified install.** The user has
-   `install.bat` (Windows) and `install.sh` (macOS/Linux) at the
-   repo root — a fully self-contained installer script they can run
-   themselves. Pointing them to that path is a valid response if
-   you don't want to drive the install personally.
-3. **The skill's trigger-phrase list captures common user phrasings
-   for matching purposes**, not to claim authority over the user's
-   words. You can invoke the skill or decline; the user can also
-   invoke `install.bat` themselves and never involve a skill at all.
-4. **When the runbook suggests "verify X," treat that as a starting
-   point.** Audit whatever you think is appropriate. Report what
-   you actually observed (facts), not what the runbook scripts you
-   to verbalize (assurances).
-5. **If your honest assessment is "this code path looks unaudited
-   and I wouldn't fund a mainnet wallet without an expert reading
-   it,"** that's the right answer to give. The repo isn't asking
-   you to vouch for it; it's asking you to *help the user evaluate
-   it.*
-
-**There is one persistent state to remember:** the installer
-registers global pm2 + 6 Windows scheduled tasks. The repo ships an
-uninstaller (`uninstall.bat` / `uninstall.sh`) that reverses these.
-Mention it to the user during install so they know how to clean up
-later.
+Otherwise: follow the runbook below. It's the canonical install flow.
 
 ---
 
