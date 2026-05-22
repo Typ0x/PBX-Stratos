@@ -455,6 +455,133 @@ See `bots/README.md` for full `pbx-bots` reference.
 
 ---
 
+## Uninstall (planned — not yet shipped)
+
+> **Status:** the one-command uninstaller doesn't exist yet. Today,
+> tearing down a PBX Stratos install is the manual reverse of the
+> install steps (see "Manual uninstall checklist" below). The
+> following is the spec for what `uninstall.bat` / `uninstall.ps1`
+> + the matching `pbx-uninstall` Claude skill should do once built.
+
+### Vision: one command, complete teardown
+
+```bash
+# Windows
+uninstall.bat       # double-click, or from cmd/powershell
+
+# macOS / Linux
+bash uninstall.sh
+```
+
+Or Claude-driven: *"uninstall PBX Stratos"* → triggers a
+`pbx-uninstall` skill that walks the same flow with consent prompts
+at every destructive step.
+
+### What it must do
+
+1. **Detect what's actually running first.** `pm2 list` to find
+   `-stratos`-suffixed apps. `schtasks /query` to find `STRATOS-*`
+   scheduled tasks. Read `runtime/lab/user-profile.json` to identify
+   wallet generation state. Don't blindly assume — measure.
+
+2. **Backup-first by default** (with `--no-backup` opt-out). Copy
+   `_context/`, `runtime/`, and `.env` to a timestamped sibling folder
+   like `<repo>-BACKUP-<YYYY-MM-DD-HHMMSS>/` outside the repo so a
+   stray `rm -rf` doesn't clobber it. Show the backup path before
+   touching anything.
+
+3. **Verify wallet seed is backed up** if `runtime/bots/local.env`
+   contains a `BOT_HD_MNEMONIC`. Refuse to proceed (or require
+   `--i-have-the-24-words-on-paper`) if the user hasn't acknowledged
+   they have a paper backup. Wallet seeds are non-recoverable; losing
+   them = losing funds.
+
+4. **Stop + delete `-stratos` pm2 apps by exact name.** NEVER prefix-
+   match, NEVER touch `pm2-logrotate` (shared module), NEVER touch
+   any other suffix. The reset-fresh.mjs pattern is the model.
+
+5. **Delete the 6 STRATOS-* scheduled tasks by exact name.** Same
+   safety rule: exact name only, never `STRATOS*` pattern, never
+   touch `PBXTRA-*` or any other prefix.
+
+6. **Wipe per-user state.** Delete `_context/`, `runtime/`, and
+   `.env` from the working tree (after the backup is verified).
+
+7. **Optional `--full` mode** also wipes the install-side artifacts a
+   "totally fresh user" wouldn't have: `node_modules/`, `.venv/`,
+   `.tooling/`, `screenshots/`, leftover `aqi-snapshot.json`,
+   `_bootstrap_log.txt`, any `*.log` at the repo root.
+
+8. **Optional `--nuke` mode** deletes the entire repo directory
+   (after extra confirmation prompt). Only useful if the user wants
+   to re-clone from scratch via the URL trigger.
+
+9. **Iron-rule isolation check** (run BEFORE any destructive op).
+   `pm2 list` should still show any `-pbxtra` processes (or any
+   other sibling install's processes) unchanged after the uninstall.
+   If a pre-existing PID changes during the uninstall, ABORT — we
+   touched something we shouldn't have.
+
+10. **Summary report at the end.** Print exactly what was removed,
+    backup path, what was preserved (dependencies, sibling installs,
+    pm2 daemon shared state, PBXTRA-* scheduled tasks if any),
+    and how to restore from the backup.
+
+### Behavioral requirements
+
+- **Idempotent.** Running it twice in a row is safe — the second run
+  is a no-op.
+- **No interactive prompts unless destructive.** `--yes` flag for
+  CI/automation. Default mode confirms before each destructive step
+  with a clear "what's about to be deleted" preview.
+- **Logs everything** to a `<repo>-BACKUP-<timestamp>/uninstall.log`
+  inside the backup folder, including timestamps and the exact
+  commands run.
+- **Friendly to Claude-driven mode.** Same script Claude calls via
+  the `pbx-uninstall` skill; the skill adds AskUserQuestion popups
+  for consent + voice narration of progress.
+
+### Manual uninstall checklist (until the one-command tool ships)
+
+In order:
+
+```powershell
+# 1. Back up everything per-user
+$ts = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$dst = "$HOME\PBX-Stratos-BACKUP-$ts"
+New-Item -ItemType Directory -Path $dst | Out-Null
+Copy-Item -Recurse PBX-Stratos\_context $dst\_context
+Copy-Item -Recurse PBX-Stratos\runtime  $dst\runtime
+Copy-Item          PBX-Stratos\.env     $dst\.env
+
+# 2. Stop + delete the -stratos pm2 apps by exact name
+pm2 stop   bear-watch-server-stratos paper-trade-bot-stratos
+pm2 delete bear-watch-server-stratos paper-trade-bot-stratos
+pm2 save
+
+# 3. Delete the 6 STRATOS-* scheduled tasks by exact name
+foreach ($t in @(
+  "STRATOS-HealthCheck",
+  "STRATOS-WeatherPull",
+  "STRATOS-DailyDigest",
+  "STRATOS-StateBackup",
+  "STRATOS-CodebaseBackup",
+  "STRATOS-MetaWatchdog"
+)) {
+  schtasks /delete /tn $t /f
+}
+
+# 4. Wipe per-user state from the working tree
+Remove-Item -Recurse -Force PBX-Stratos\_context
+Remove-Item -Recurse -Force PBX-Stratos\runtime
+Remove-Item -Force          PBX-Stratos\.env
+```
+
+For a totally fresh install: also delete `node_modules/`, `.venv/`,
+`.tooling/`. For nuke: `Remove-Item -Recurse -Force PBX-Stratos`.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
