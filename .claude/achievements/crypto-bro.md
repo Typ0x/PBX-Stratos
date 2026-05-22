@@ -95,8 +95,8 @@ roadmap.
 ### s2.t10 — "Tick Logic Decoded"
 > You asked, Claude walked you through one tick decision in full detail. Black box → glass box.
 
-### s2.t11 — "Tape Read"
-> 10 consecutive ticks reviewed in the log. You can scan the bot's minute-by-minute thinking now.
+### s2.t11 — "Tape Read, Decoded"
+> Walked a 5-min window with Claude. You named what shifted between ticks — price moves, signal flips, why the bot held vs aped. The minute-by-minute logic is no longer hidden, fam. You can READ the tape now.
 
 ### s2.t12 — "Held Through The Wick"
 > Position went -5% and you held. Most degens panic-sell here. You didn't. That's the discipline that prints long-term.
@@ -110,11 +110,11 @@ roadmap.
 ### s2.t15 — "Active Digest Read"
 > Read the daily digest AND spotted something surprising. Asked claude why. Active reading, not just nodding at numbers.
 
-### s2.t16 — "24 Ticks Locked In"
-> Watched 24 consecutive ticks (~24 minutes) in one sitting. Focus established. Most can't sit with the same data for that long.
+### s2.t16 — "Skipped Trade Decoded"
+> Found a tick where the bot was TEMPTED but didn't ape. You can name the filter that blocked it + judge if the no-trade was right call. Skipping bad trades > printing on bad signal. This is operator discipline.
 
-### s2.t17 — "Hardest City Spotted"
-> You IDed which city is hardest to predict and you know why (CHI — westerly transport from regions the bot can't see). Applied science.
+### s2.t17 — "Own City Take, Forged"
+> Watched all 3 cities for a focused hour and formed YOUR OWN hypothesis about which is hardest to read. The take came from YOUR observation, not from Claude's analysis. Original alpha-thinking starts here, ser.
 
 ### s2.t18 — "Alert Triage"
 > You know every alert type the bot fires + which ones you act on vs which auto-recover. Operator readiness unlocked.
@@ -138,139 +138,118 @@ roadmap.
 ### s3.t4 — "Variant Deployed"
 > Tweak is paper trading alongside original. Real-time A/B testing live. Claude told you exactly what changed.
 
-### s3.t5 — "Made It Worse"
-> Tweak underperformed. Best result you can get tbh — tells you which direction NOT to push next time. Losses teach harder than wins.
+### s3.t5 — "5 Experiments, 5 Theses"
+> Ran 5+ parameter experiments and EACH had a stated hypothesis — not "tried numbers." Maintained a learnings table with Claude tracking what moved what. This is empirical method, not cargo-culting. You're tinkering with intent, ser.
 
-### s3.t6 — "Made It Better"
-> Variant outperformed. Your tweaks are starting to print edges.
+### s3.t6 — "Surprise Chased"
+> One of your experiments came back with results that genuinely surprised you. Instead of brushing it off you chased WHY — wrong hypothesis or busted test? Wrote it up. Surprises are where the actual alpha hides.
 
-### s3.t7 — "3 Experiments"
-> Three under your belt. You're a tinkerer for real.
-
-### s3.t8 — "5 Experiments"
-> Habit formed. You experiment without overthinking. Most people are still on tweak #1.
-
-### s3.t9 — "10 Experiments"
-> 10 in the bank. You've earned the tinkerer flair. Most quit at 2-3.
-
-### s3.t10 — "Same Strategy, 3 Forks"
+### s3.t7 — "Same Strategy, 3 Forks"
 > Three variants of one base strategy. You see the design space now, not just one point in it.
 
-### s3.t11 — "Persistence Baseline"
+### s3.t8 — "Persistence Baseline"
 > Compared your best variant against "do nothing for the next hour". Honest result, no cope. If your variant beats persistence, you have REAL signal. If it doesn't, you've been fooling yourself — and that's worth knowing.
 
-### s3.t12 — "Dashboard Drip"
+### s3.t9 — "Dashboard Drip"
 > Dashboard layout reflects YOUR priorities. Control room is yours now.
 
-### s3.t13 — "Personality Customized"
+### s3.t10 — "Personality Customized"
 > You actually edited the personality file. Not just picked a preset — modified a voice rule to match how YOU want Claude to talk. That's customization, not switching.
 
-### s3.t14 — "Theme Customized"
+### s3.t11 — "Theme Customized"
 > Modified at least one CSS variable in the active theme. Dashboard looks how YOU want, not how the shipped default looked. Visual identity unlocked.
 
-### s3.t15 — "Profile Refined"
+### s3.t12 — "Profile Refined"
 > After a week of actual usage, you updated your profile based on what you learned about how you really work. Self-awareness applied.
 
-### s3.t16 — "Audit Triage"
+### s3.t13 — "Audit Triage"
 > Claude ran an audit on your install and walked you through which findings matter vs which are noise. You can ignore the noise without ignoring the signal. Operator-tier behavior.
 
-### s3.t17 — "Wallet Pulled, Features Logged"
+### s3.t14 — "Wallet Pulled, Features Logged"
 > `wallet-decoder.py` ran clean on your target pubkey, ser. features.csv + snapshots.json sitting in `runtime/lab/wallets/`. One row per trade with market state at fire-time. This is the raw alpha intel — you got it.
 
-### s3.t18 — "Variant Beats Original 24h Live"
+### s3.t15 — "Variant Beats Original 24h Live"
 > Tweak outperformed original for a full day of paper trading. Real-time edge, not just backtest noise. Your judgment is printing durable.
 
-### s3.t19 — "Filter Math Decoded"
-> You know WHY a filter threshold is where it is. No more cargo-culting parameters.
+### s3.t16 — "Filter Math Decoded"
+> You know WHY a filter threshold is where it is — and you can defend the value, not just read it. No more cargo-culting parameters.
 
-### s3.t20 — "Systematic Decode → Rule Found"
+### s3.t17 — "Systematic Decode → Rule Found"
 > `wallet-evolve.py` finished 10 epochs and BEAT_STRATEGY.md is in. You read the rule, you read the F1, you read the lift. This is HOW OG ALPHA GOT DISCOVERED, bro — you're learning straight from the chain. The `Reverse Engineer` event achievement just unlocked because the boss's lab framework noticed what you did. Auto-print.
 
-### s3.t21 — "Claude In The Loop, 10 Rounds Deep"
+### s3.t18 — "Claude In The Loop, 10 Rounds Deep"
 > `agentic-decode.py` ran 10 rounds with Claude proposing DSL predicates → fitness eval → round-trip P&L → refine. You watched the rule sharpen round by round. `agentic-rounds.jsonl` is the full trace. The decoder is now a CONVERSATION between you, the chain, and an LLM. Wild times.
 
-### s3.t22 — "VERDICT: PASS"
+### s3.t19 — "VERDICT: PASS"
 > The decoded rule cleared the verdict gate — positive held-out P&L on the walk-forward 70/30 AND entry-fit AND exit-fit. This isn't a hopium rule — it survives data the decoder never saw. That's how you separate signal from cope. **Section 3: cleared. Architect time — build your own.**
 
 ---
 
 ## Section 4 — Architect
 
-### s4.t1 — "Thesis Posted"
-> You have a written hypothesis. The line between consumer and creator is right here. You crossed it.
+### s4.t1 — "Falsifiable Thesis"
+> Your hypothesis is sharp enough to test, ser. Specific entry conditions, specific exit conditions, AND a falsification check (what data would prove you wrong). Claude pushed back until it stuck. This is the line between cope-tier and operator-tier.
 
-### s4.t2 — "Thesis Stress-Tested"
-> Claude pushed back, you sharpened the idea. Real intellectual work.
+### s4.t2 — "DSL Predicate Shipped"
+> Hypothesis is now machine-readable. Entry trigger, position size, exit conditions (lock/trail/max-hold) — all in the DSL, syntactically clean. The strategy can run. From vibes to code.
 
-### s4.t3 — "Entry Defined"
-> Hypothesis is now a concrete BUY rule. From vibes to code.
-
-### s4.t4 — "Exit Defined"
-> Concrete SELL rule. Strategy complete on paper.
-
-### s4.t5 — "In the Registry"
+### s4.t3 — "In the Registry"
 > Your strategy lives in the system now. Paper trader can run it.
 
-### s4.t6 — "Your Backtest"
+### s4.t4 — "Your Backtest"
 > Historical data ran your idea. You have a number for YOUR thesis.
 
-### s4.t7 — "First Iteration"
-> Backtest informed a revision. You're tuning your own design, not just deploying it.
+### s4.t5 — "Targeted Iteration"
+> Changed ONE parameter on purpose, re-backtested, Claude confirmed the change moved the metric you targeted. Surgical, not scattershot. This is how you tune signal without breaking the rest of the strategy.
 
-### s4.t8 — "Deployed"
+### s4.t6 — "Deployed"
 > Your strategy paper-trading. This is the moment.
 
-### s4.t9 — "First Trade Your Strategy"
+### s4.t7 — "First Trade Your Strategy"
 > Position opened under YOUR name. Original output. Major.
 
-### s4.t10 — "Your Strategy Prints"
+### s4.t8 — "Your Strategy Prints"
 > Closed position with positive PnL — yours. The idea works at least once. Build on this.
 
-### s4.t11 — "3 Days Surviving"
-> 72h, no crashes. Your strategy doesn't blow up.
+### s4.t9 — "Three Decision Cycles"
+> Your strategy ran 3 full BUY → manage → exit cycles. Behaving like a real strategy in miniature.
 
-### s4.t12 — "1 Week Surviving"
-> 168h with 3+ trades. Behaving like a real strategy.
+### s4.t10 — "5 Trades, 50%+ Win Rate"
+> 5+ closed trades — actual sample size — and the win rate is above 50%. The signal you found is REAL, not luck. Statistically meaningful, not a vibe.
 
-### s4.t13 — "5 Closed Trades"
-> Sample size starting to mean something.
+### s4.t11 — "v2 with a Named Improvement"
+> Revision exists, and the improvement is tied to a SPECIFIC lesson v1 taught you. Iterating on evidence, not on hope.
 
-### s4.t14 — "Above 50% Win Rate"
-> Your strategy is net positive. The signal you found is real. Statistically meaningful → not a coincidence.
-
-### s4.t15 — "v2 Shipped"
-> Revision exists. Iterating on your own work.
-
-### s4.t16 — "v1 vs v2 Live"
+### s4.t12 — "v1 vs v2 Live"
 > Both versions paper-trading. Real data picks the winner.
 
-### s4.t17 — "Winner Crowned"
-> One version decisively better, loser archived. Confident decisions about your own designs.
+### s4.t13 — "Winner Crowned + Reasoned"
+> One version decisively better. AND the WHY is in your journal — filter? exit? something you didn't predict? Loser archived. Confident decisions backed by paper trail.
 
-### s4.t18 — "Strategy Doc'd"
-> Markdown explains the logic. Any reviewer can trace your thinking. Could survive a code audit.
+### s4.t14 — "Strategy Logic Journaled"
+> Your scope's journal explains what your strategy is designed to capture, the rules it uses, and where it fails. Future-you (or any reviewer) can trace the reasoning. Survives a code audit.
 
-### s4.t19 — "Evo Loop Ran"
-> Used the genetic algorithm. Variants generated. The tool kit just expanded.
+### s4.t15 — "Evo Loop Found a Winner"
+> `evolve-job` surfaced variants your hand-tuning would never have picked. At least one of those variants beat your hand-tuned version on the backtest window. The genetic algorithm is part of your kit now.
 
-### s4.t20 — "OG Discovery"
+### s4.t16 — "OG Discovery"
 > You spotted something Claude didn't suggest first. Past the apprentice tier.
 
-### s4.t21 — "DSL Predicate, Hand-Crafted"
+### s4.t17 — "DSL Predicate, Hand-Crafted"
 > You wrote your own entry+exit predicate in the strategy DSL, no agentic-decode in sight. Pick a feature, pick a threshold, ship it to paper, watch what happens. Now when Claude proposes a rule, you can READ IT like a poem because you've written one. **Section 4: cleared. You're an architect now.**
 
 ---
 
 ## Section 5 — Mainnet
 
-### s5.t1 — "Helius Plugged In"
-> RPC live. Bot can talk to chain. Real one.
+### s5.t1 — "Funder Pubkey Triple-Checked"
+> Three independent views — `pbx wallet show`, the dashboard's funder card, AND a block explorer — all show the same pubkey, ser. You know exactly what wallet your bot is firing from. No surprises.
 
-### s5.t2 — "Wallet Generated"
-> Encrypted keys on your machine. You hold them, nobody else.
+### s5.t2 — "Funder Cap Confirmed"
+> Funder is funded but not over-funded. $1000 USDC / 2 SOL cap tripwire is intact in config. Real-money safety net is on BEFORE any live trade ships. Anti-rug ops.
 
-### s5.t3 — "Master Key + Mnemonic Stashed"
-> BOT_MASTER_KEY (the AES-256-GCM unlock secret) AND BOT_HD_MNEMONIC (the 24-word BIP39 phrase) both in places you'll find in a year. Lose either and the wallet is GONE. Back the mnemonic on paper, ser — password managers fail.
+### s5.t3 — "Consent Gates Decoded"
+> Read every gate that fires when you try to go live. You can name what each one's protecting — key access, fund movement, daily caps. Consent isn't ceremonial, ser — every approval is you signing off on a specific real-money action.
 
 ### s5.t4 — "$20 Onchain"
 > Real money funded. Tiny but real.

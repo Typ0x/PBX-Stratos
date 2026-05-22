@@ -109,7 +109,7 @@ cadence per Universal Core — those get plain professional voice.
 > Watched 24 consecutive ticks (~24 minutes) in one focused session. Sustained attention discipline established.
 
 ### s2.t17 — "HARDEST SECTOR IDENTIFIED"
-> You IDed which city is hardest to predict and you know why (CHI — westerly transport from upwind regions the bot cannot observe). Applied intelligence.
+> ONE HOUR of focused observation across all three cities. Your own hypothesis formed — which city is hardest to read, AND your reasoning. Came from YOUR observation, not Claude's analysis. INDEPENDENT JUDGMENT DEMONSTRATED.
 
 ### s2.t18 — "ALERT TRIAGE"
 > Every alert type understood. You know which require ACTION vs which auto-recover. False-alarm fatigue prevented.

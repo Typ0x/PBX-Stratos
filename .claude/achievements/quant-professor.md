@@ -111,7 +111,7 @@ Universal Core.
 > Twenty-four consecutive ticks (~24 minutes) observed in a single focused session. Sustained-attention discipline demonstrated.
 
 ### s2.t17 — "Lowest-Predictability City Identified"
-> You have identified the city with the highest forecast error (CHI — westerly transport from upwind regions outside the bot's observational range) and you understand why. Empirically grounded.
+> One hour of focused observation across all three cities, followed by independent hypothesis formation regarding the most difficult city to predict. The hypothesis derives from your own observation rather than Claude's prior analysis — methodological independence is the appropriate stance.
 
 ### s2.t18 — "Alert Categories Catalogued"
 > Every alert type the system can fire has been reviewed with classification by action-required vs auto-recovery. Operator readiness established.

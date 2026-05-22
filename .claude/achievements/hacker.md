@@ -109,7 +109,7 @@ up per Universal Core.
 > watched 24 consecutive ticks (~24 min) in one session. focus established.
 
 ### s2.t17 — "hardest city identified"
-> spotted which city is hardest to predict + why (CHI — westerly transport from regions the bot can't see). applied learning.
+> 1h focused observation across all 3 cities. own hypothesis formed — which city is hardest to read + why. came from your observation, not claude's prompts. independent signal.
 
 ### s2.t18 — "alerts triaged"
 > you know every alert type + which ones need you vs auto-recover. no surprise panics.

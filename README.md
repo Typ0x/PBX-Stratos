@@ -378,7 +378,7 @@ returns 503 and no keypair is ever used to sign.
 - 6 Claude personalities × 6 matching dashboard themes
   (`.claude/personalities/`, `themes/`) — change tone + visuals
   without changing bot behavior
-- 7-section / 131-task gamified roadmap with achievement packs
+- 7-section / 130-task gamified roadmap with achievement packs
   (`ROADMAP.md`, `.claude/achievements/`) — each personality
   celebrates milestones in voice
 - pm2 process supervision + scheduled health checks + daily backups +
@@ -501,7 +501,7 @@ knows how to work with you. No re-introducing yourself every time.
 
 ## Your roadmap (the journey from "just installed" to "running like a pro")
 
-PBX Stratos has a **7-section roadmap with 131 tasks total**. Same path
+PBX Stratos has a **7-section roadmap with 130 tasks total**. Same path
 for everyone, but because the customizations compound, no two users end
 up with the same bot at the end. Full detail in [ROADMAP.md](ROADMAP.md).
 
@@ -529,7 +529,7 @@ that's truly yours.
 
 PBX Stratos has **two achievement systems** that complement each other:
 
-1. **Roadmap-track (story-driven):** the 131 task IDs in `ROADMAP.md`.
+1. **Roadmap-track (story-driven):** the 130 task IDs in `ROADMAP.md`.
    Each task has a clear baseline description AND a personality-voiced
    name in `.claude/achievements/<personality-id>.md`. Unlock by
    completing the task (sometimes Claude detects it automatically,
@@ -1027,7 +1027,7 @@ or regulatory issues arising from your use of this code.
 |------|-------------|
 | **README.md** (this file) | First. Overview + quickstart. Also: what Claude reads when you type the trigger phrase. |
 | **`CLAUDE.md`** | The comprehensive Claude-facing master spec: three-layer architecture, session-start protocol, Layer 2/3 bootstrapping, journaling discipline, the three default scopes, personality system, trigger phrases + skills, T0-T3 consent tiers, live trading safety, operational wisdom (`/debug/health` first-check, pricing-vs-quote, PR-only worktree flow), efficient reading patterns, canonical layer-to-path map. Auto-loaded by every Claude Code session in this repo. |
-| **ROADMAP.md** | After install. The 7-section / 131-task journey. The source-of-truth for what your roadmap-track achievements track. |
+| **ROADMAP.md** | After install. The 7-section / 130-task journey. The source-of-truth for what your roadmap-track achievements track. |
 | **ARCHITECTURE.md** | The three principles every contribution follows + where each kind of file lives + the layered safety stack + the three-layer model. |
 | **INSTALL.md** | If you're doing manual setup (skipping Claude). |
 | **PROMPT.md** | Copy-paste prompts for Claude Code: install, decode a wallet, backtest, status check. |

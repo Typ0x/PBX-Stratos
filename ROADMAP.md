@@ -1,6 +1,6 @@
 # PBX Stratos — The Roadmap
 
-Seven sections. 136 tasks. Same path for every user, but the customizations
+Seven sections. 130 tasks. Same path for every user, but the customizations
 compound so no two end up with the same bot.
 
 Each task here has a unique ID (like `s3.t12`). Your active Claude
@@ -25,22 +25,22 @@ time you hit a milestone.
 |---|---------|-----------------|-------|
 | 1 | **Genesis** | Get installed, get safe, get oriented | 14 |
 | 2 | **Pulse** | Feel the signal — watch the bot, learn the rhythm | 19 |
-| 3 | **Forge** | Customize what's in the box + run your first wallet decode | 22 |
-| 4 | **Architect** | Build your own strategy from your own observation + DSL fluency | 21 |
+| 3 | **Forge** | Customize what's in the box + run your first wallet decode | 19 |
+| 4 | **Architect** | Build your own strategy from your own observation + DSL fluency | 17 |
 | 5 | **Mainnet** | Go live on chain — real money, real trades, real growth | 28 |
 | 6 | **Vanguard** | Claim your $100 reward + customize everything | 12 |
-| 7 | **Mastery** | Long-horizon endurance + beyond what the author has done | 20 |
+| 7 | **Mastery** | Long-horizon endurance + beyond what the author has done | 21 |
 
-**Total: 136 tasks.** First 105 (sections 1-5) are designed to be
+**Total: 130 tasks.** First 97 (sections 1-5) are designed to be
 completable in **24-72 hours of focused work** — they don't gate on
 elapsed time. All multi-day endurance tasks (7-day trading runs,
-profitable months, etc.) live in Section 7 (Mastery). Tasks 106-117
-(Section 6) are the $100 reward + customization push. Tasks 118-136
+profitable months, etc.) live in Section 7 (Mastery). Tasks 98-109
+(Section 6) are the $100 reward + customization push. Tasks 110-130
 (Section 7) are the long-horizon stuff that genuinely needs weeks or
 months to demonstrate.
 
 **Timeline target:** focused operator completes Sections 1-5 (the
-$100-reward-gate 100 tasks) in 24-72 hours. Reaching Section 7
+$100-reward-gate 97 tasks) in 24-72 hours. Reaching Section 7
 demonstrations realistically takes weeks to months — that's the
 nature of "30 days continuous live trading" — but the reward gate
 fires WAY before that.
@@ -92,13 +92,13 @@ fires WAY before that.
 | `s2.t8` | First paper-trade WIN | a position closed with positive PnL |
 | `s2.t9` | First paper-trade LOSS (learning achievement) | a position closed with negative PnL |
 | `s2.t10` | Ask Claude to explain a specific tick decision in detail | you understand the full chain of reasoning for one decision |
-| `s2.t11` | Open the tick log and read 10 consecutive ticks | 10+ tick entries reviewed |
+| `s2.t11` | Pull up a 5-minute window of tick logs + have Claude walk you through what shifted between consecutive ticks (price moves, signal changes, why the bot held vs entered) | 5+ consecutive ticks discussed in context, you can name what changed between them and why |
 | `s2.t12` | Survive a 5% paper drawdown without panic-stopping | position went underwater >5% and you held |
 | `s2.t13` | Have Claude show you 3 strategies that disagreed on the same tick (different filters, different decisions, same data) | you've seen the disagreement and can explain why each decided what it did |
 | `s2.t14` | Understand the difference between win rate and total PnL (and which matters when) | you can explain why a 90% win rate strategy can be worse than a 50% one |
 | `s2.t15` | Read the daily digest + identify one thing in it that surprised you (then ask Claude why) | you spotted a surprise and got an explanation |
-| `s2.t16` | Watch the paper trader complete 24 consecutive ticks in one focused sitting | 24+ ticks observed in one session (~24 min) |
-| `s2.t17` | Identify which of the 3 cities seems hardest to predict + ask Claude why (the project's research found CHI — westerly transport from upwind regions the bot can't see) | you've identified the hardest city and understood the reason |
+| `s2.t16` | Pick a tick where the bot was clearly tempted to enter but didn't — have Claude explain which filter blocked it + whether the no-trade was correct in hindsight | you can name the specific filter that blocked the entry and articulate why blocking was (or wasn't) the right call |
+| `s2.t17` | Watch the bot's behavior across all 3 cities for a focused hour + form your own hypothesis about which city's price action felt easiest/hardest to read — discuss with Claude | you've named your pick + given a reason that came from your observation, not from Claude's prompts |
 | `s2.t18` | Have Claude walk through every alert type the system can fire + when each needs you vs auto-recovers | you know which alerts you can ignore and which require action |
 | `s2.t19` | You spotted a moment where PM2.5 clearly drove the bot's decision (no Claude help — you found it yourself) | you can describe the moment + the cause-and-effect |
 
@@ -120,24 +120,21 @@ fires WAY before that.
 | `s3.t2` | First backtest of your variant (Claude runs it + shows results) | backtest completed, you have variant stats |
 | `s3.t3` | Compare original vs tweak metrics (win rate, avg PnL, drawdown) | you've examined the side-by-side and formed a judgment |
 | `s3.t4` | Deploy your tweaked version to paper trading (Claude does the deploy + explains what just changed) | variant in registry, paper trader picked it up |
-| `s3.t5` | A tweak underperformed — learning achievement (most useful kind of result) | tweak's stats worse than the baseline, you understand why |
-| `s3.t6` | A tweak outperformed | tweak's stats better than the baseline |
-| `s3.t7` | 3 distinct parameter experiments | 3 distinct backtests completed |
-| `s3.t8` | 5 experiments | 5 distinct backtests completed |
-| `s3.t9` | 10 experiments | 10 distinct backtests completed |
-| `s3.t10` | Build 3 variants of ONE base strategy (different tweaks on the same base) | 3 variants of one base in your registry |
-| `s3.t11` | Compare your best variant against the persistence baseline ("do nothing for the next hour") — does it actually beat "do nothing" or are you fooling yourself? | persistence comparison run, you've drawn a conclusion |
-| `s3.t12` | Customize your dashboard view (rearrange panels, hide unused ones) | dashboard layout reflects your monitoring priorities |
-| `s3.t13` | Customize the active Claude personality file — modify at least one voice rule, vocabulary preference, or response shape to make it feel like YOUR Claude | edited file saved, Claude's responses reflect the change |
-| `s3.t14` | Customize the active dashboard theme — modify at least one CSS variable to fit your visual preference | edited file, dashboard reflects the change after refresh |
-| `s3.t15` | Refine your user profile after a week of actual usage — at least one field should change based on what you've learned about how you actually want to work | profile updated, change reflects experience |
-| `s3.t16` | Have Claude run an audit on your installation + walk you through which findings actually matter vs which are noise | audit complete, you can defend "matters" vs "noise" for each finding |
-| `s3.t17` | Pull a competitor wallet's PBX trades with `wallet-decoder.py <pubkey>` — see the features.csv + snapshots.json that come out | both files exist in `runtime/lab/wallets/<pubkey>/` |
-| `s3.t18` | A tweaked strategy outperforms the original for 24+ hours in paper | side-by-side paper data confirms |
-| `s3.t19` | Have Claude explain the math behind a strategy filter you've been using — understand WHY the threshold is where it is | you understand the rationale, not just the syntax |
-| `s3.t20` | Run `wallet-evolve.py <pubkey> --epochs 10` and read the BEAT_STRATEGY.md it produces — what rule did the systematic decoder land on? | `evolution.json` exists; `Reverse Engineer` event-driven achievement unlocks; you can describe the decoded entry+exit rule in plain English |
-| `s3.t21` | Run `agentic-decode.py <pubkey> --rounds 10` and watch Claude refine the rule round-by-round — see how the DSL predicate changes as Claude sees false positives and round-trip P&L | `agentic-rounds.jsonl` exists with 10 rounds of trace |
-| `s3.t22` | The decoded rule passes the verdict gate: positive held-out P&L on the walk-forward 70/30 split AND positive entry-fit AND positive exit-fit | `BEAT_STRATEGY.md` reports `VERDICT: PASS` and you understand each metric |
+| `s3.t5` | Run a chain of 5+ parameter experiments where you can articulate the hypothesis for each (not just "tried numbers") + maintain a learnings table with Claude showing what moved what | 5+ experiments with a named hypothesis on each + a learnings table you can show Claude |
+| `s3.t6` | One of your experiments lands with results that genuinely surprised you — chase WHY (was the hypothesis wrong, or was the test design flawed?) and write up the finding | surprise documented + root cause identified in your scope's journal |
+| `s3.t7` | Build 3 variants of ONE base strategy (different tweaks on the same base) | 3 variants of one base in your registry |
+| `s3.t8` | Compare your best variant against the persistence baseline ("do nothing for the next hour") — does it actually beat "do nothing" or are you fooling yourself? | persistence comparison run, you've drawn a conclusion |
+| `s3.t9` | Customize your dashboard view (rearrange panels, hide unused ones) | dashboard layout reflects your monitoring priorities |
+| `s3.t10` | Customize the active Claude personality file — modify at least one voice rule, vocabulary preference, or response shape to make it feel like YOUR Claude | edited file saved, Claude's responses reflect the change |
+| `s3.t11` | Customize the active dashboard theme — modify at least one CSS variable to fit your visual preference | edited file, dashboard reflects the change after refresh |
+| `s3.t12` | Refine your user profile after a week of actual usage — at least one field should change based on what you've learned about how you actually want to work | profile updated, change reflects experience |
+| `s3.t13` | Have Claude run an audit on your installation + walk you through which findings actually matter vs which are noise | audit complete, you can defend "matters" vs "noise" for each finding |
+| `s3.t14` | Pull a competitor wallet's PBX trades with `wallet-decoder.py <pubkey>` — see the features.csv + snapshots.json that come out | both files exist in `runtime/lab/wallets/<pubkey>/` |
+| `s3.t15` | A tweaked strategy outperforms the original for 24+ hours in paper | side-by-side paper data confirms |
+| `s3.t16` | Have Claude explain the math behind a strategy filter you've been using — understand WHY the threshold is where it is, not just what the threshold IS | you understand the rationale + can defend the chosen value, not just the syntax |
+| `s3.t17` | Run `wallet-evolve.py <pubkey> --epochs 10` and read the BEAT_STRATEGY.md it produces — what rule did the systematic decoder land on? | `evolution.json` exists; `Reverse Engineer` event-driven achievement unlocks; you can describe the decoded entry+exit rule in plain English |
+| `s3.t18` | Run `agentic-decode.py <pubkey> --rounds 10` and watch Claude refine the rule round-by-round — see how the DSL predicate changes as Claude sees false positives and round-trip P&L | `agentic-rounds.jsonl` exists with 10 rounds of trace |
+| `s3.t19` | The decoded rule passes the verdict gate: positive held-out P&L on the walk-forward 70/30 split AND positive entry-fit AND positive exit-fit | `BEAT_STRATEGY.md` reports `VERDICT: PASS` and you understand each metric |
 
 ---
 
@@ -150,27 +147,23 @@ fires WAY before that.
 
 | ID | Task | Done when |
 |----|------|-----------|
-| `s4.t1` | Form a hypothesis about market behavior | you have a written sentence describing what you think you've noticed |
-| `s4.t2` | Discuss it with Claude | Claude has helped you sharpen or reject the hypothesis |
-| `s4.t3` | Turn it into entry rules | concrete conditions that determine BUY |
-| `s4.t4` | Turn it into exit rules | concrete conditions that determine SELL |
-| `s4.t5` | Add to strategy registry | your strategy appears in `bear-scout/runners/strategy-registry.json` |
-| `s4.t6` | Backtest your strategy | backtest command completed with stats |
-| `s4.t7` | Iterate based on backtest | at least one revision of your strategy exists |
-| `s4.t8` | Deploy your strategy to paper trading | paper trader has loaded your strategy |
-| `s4.t9` | First paper trade of YOUR strategy fires | a position opens with your strategy attached |
-| `s4.t10` | Your strategy makes a profit | a closed position with positive PnL belongs to your strategy |
-| `s4.t11` | Your strategy fires its second paper trade | 2 positions opened under your strategy |
-| `s4.t12` | Your strategy completes 3 distinct decision cycles (BUY → exit logic → repeat) | 3 full position lifecycles attributable to your strategy |
-| `s4.t13` | Your strategy has 5+ closed trades | dashboard shows 5+ closed for your strategy |
-| `s4.t14` | Your strategy beats 50% win rate | over 5+ trades |
-| `s4.t15` | Iterate your strategy v2 | a v2 exists in the registry |
-| `s4.t16` | Run v1 and v2 side-by-side | both in paper trader simultaneously |
-| `s4.t17` | Pick the winner | one of them is decisively better; you've removed or archived the loser |
-| `s4.t18` | Document your strategy logic | a markdown file explains what + why |
-| `s4.t19` | Use the `evolve-job` runner to find variants | evolutionary search returned candidates |
-| `s4.t20` | Discover a market pattern Claude didn't suggest | original observation, not derived from Claude's prompts |
-| `s4.t21` | Write a DSL predicate by hand in your strategy file (no Claude-in-the-loop) — pick a feature, pick a threshold, ship it to paper | the predicate appears in `bear-scout/runners/strategy-registry.json` and paper trader picks it up cleanly |
+| `s4.t1` | Form a market-behavior hypothesis informed by what you've watched in paper trading — discuss with Claude until you can articulate it as a testable rule (specific entry conditions + specific exit conditions + what data would falsify it) | written hypothesis with entry conditions, exit conditions, and a falsification check, sharpened against Claude's pushback |
+| `s4.t2` | Write your hypothesis as a DSL predicate in your strategy file — entry trigger, position size logic, exit conditions (lock/trail/max-hold) | predicate appears in your strategy spec, syntactically valid against the DSL interpreter |
+| `s4.t3` | Add to strategy registry | your strategy appears in `bear-scout/runners/strategy-registry.json` |
+| `s4.t4` | Backtest your strategy | backtest command completed with stats |
+| `s4.t5` | Use backtest results to refine ONE specific filter or threshold — re-backtest and have Claude help you understand whether the change moved the right metric | one parameter changed deliberately + before/after metrics compared + Claude confirms it moved the metric you targeted |
+| `s4.t6` | Deploy your strategy to paper trading | paper trader has loaded your strategy |
+| `s4.t7` | First paper trade of YOUR strategy fires | a position opens with your strategy attached |
+| `s4.t8` | Your strategy makes a profit | a closed position with positive PnL belongs to your strategy |
+| `s4.t9` | Your strategy completes 3 distinct decision cycles (BUY → exit logic → repeat) | 3 full position lifecycles attributable to your strategy |
+| `s4.t10` | Your strategy survives enough trades (5+ closed) to give meaningful sample size — beats 50% win rate over those trades | 5+ closed trades with win rate > 50% over the window |
+| `s4.t11` | Iterate your strategy v2 — give it ONE specific improvement based on what v1 taught you | v2 exists with a named improvement tied to a v1 observation |
+| `s4.t12` | Run v1 and v2 side-by-side in paper | both in paper trader simultaneously |
+| `s4.t13` | Pick the winner — and explain in your journal why it won (was it the filter? the exit? something you didn't predict?) | winner declared + the WHY written up in your scope's journal |
+| `s4.t14` | Document your strategy logic in your scope's journal — entry rules, exit rules, what it's designed to capture, where it fails | journal entry explains design intent + known failure modes |
+| `s4.t15` | Use the `evolve-job` runner to find variants — let the evolutionary loop search the parameter space and surface winners you wouldn't have hand-picked | evolutionary search returned candidates + at least one variant beats your hand-tuned version on the backtest window |
+| `s4.t16` | Discover a market pattern Claude didn't suggest — something YOU noticed from watching, not from Claude's analysis | pattern written up + you can name what you saw that triggered the observation |
+| `s4.t17` | Write a DSL predicate by hand in your strategy file (no Claude-in-the-loop) — pick a feature, pick a threshold, ship it to paper | the predicate appears in `bear-scout/runners/strategy-registry.json` and paper trader picks it up cleanly |
 
 ---
 
@@ -181,9 +174,9 @@ fires WAY before that.
 
 | ID | Task | Done when |
 |----|------|-----------|
-| `s5.t1` | Get a Helius API key | key issued at dashboard.helius.dev, configured in `.env` |
-| `s5.t2` | Generate your Solana wallet | wallet `.enc` file exists in `runtime/bots/wallets/` |
-| `s5.t3` | Back up your wallet master key safely | `BOT_MASTER_KEY` saved in a password manager OR written on paper offline |
+| `s5.t1` | Verify your funder pubkey matches across `pbx wallet show` + the dashboard's funder card + a block explorer | three independent views show the same pubkey |
+| `s5.t2` | Confirm your funder is funded but not over-funded — verify the funder cap ($1000 USDC / 2 SOL) tripwire is intact | balances are inside the cap + the cap value is what you expect in config |
+| `s5.t3` | Read every consent gate that fires when you try to go live — understand WHAT each gate is protecting before you approve | you can name each gate + what it's protecting (key access, fund movement, daily caps, etc.) |
 | `s5.t4` | Fund your wallet with at least $20 USDC | on-chain balance ≥ 20 USDC |
 | `s5.t5` | Fund your wallet with at least $100 USDC | on-chain balance ≥ 100 USDC |
 | `s5.t6` | Verify the live bot setup end-to-end | bear-watch-server health-check passes for live bot subsystem |
@@ -200,17 +193,17 @@ fires WAY before that.
 | `s5.t17` | Practice the emergency-stop runbook (Level 1) | `pm2 stop bear-watch-server` exercised intentionally + recovered |
 | `s5.t18` | Practice the emergency-stop runbook (Level 2) | `pm2 delete` exercised + recovered cleanly |
 | `s5.t19` | Verify one of your live trade signatures on Solscan | you've opened the transaction in solscan.io and seen the swap details |
-| `s5.t20` | Watch a live trade fire in real-time on the dashboard | you saw the open + exit happen while watching |
+| `s5.t20` | Catch a live trade in the act on the dashboard — refresh the page just as the order is firing + watch the position appear, the entry price lock in, and the slippage row land in `runtime/lab/data/` | you've named the exact tick when the position opened, the entry price, and the slippage row that hit disk |
 | `s5.t21` | Check your wallet's on-chain balance via `solana balance` or block explorer | balance verified independently of the dashboard |
 | `s5.t22` | Have Claude explain a live trade decision in detail | you asked, Claude explained, you understood the chain of reasoning |
 | `s5.t23` | Inspect a closed live trade's full lifecycle (entry sig + exit sig + PnL math) | you can articulate everything that happened in that trade |
 | `s5.t24` | Run 3 strategies live | 3 with `status: live`, all closed at least one trade |
 | `s5.t25` | Run multi-bot fleet ($500+ deployed) | total active live capital ≥ $500 |
-| `s5.t26` | Build your own ops runbook for incidents | a `MY-RUNBOOK.md` or similar exists in your fork |
-| `s5.t27` | Help debug an alert with Claude | a real alert appeared, you and Claude diagnosed it, fix landed |
-| `s5.t28` | Cool down a strategy that's losing repeatedly | a strategy with `status: live` has been demoted back to paper or removed |
+| `s5.t26` | Build your own ops runbook for incidents YOU'VE actually hit (not the framework's defaults) | a `MY-RUNBOOK.md` or similar exists in your fork, written from incidents you've personally seen |
+| `s5.t27` | Help debug an alert with Claude — from "alert fired" to "root cause found" to "fix shipped" | a real alert appeared, you and Claude diagnosed root cause, fix landed + journaled |
+| `s5.t28` | Cool down a strategy that's losing repeatedly — disable it, audit what happened, decide whether to fix or retire | a strategy with `status: live` has been demoted back to paper or removed + the audit + decision are journaled |
 
-**🎉 At task 105 (s5.t28), you've reached the project author's level as
+**🎉 At task 97 (s5.t28), you've reached the project author's level as
 of the framework's current release. Section 6 starts with the $100 reward.**
 
 ---
@@ -227,10 +220,10 @@ of the framework's current release. Section 6 starts with the $100 reward.**
 | `s6.t3` | Write your own personality from scratch | new file in `.claude/personalities/<your-id>.md` exists and passes the format spec |
 | `s6.t4` | Write a custom theme CSS | new file in `themes/<your-id>.css` exists |
 | `s6.t5` | Add a custom strategy to the registry | new entry in strategy-registry.json that's yours, has stats |
-| `s6.t6` | Add a custom signal source | a new data feed (different sensor API, different city, etc.) is wired up |
+| `s6.t6` | Add a custom signal source (e.g. a new PurpleAir sensor cluster, an external API like NOAA, a satellite AOD source) — wire it into `signal-combine.py` as a new pillar | new pillar appears in `signal-combine.py` + emits signals that the strategy fitness can read |
 | `s6.t7` | Customize a dashboard panel | dashboard.html shows a panel that didn't exist before |
 | `s6.t8` | Contribute back to the project (PR) | a PR opened on GitHub (merged or not) |
-| `s6.t9` | Write a custom audit protocol | a new audit-*.md exists in your project's audit folder |
+| `s6.t9` | Write your own audit protocol in `bear-watch/audit-<yourname>.md` — define what "healthy" means for YOUR install + how to verify it | `bear-watch/audit-<yourname>.md` exists with your healthy-state definition + verification steps |
 | `s6.t10` | Set up your own backup destination | external drive / R2 / NAS / etc. configured + backups land there |
 | `s6.t11` | Switch from default Helius to your own RPC endpoint | `.env` uses a different RPC URL, bot still works |
 | `s6.t12` | Run on a server (not your laptop) | the bot runs on a VPS / cloud instance / spare machine |
@@ -256,14 +249,14 @@ of the framework's current release. Section 6 starts with the $100 reward.**
 | `s7.t6` | Hit 7 days of continuous paper trading with a strategy you tweaked | paper trader uptime ≥ 168h on a strategy you modified |
 | `s7.t7` | Your own strategy survives 3 days in paper | YOUR strategy active 72h, no crashes |
 | `s7.t8` | Your own strategy survives 7 days in paper | YOUR strategy active 168h with 3+ closed trades |
-| `s7.t9` | Use the dashboard across 5 separate days | 5 distinct days with at least one dashboard view |
+| `s7.t9` | Survive a non-trivial framework upgrade — pull the latest stratos release, follow the migration notes, confirm your install still works end-to-end | `git pull` landed a non-trivial diff + your install passes the 7-check health-check after + no manual recovery was needed beyond migration notes |
 
 ### Beyond-the-author tier (original research + scaling)
 
 | ID | Task | Done when |
 |----|------|-----------|
 | `s7.t10` | Run a multi-bot fleet for 30 days | 3+ strategies live, continuous, $500+ capital, 30+ days |
-| `s7.t11` | Run multiple wallets | 2+ distinct on-chain wallets each running their own bot |
+| `s7.t11` | Spawn 3+ derived bot wallets from your HD mnemonic + run distinct strategies on each — confirm they're isolated (one bot's bad trade doesn't drain another) | 3+ derived wallets active, each with its own strategy, isolation verified by inspecting on-chain balances independently |
 | `s7.t12` | Profitable monthly average for 3 months | 3 months in a row with positive monthly PnL |
 | `s7.t13` | Help another user onboard | someone you know has cloned the repo and gotten to Level 1 with your help |
 | `s7.t14` | Write a research note documenting a market discovery | a markdown note describing something you found, shareable |
@@ -273,6 +266,7 @@ of the framework's current release. Section 6 starts with the $100 reward.**
 | `s7.t18` | Run 90 days of live trading | continuous live uptime ≥ 2160h |
 | `s7.t19` | Be on the project leaderboard | when the public leaderboard exists, you're on it (PnL, uptime, strategy count, or quirkiness all count) |
 | `s7.t20` | Contribute a tooling improvement upstream to `polar-bear-express/pbx-trader-lab` — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing `/debug/health` signal | PR opened (merged or not) on the upstream lab repo; surface in `pbx achievements` once the maintainer confirms |
+| `s7.t21` | Spawn a parallel Claude chat scope (e.g. spin up a `bear-scout` chat for research while `bear-watch` handles ops) — coordinate them via journal entries instead of telling each one what the other did | a second scope's `_context/` exists + both scopes have journal entries that reference work done by the other, no manual cross-briefing needed |
 
 ---
 
@@ -332,14 +326,14 @@ learning sequence, but the only hard prerequisites are:
 
 - Section 5 (Mainnet) tasks need `goal: small-live` or `multi-bot` in
   your profile (set during personality quiz)
-- `s6.t1` (the $100 reward) requires 100 tasks completed across sections 1-5
+- `s6.t1` (the $100 reward) requires all 97 sections-1-to-5 tasks completed
 - Section 7 tasks need at least 30 days of live trading uptime
 
 Everything else is recommended order, not required.
 
 ## Adding your own achievements
 
-The 122 here are the ones the project author thinks matter most. If you
+The 130 here are the ones the project author thinks matter most. If you
 have your own — milestones meaningful to YOU but not on this list — drop
 them in a `MY-ACHIEVEMENTS.md` at your repo root. Claude can track those
 too if you tell it the IDs and completion criteria.

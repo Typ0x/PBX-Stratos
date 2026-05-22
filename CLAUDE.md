@@ -123,7 +123,7 @@ AND exit-fit on held-out test data. Both decoders run locally against
 the public PBX API — no credentials needed, no pre-decoded results
 ship.
 
-### The 7-section / 131-task roadmap
+### The 7-section / 130-task roadmap
 
 Users journey through 7 sections in [`ROADMAP.md`](ROADMAP.md):
 
@@ -145,7 +145,7 @@ contributing back, multi-bot operation.
 ### The two achievement systems (run in parallel)
 
 1. **Roadmap-track** (story-driven, manual or Claude-detected): the
-   131 task IDs in `ROADMAP.md`. Each task has a baseline description
+   130 task IDs in `ROADMAP.md`. Each task has a baseline description
    AND a personality-voiced name in
    `.claude/achievements/<personality-id>.md`. Personality celebrates
    each unlock in voice — Crypto Bro: *"Drip Check — your dashboard
@@ -937,7 +937,7 @@ the human-facing version; this is the Claude-facing operational version.
 | Universal Core behavior (mission, voice, response shape, AskUserQuestion discipline) | [`.claude/UNIVERSAL-CORE.md`](.claude/UNIVERSAL-CORE.md) |
 | Active personality voice + vocabulary | `.claude/personalities/<id>.md` (id from `runtime/lab/user-profile.json`) |
 | The signal hypothesis + decoder pipeline + manual setup + CLI summary + safety claims | [`README.md`](README.md) |
-| The 7-section / 131-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
+| The 7-section / 130-task roadmap | [`ROADMAP.md`](ROADMAP.md) |
 | Three principles + file-locations table | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Manual install path (skipping Claude) | [`INSTALL.md`](INSTALL.md) |
 | Copy-paste prompts for common tasks | [`PROMPT.md`](PROMPT.md) |
