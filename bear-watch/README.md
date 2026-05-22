@@ -10,23 +10,23 @@ bot alive lives here.
 | File | What it does |
 |------|--------------|
 | `EMERGENCY-STOP.md` | Four-level escalation runbook. Read this BEFORE you need it. |
-| `pm2.config.cjs` | pm2 supervisor config. Defines `bear-watch-server` + `paper-trade-bot` apps with auto-restart, log paths, environment. |
+| `pm2.config.cjs` | pm2 supervisor config. Defines `bear-watch-server-stratos` + `paper-trade-bot-stratos` apps with auto-restart, log paths, environment. |
 | `health-check.py` | Runs 7 GREEN/RED checks (server alive, dashboard up, paper-trade heartbeat, AQI feed fresh, alerts file writable, disk space, RPC reachable). Returns exit code 0 if all pass, 1 otherwise. |
-| `register-scheduled-tasks.ps1` | Windows-side installer that registers the `BEARWATCH-*` scheduled tasks via `schtasks /create`. |
+| `register-scheduled-tasks.ps1` | Windows-side installer that registers the `STRATOS-*` scheduled tasks via `schtasks /create` at `/rl LIMITED` (no admin needed). |
 | `silent-run.vbs` | Generic VBScript wrapper that runs a `.bat` without flashing a console window — used by scheduled tasks. |
-| `run-health-check.bat` | The wrapper scheduled task fires; it just calls `python health-check.py`. |
+| `run-health-check.bat` + 5 stub `run-*.bat` files | The wrappers scheduled tasks fire; each calls its respective Python or PowerShell job. |
 
-## The BEARWATCH-* scheduled task naming convention
+## The STRATOS-* scheduled task naming convention
 
-All scheduled tasks under this framework use the `BEARWATCH-<PascalCase>`
+All scheduled tasks under this framework use the `STRATOS-<PascalCase>`
 prefix so they're easy to spot in `schtasks /query` output:
 
-- `BEARWATCH-HealthCheck` — every 5 minutes
-- `BEARWATCH-WeatherPull` — every hour
-- `BEARWATCH-DailyDigest` — once daily, early morning
-- `BEARWATCH-StateBackup` — once daily, off-hours
-- `BEARWATCH-CodebaseBackup` — weekly, off-hours
-- `BEARWATCH-MetaWatchdog` — every 5 minutes (HTTP-based recovery)
+- `STRATOS-HealthCheck` — every 5 minutes
+- `STRATOS-WeatherPull` — every hour
+- `STRATOS-DailyDigest` — once daily, early morning
+- `STRATOS-StateBackup` — once daily, off-hours
+- `STRATOS-CodebaseBackup` — weekly, off-hours
+- `STRATOS-MetaWatchdog` — every 5 minutes (HTTP-based recovery)
 
 You can add your own following the same pattern.
 
@@ -36,9 +36,9 @@ You can add your own following the same pattern.
 affects how your live bot stays alive. Treat changes here with the
 same care as production server config — test in paper mode first,
 verify health-check still passes, and never `pm2 restart` the
-bear-watch-server while a live position is open without explicit
-acknowledgement (see `EMERGENCY-STOP.md` and your project's consent
-tier policy in `CLAUDE.md`).
+bear-watch-server-stratos while a live position is open without
+explicit acknowledgement (see `EMERGENCY-STOP.md` and your project's
+consent tier policy in `CLAUDE.md`).
 
 ## What does NOT live here
 

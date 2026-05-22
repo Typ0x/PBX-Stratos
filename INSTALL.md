@@ -11,18 +11,52 @@ roadmap layer and gets you to the dashboard in 5 minutes.
 
 ---
 
-## Two manual paths
+## Three manual paths
 
-You can pick either, depending on what you want:
+You can pick whichever fits, depending on what you want:
 
 | Path | Time | Output |
 |---|---|---|
+| **One-shot installer** (Windows double-click `install.bat`, or `bash install.sh` on macOS/Linux) | 3-5 min | Same end state as the full ops path below — pm2 supervisor, scheduled tasks, dashboard at `http://localhost:8787` — but driven by one script instead of 13 manual steps. Auto-opens the browser when done. Personality + theme picks still happen via Claude afterward (say *"run the personality quiz"*). |
 | **Fast path** (boss's `scripts/bootstrap.sh`) | 5 min | Explore-only dashboard at `http://localhost:<port>/dashboard`. No pm2, no scheduled tasks, no live trading enablement. Click "Find top traders & decode" and you're researching. |
-| **Full ops path** (this document, steps 1-12) | 60-90 min | Full PBX Stratos: pm2 supervisor, scheduled health checks, daily backups, achievement-tracked roadmap, live trading capability if enabled. |
+| **Full ops path** (this document, steps 1-13) | 60-90 min | Full PBX Stratos manually: pm2 supervisor, scheduled health checks, daily backups, achievement-tracked roadmap, live trading capability if enabled. Useful if you want to understand each step. |
 
-Most users want the full path. The fast path is for "I just want to
-poke at the decoder and see what happens" — no commitment, no live
-trading even possible.
+Most users want the one-shot installer. The fast path is for "I just
+want to poke at the decoder and see what happens" — no commitment, no
+live trading even possible. The full ops path is what the
+Claude-driven wizard runs internally (and what `install.ps1`
+orchestrates in one script).
+
+---
+
+## One-shot installer (fastest manual path)
+
+```bash
+# Windows
+install.bat       # double-click, or from cmd/powershell
+
+# macOS / Linux
+bash install.sh
+```
+
+What it does (idempotent — safe to re-run):
+
+1. Ensures Node.js ≥ 18 (downloads bundled Node into `.tooling/` if
+   missing — no admin needed)
+2. `npm install` at repo root (workspaces pull in `bots/` + `packages/*`)
+3. Python venv + `pip install -e ".[decoder]"`
+4. Installs pm2 globally if missing
+5. `pm2 start bear-watch/pm2.config.cjs && pm2 save`
+6. Registers the 6 `STRATOS-*` Windows scheduled tasks via
+   [`bear-watch/register-scheduled-tasks.ps1`](bear-watch/register-scheduled-tasks.ps1)
+   (standard user privileges — no admin elevation)
+7. Writes `.tooling/ready.json`
+8. Polls `http://localhost:8787/health` for up to 20s, then auto-opens
+   the dashboard in your default browser
+
+When it finishes, the dashboard is live. Tell Claude *"run the
+personality quiz"* to do the personality + theme picks interactively
+(or just click through the onboarding tour solo).
 
 ---
 
@@ -87,8 +121,8 @@ The Claude-driven flow asks 5 questions and writes a profile file.
 Manually, you create the file directly:
 
 ```bash
-mkdir -p ~/.pbx-lab
-cat > ~/.pbx-lab/user-profile.json <<'EOF'
+mkdir -p runtime/lab
+cat > runtime/lab/user-profile.json <<'EOF'
 {
   "tech_level": "coded-before",
   "communication_style": "balanced",
@@ -228,7 +262,7 @@ The CLI:
 
 - Derives a 24-word BIP39 mnemonic locally
 - Encrypts the keypair with `BOT_MASTER_KEY` (AES-256-GCM)
-- Writes the .enc file to `~/.pbx-lab/wallets/`
+- Writes the .enc file to `runtime/bots/wallets/`
 - Prints the mnemonic ONCE to your terminal — **back it up on paper**
 - Prints the wallet's pubkey (the public funding address)
 
@@ -297,7 +331,7 @@ Personalities live in `.claude/personalities/`:
 
 Themes live in `themes/` (most are placeholders / stubs as of writing).
 
-Update `personality_id` and `theme_id` in `~/.pbx-lab/user-profile.json`
+Update `personality_id` and `theme_id` in `runtime/lab/user-profile.json`
 to match your choices. Symlink or copy `themes/<theme_id>.css` to
 `bots/src/server/active-theme.css`.
 
@@ -312,8 +346,8 @@ pm2 save
 ```
 
 Both apps should appear in `pm2 list`:
-- `bear-watch-server` (the dashboard + live bot runner)
-- `paper-trade-bot` (the paper trader, runs independently)
+- `bear-watch-server-stratos` (the dashboard + live bot runner)
+- `paper-trade-bot-stratos` (the paper trader, runs independently)
 
 ---
 
@@ -344,16 +378,28 @@ python3 tools/secret-scrub/scrub.py --sessions
 
 ## Step 12 — Register scheduled tasks (Windows)
 
+**Easiest:** run the helper script (registers all 6 at `/rl LIMITED` —
+no admin needed):
+
 ```powershell
-# Run as your user (not admin):
-schtasks /create /tn "BEARWATCH-HealthCheck" /tr "wscript.exe ""C:\Users\YOU\PBX-Stratos\bear-watch\silent-run.vbs"" ""C:\Users\YOU\PBX-Stratos\bear-watch\run-health-check.bat""" /sc minute /mo 5 /f
-# Repeat for: BEARWATCH-WeatherPull (hourly), BEARWATCH-DailyDigest (daily 6AM),
-#   BEARWATCH-StateBackup (daily 3AM), BEARWATCH-CodebaseBackup (Sun 3:30AM),
-#   BEARWATCH-MetaWatchdog (every 5 min)
+powershell -ExecutionPolicy Bypass -File bear-watch\register-scheduled-tasks.ps1
 ```
 
-Or use the helper script if present:
-`PBX-Stratos/bear-watch/register-scheduled-tasks.ps1`
+The 6 tasks registered:
+
+- `STRATOS-HealthCheck`    (every 5 min)
+- `STRATOS-WeatherPull`    (hourly)
+- `STRATOS-DailyDigest`    (daily 06:00)
+- `STRATOS-StateBackup`    (daily 03:00)
+- `STRATOS-CodebaseBackup` (Sundays 03:30)
+- `STRATOS-MetaWatchdog`   (every 5 min — HTTP-based outage detection)
+
+If you'd rather register manually:
+
+```powershell
+schtasks /create /tn "STRATOS-HealthCheck" /tr "wscript.exe ""C:\Users\YOU\PBX-Stratos\bear-watch\silent-run.vbs"" ""C:\Users\YOU\PBX-Stratos\bear-watch\run-health-check.bat""" /sc minute /mo 5 /rl LIMITED /f
+# Repeat for the other 5 STRATOS-* tasks above with their respective schedules.
+```
 
 **Mac/Linux users:** use cron entries instead. The `.bat` files in
 `bear-watch/` have equivalent shell-script logic you can adapt.
@@ -419,7 +465,7 @@ See `bots/README.md` for full `pbx-bots` reference.
 | `solana-keygen not found` | You no longer need it — use `./pbx wallet new` instead (HD derivation built in) |
 | Health check fails "Server alive: unreachable" | bear-watch-server failed to start; `pm2 logs bear-watch-server --err --lines 50`. Also try `curl localhost:8787/debug/health` to see the boss's diagnostic JSON. |
 | "MSIX sandbox" mentioned | You installed Node from inside Claude Desktop; reinstall from real PowerShell, OR use the fast-path `scripts/bootstrap.sh` which sandboxes Node in `.tooling/` |
-| `HELIUS_MAINNET_URL` set but live endpoints still 503 | Restart pm2 (`pm2 restart bear-watch-server`); env vars are read at process start |
+| `HELIUS_MAINNET_URL` set but live endpoints still 503 | Restart pm2 (`pm2 restart bear-watch-server-stratos`); env vars are read at process start |
 | `bot:<name>:stalled` in `/debug/health` | Bot has decideCalls but no intents — predicate isn't firing. Check `/debug/strategy-state` for the actual feature values vs thresholds. |
 | `price-feed:<REGION>:degraded` | Jupiter dropped that region from routing. The bot will hold positions; check upstream price-feed status. |
 

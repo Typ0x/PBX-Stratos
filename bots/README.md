@@ -5,6 +5,14 @@ dashboard at `/dashboard` and the underlying REST API. Runs identically
 in production (Render) and locally — same single Node process, same
 on-disk state layout under `$BOTS_DATA_DIR`.
 
+> **Running inside PBX-Stratos?** `pm2.config.cjs` sets
+> `STRATOS_BOTS_DATA_DIR=<repo>/runtime/bots` and exports it as
+> `BOTS_DATA_DIR` so the upstream `~/.pbx-bots` defaults documented
+> below are overridden to point at the repo-local `runtime/bots/`
+> tree (Layer 3 in the three-layer model — see [`../CLAUDE.md`](../CLAUDE.md)).
+> The text below documents standalone @pbx/bots usage; inside PBX-Stratos,
+> substitute `runtime/bots/` for every `~/.pbx-bots/` mention.
+
 ## Quickstart (local)
 
 ```bash

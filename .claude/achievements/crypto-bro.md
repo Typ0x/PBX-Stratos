@@ -29,13 +29,13 @@ roadmap.
 > ser you actually read the contract before aping. host check, claude CLI check, clone integrity, 4 security greps — all four stages came back clean and you approved. half the projects out there are rugs; this one isn't. wagmi
 
 ### s1.t4 — "Profile Locked"
-> 5 Q's answered, `~/.pbx-lab/user-profile.json` written. tech level, comms style, goal, consent, autonomy — all on file. claude now knows how to talk to you without overwhelming. say "run the personality quiz" anytime if vibes shift
+> 5 Q's answered, `runtime/lab/user-profile.json` written. tech level, comms style, goal, consent, autonomy — all on file. claude now knows how to talk to you without overwhelming. say "run the personality quiz" anytime if vibes shift
 
 ### s1.t5 — "Helius Key Bid"
 > free helius RPC key pasted, `.env` written at repo root, ACL-locked to owner-only, `.gitignore` confirmed. `HELIUS_MAINNET_URL` is live. key itself never echoed back to chat — basic opsec, but it matters
 
 ### s1.t6 — "Wallet Generated"
-> you picked fresh / import / defer and the server autogen'd `~/.pbx-bots/local.env` at mode 0600. `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words) — all there. the wallet your fleet derives from exists on disk now
+> you picked fresh / import / defer and the server autogen'd `runtime/bots/local.env` at mode 0600. `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words) — all there. the wallet your fleet derives from exists on disk now
 
 ### s1.t7 — "Mnemonic Backed Up on Paper"
 > Your 24-word `BOT_HD_MNEMONIC` is written down on paper and stored somewhere fireproof. The file is closed. No screenshot, no unprotected cloud sync. This phrase is the only thing that reconstructs every wallet your fleet derives — losing it means losing every position, permanently. Treat this paper like the deed to your house.
@@ -50,7 +50,7 @@ roadmap.
 > `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in pm2 list. `127.0.0.1:8787` listening, `/health` returns `{"ok":true}`. bot is breathing
 
 ### s1.t11 — "Cron Locked"
-> all 6 `BEARWATCH-*` scheduled tasks — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog — show `Ready` in `schtasks /query`. boring infra handled, your job is the alpha
+> all 6 `STRATOS-*` scheduled tasks — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog — show `Ready` in `schtasks /query`. boring infra handled, your job is the alpha
 
 ### s1.t12 — "Dashboard Toured"
 > `127.0.0.1:8787/dashboard` open and claude walked you through every panel. positions, AQI, health, alerts, strategy — you can read the whole control room at a glance. iykyk
@@ -175,7 +175,7 @@ roadmap.
 > Claude ran an audit on your install and walked you through which findings matter vs which are noise. You can ignore the noise without ignoring the signal. Operator-tier behavior.
 
 ### s3.t17 — "Wallet Pulled, Features Logged"
-> `wallet-decoder.py` ran clean on your target pubkey, ser. features.csv + snapshots.json sitting in `~/.pbx-lab/wallets/`. One row per trade with market state at fire-time. This is the raw alpha intel — you got it.
+> `wallet-decoder.py` ran clean on your target pubkey, ser. features.csv + snapshots.json sitting in `runtime/lab/wallets/`. One row per trade with market state at fire-time. This is the raw alpha intel — you got it.
 
 ### s3.t18 — "Variant Beats Original 24h Live"
 > Tweak outperformed original for a full day of paper trading. Real-time edge, not just backtest noise. Your judgment is printing durable.

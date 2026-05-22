@@ -38,7 +38,7 @@ but skips its entry logic on every tick.
 1. Set the pause flag your live runner reads on each tick:
 
    ```bash
-   touch ~/.pbx-bots/PAUSE_NEW_ENTRIES
+   touch runtime/bots/PAUSE_NEW_ENTRIES
    ```
 
 2. Verify the bot picked it up — watch the next tick in the dashboard's
@@ -51,7 +51,7 @@ but skips its entry logic on every tick.
 entries on the next tick.
 
    ```bash
-   rm ~/.pbx-bots/PAUSE_NEW_ENTRIES
+   rm runtime/bots/PAUSE_NEW_ENTRIES
    ```
 
 **Risk:** None. Open positions still managed; just no new entries.
@@ -65,16 +65,16 @@ fully stopped, but you trust the on-chain state — open positions are
 where they should be and you're OK leaving them un-managed for a
 while.
 
-**Effect:** The supervisor stops both `bear-watch-server` and
-`paper-trade-bot`. Your dashboard goes offline. Open on-chain positions
-stay open but the bot stops reacting to anything.
+**Effect:** The supervisor stops both `bear-watch-server-stratos` and
+`paper-trade-bot-stratos`. Your dashboard goes offline. Open on-chain
+positions stay open but the bot stops reacting to anything.
 
 **How:**
 
 1. Stop everything:
 
    ```bash
-   pm2 stop bear-watch-server paper-trade-bot
+   pm2 stop bear-watch-server-stratos paper-trade-bot-stratos
    pm2 save
    ```
 
@@ -87,13 +87,13 @@ stay open but the bot stops reacting to anything.
    Both should show `stopped`.
 
 3. Check the bot's last known state file at
-   `~/.pbx-bots/state/<your-bot-name>.json` — confirm the open
+   `runtime/bots/state/<your-bot-name>.json` — confirm the open
    positions match what you see on-chain (use Solscan to spot-check).
 
 **To recover:** when ready,
 
    ```bash
-   pm2 start bear-watch-server paper-trade-bot
+   pm2 start bear-watch-server-stratos paper-trade-bot-stratos
    pm2 save
    ```
 
@@ -123,7 +123,7 @@ yourself using a wallet UI directly against the DEX.
 2. Look up the position from your state file:
 
    ```bash
-   cat ~/.pbx-bots/state/<your-bot-name>.json
+   cat runtime/bots/state/<your-bot-name>.json
    ```
 
    Note the token mint address and the position size.
@@ -139,7 +139,7 @@ yourself using a wallet UI directly against the DEX.
    reflect the manual close:
 
    ```bash
-   # Edit ~/.pbx-bots/state/<your-bot-name>.json
+   # Edit runtime/bots/state/<your-bot-name>.json
    # Set the position to closed with the manual swap signature
    ```
 
@@ -203,7 +203,7 @@ Before declaring the incident over and going back to normal operation:
 - [ ] `python bear-watch/health-check.py` — all 7 checks GREEN
 - [ ] Dashboard reachable at `http://localhost:8787`
 - [ ] Live bot state file matches on-chain reality (spot-check on Solscan)
-- [ ] Recent alerts in `~/.pbx-lab/alerts.jsonl` look normal (no
+- [ ] Recent alerts in `runtime/lab/alerts.jsonl` look normal (no
       repeating errors)
 - [ ] You've journaled what happened to your scope's journal so future
       sessions know

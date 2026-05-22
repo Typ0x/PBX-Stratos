@@ -59,7 +59,7 @@ git -C {PROJECT_ROOT} log --oneline -10
 curl -s http://localhost:{DASHBOARD_PORT}/health
 
 # Live bot state (if applicable — must be captured before any reload risk)
-cat ~/.pbx-bots/state/{LIVE_BOT_NAME}.json
+cat runtime/bots/state/{LIVE_BOT_NAME}.json
 
 # pm2 process list — what's actually running
 pm2 jlist
@@ -68,7 +68,7 @@ pm2 jlist
 schtasks /query /fo csv | grep -i {PROJECT_PREFIX}
 
 # Recent alerts (audit baseline)
-tail -20 ~/.pbx-lab/alerts.jsonl
+tail -20 runtime/lab/alerts.jsonl
 ```
 
 Write the output to the audit report's "Ops snapshot at audit start"
@@ -307,7 +307,7 @@ SAFETY RULES
    *-private* patterns are gitignored before staging.
 3. Never push to git remote unless the user has explicitly enabled
    remote push for this project. Default: local-only.
-4. Never modify ~/.pbx-bots/ or ~/.pbx-lab/ directly via Write/Edit.
+4. Never modify runtime/bots/ or runtime/lab/ directly via Write/Edit.
    Runtime state must update through normal application code paths.
 5. If you encounter behavior you don't understand, STOP and ask
    the user — don't "best-guess" your way through.

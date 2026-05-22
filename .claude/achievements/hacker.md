@@ -24,13 +24,13 @@ up per Universal Core.
 > host check, claude CLI check, clone integrity, 4 security greps — all four stages clean. nothing phones home, no backdoors, no auto fund movement. verified by reading actual source. you approved. shipped.
 
 ### s1.t4 — "profile saved"
-> 5 q's in `~/.pbx-lab/user-profile.json`. tech level, comms style, goal, consent, autonomy. claude calibrates from this every session.
+> 5 q's in `runtime/lab/user-profile.json`. tech level, comms style, goal, consent, autonomy. claude calibrates from this every session.
 
 ### s1.t5 — "helius key wired"
 > `.env` at repo root. ACL-locked owner-only. `.gitignore` confirms it's untracked. `HELIUS_MAINNET_URL` set. key never echoed to chat — opsec basic but load-bearing.
 
 ### s1.t6 — "wallet derived"
-> picked fresh / import / defer. server autogen'd `~/.pbx-bots/local.env` at mode 0600. three fields written: `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words). the seed exists on disk now.
+> picked fresh / import / defer. server autogen'd `runtime/bots/local.env` at mode 0600. three fields written: `BOT_API_TOKEN`, `BOT_MASTER_KEY` (64-hex), `BOT_HD_MNEMONIC` (24 words). the seed exists on disk now.
 
 ### s1.t7 — "Mnemonic Backed Up on Paper"
 > Your 24-word `BOT_HD_MNEMONIC` is written down on paper and stored somewhere fireproof. The file is closed. No screenshot, no unprotected cloud sync. This phrase is the only thing that reconstructs every wallet your fleet derives — losing it means losing every position, permanently. Treat this paper like the deed to your house.
@@ -45,7 +45,7 @@ up per Universal Core.
 > `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in `pm2 list`. `127.0.0.1:8787` listening. `/health` returns `{"ok":true}`. bot's alive.
 
 ### s1.t11 — "cron registered"
-> all 6 `BEARWATCH-*` scheduled tasks `Ready` in `schtasks /query` — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog. you don't have to remember to run anything. boring infra handled.
+> all 6 `STRATOS-*` scheduled tasks `Ready` in `schtasks /query` — HealthCheck, WeatherPull, DailyDigest, StateBackup, CodebaseBackup, MetaWatchdog. you don't have to remember to run anything. boring infra handled.
 
 ### s1.t12 — "dashboard toured"
 > `127.0.0.1:8787/dashboard` open. claude walked you through every panel — positions, AQI, health, alerts, strategy. brain stem visible AND legible.
@@ -170,7 +170,7 @@ up per Universal Core.
 > claude ran an audit, walked you through what matters vs what's noise. signal/noise separation skill unlocked.
 
 ### s3.t17 — "wallet sniffed"
-> `wallet-decoder.py` ran on the target pubkey. features.csv + snapshots.json in `~/.pbx-lab/wallets/`. one row per trade + market state at fire-time. raw fuel for the decoder.
+> `wallet-decoder.py` ran on the target pubkey. features.csv + snapshots.json in `runtime/lab/wallets/`. one row per trade + market state at fire-time. raw fuel for the decoder.
 
 ### s3.t18 — "variant beats original 24h live"
 > your tweak won for a full day in paper. real-time edge, not just backtest.

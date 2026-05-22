@@ -43,10 +43,10 @@ What "audit-safe" means in practice:
   file edit, restart, and money-moving action. Documented in
   [`CLAUDE.md`](CLAUDE.md) (the master project doc).
 - **No secrets in code, no secrets in chat.** API keys live in `.env`
-  (gitignored). Wallet keypairs live encrypted in `~/.pbx-bots/wallets/`.
+  (gitignored). Wallet keypairs live encrypted in `runtime/bots/wallets/`.
   Claude never echoes either.
-- **Append-only audit trails.** `~/.pbx-lab/alerts.jsonl` and
-  `~/.pbx-bots/state/nav-history.jsonl` are append-only. Anything that
+- **Append-only audit trails.** `runtime/lab/alerts.jsonl` and
+  `runtime/bots/state/nav-history.jsonl` are append-only. Anything that
   writes them includes a timestamp and a source.
 - **Five layers of safety on live trading** (per-tick budget →
   pm2 max_restarts → HTTP watchdog → scheduled health-check →
@@ -120,7 +120,7 @@ What "not slop" means in practice:
 | User-facing entry points | `PBX-Stratos/README.md`, `ROADMAP.md`, `ARCHITECTURE.md` (this file), `INSTALL.md`, `PROMPT.md` | Top-level so a new user reading the repo sees them first |
 | Claude behavior + personality system | `PBX-Stratos/.claude/UNIVERSAL-CORE.md`, `.claude/personalities/`, `.claude/achievements/`, `.claude/skills/` | Inside `.claude/` because Claude Code auto-loads them at session start |
 | Dashboard visual themes | `PBX-Stratos/themes/` | Top-level so users editing CSS find them easily; the dashboard server reads from here |
-| Lab research workbench | `PBX-Stratos/bear-scout/runners/`, `bear-scout/aq-price/`, `bear-scout/data/` | Where the wallet decoders, evolvers, paper-trader, and AQ-price models live. Outputs land in `~/.pbx-lab/` (user state, not committed) |
+| Lab research workbench | `PBX-Stratos/bear-scout/runners/`, `bear-scout/aq-price/`, `bear-scout/data/` | Where the wallet decoders, evolvers, paper-trader, and AQ-price models live. Outputs land in `runtime/lab/` (Layer 3 — gitignored, not committed) |
 | Live bot fleet (opt-in) | `PBX-Stratos/bots/src/`, `bots/scripts/`, `bots/package.json` | Fastify dashboard + orchestrator + strategies + swap router integration. Gated behind `HELIUS_MAINNET_URL`. |
 | Swap router (multi-venue exec) | `PBX-Stratos/packages/swap-router/` | Meteora / Orca / Jupiter venue adapters + router that picks best per trade. Used by both paper trader (for quote-only simulation) and live bot (for real fills). |
 | `pbx` CLI + Python package | `PBX-Stratos/pbx` (CLI entry), `PBX-Stratos/src/pbx_trader_lab/` (Python package: achievements tracker, event evaluator) | CLI is the offline side of the lab; the Python package powers event-driven achievement tracking |
@@ -131,7 +131,7 @@ What "not slop" means in practice:
 | Ops scripts | `PBX-Stratos/bear-watch/` | The ops scope's working directory; pm2 config + scheduled task wrappers + health checks |
 | Security spec | `PBX-Stratos/docs/SECURITY.md` | The full security model: key handling, network policy, encryption, gate hierarchy. Read before going live. |
 | Project meta (manifests, status, journals, audit reports, protocols) | `PBX-Stratos/_context/` | Separate from app code so the meta layer doesn't pollute the codebase |
-| User runtime state | `~/.pbx-lab/`, `~/.pbx-bots/` | OUTSIDE the repo so it's never committed, survives repo deletions. Includes `user-profile.json` (your personality + roadmap state), `events.jsonl` (auto-tracker source), `achievements.json` (event-driven unlocks), wallets `.enc` files, paper trade history. |
+| User runtime state | `runtime/lab/`, `runtime/bots/` (Layer 3 — see [`CLAUDE.md`](CLAUDE.md)) | Inside the repo but `.gitignore`'d so it's never committed. Includes `user-profile.json` (your personality + roadmap state), `events.jsonl` (auto-tracker source), `achievements.json` (event-driven unlocks), wallets `.enc` files, paper trade history. Per-installation; survives `git pull` because gitignored. |
 
 ## The six-layer safety stack (live trading)
 
@@ -147,17 +147,19 @@ What "not slop" means in practice:
 └──────────────────────────────────────────────────────────────────┘
                               ▲ triggered manually
 ┌──────────────────────────────────────────────────────────────────┐
-│  Layer 4: BEARWATCH-HealthCheck (every 5 min, Windows toast)     │
+│  Layer 4: STRATOS-HealthCheck (every 5 min, Windows toast)       │
 └──────────────────────────────────────────────────────────────────┘
                               ▲ fires alert on failure
 ┌──────────────────────────────────────────────────────────────────┐
-│  Layer 3: BEARWATCH-MetaWatchdog (HTTP-based, every 5 min)       │
-│           detects bear-watch-server down, attempts pm2 recovery  │
+│  Layer 3: STRATOS-MetaWatchdog (HTTP-based, every 5 min)         │
+│           detects bear-watch-server-stratos down, attempts       │
+│           pm2 recovery                                            │
 └──────────────────────────────────────────────────────────────────┘
                               ▲ recovers from pm2-dropped-app failure
 ┌──────────────────────────────────────────────────────────────────┐
 │  Layer 2: pm2 with max_restarts: 9999                            │
-│           never gives up on bear-watch-server or paper-trade-bot │
+│           never gives up on bear-watch-server-stratos or         │
+│           paper-trade-bot-stratos                                 │
 └──────────────────────────────────────────────────────────────────┘
                               ▲ catches single-process crashes
 ┌──────────────────────────────────────────────────────────────────┐
@@ -194,7 +196,7 @@ Documented authoritatively in `CLAUDE.md` (the multi-scope
 policy doc). Personalities can never override these tiers.
 
 The lab decoders (`bear-scout/runners/wallet-evolve.py`, `agentic-decode.py`)
-are Tier 1 because they read/write `~/.pbx-lab/wallets/` outputs but
+are Tier 1 because they read/write `runtime/lab/wallets/` outputs but
 never touch on-chain signing. The swap router venue adapters are
 Tier 1 for the same reason — they construct unsigned instructions; the
 signing path lives in `bots/src/core/wallet.ts` and is Tier 3.
@@ -252,8 +254,8 @@ This decoupling matters because:
 | Theme filename | hyphenated lowercase + `.css` | `lambo.css`, `matrix.css` |
 | Skill folder + SKILL.md | hyphenated lowercase folder, SKILL.md inside | `pbx-stratos-setup/SKILL.md` |
 | Roadmap task ID | `s<section>.t<task>` | `s3.t12`, `s5.t14` |
-| pm2 app name | hyphenated lowercase | `bear-watch-server`, `paper-trade-bot` |
-| Scheduled task name | `BEARWATCH-<PascalCase>` | `BEARWATCH-HealthCheck`, `BEARWATCH-MetaWatchdog` |
+| pm2 app name | hyphenated lowercase + `-stratos` suffix | `bear-watch-server-stratos`, `paper-trade-bot-stratos` |
+| Scheduled task name | `STRATOS-<PascalCase>` | `STRATOS-HealthCheck`, `STRATOS-MetaWatchdog` |
 | Audit report filename | `audit-<kind>-<YYYY-MM-DD>.md` | `audit-report-<date>.md` |
 | Manifest filename | `MANIFEST.md` | `_context/<scope>/MANIFEST.md` |
 | Journal filename | `<YYYY-MM-DD>.md` | `_context/<scope>/journal/<date>.md` |

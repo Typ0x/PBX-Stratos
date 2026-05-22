@@ -6,25 +6,30 @@ different security profiles. Read both sections.
 
 ## What's stored locally
 
-- `~/.pbx-lab/config.json` — optional API keys (Helius URL, PurpleAir
+- `runtime/lab/config.json` — optional API keys (Helius URL, PurpleAir
   key, bot token). File mode 0600, parent dir 0700.
-- `~/.pbx-lab/bot-keypair.json` — Solana keypair if you ran
-  `pbx wallet new`. File mode 0600. **This IS your wallet — losing it
-  means losing access to the funds.**
-- `~/.pbx-bear-scout/data/*.json` — public on-chain data (cycles, trades). Not
-  sensitive.
-- `~/.pbx-lab/achievements.json` — game state. Not sensitive.
-- `~/.pbx-lab/events.jsonl` — local event log for the achievement
+- `runtime/lab/wallets/*.enc` — encrypted Solana keypair files if you
+  ran `pbx wallet new`. File mode 0600. **These ARE your wallet keys
+  — losing them (plus the master key) means losing access to the
+  funds.**
+- `bear-scout/data/*.json` — public on-chain data (cycles, trades).
+  Not sensitive.
+- `runtime/lab/achievements.json` — game state. Not sensitive.
+- `runtime/lab/events.jsonl` — local event log for the achievement
   tracker.
 
-The `bots/` live fleet additionally writes:
+The `bots/` live fleet additionally writes (under Layer 3 — see
+[`CLAUDE.md`](../CLAUDE.md)):
 
-- `bots/data/<env>/wallets/*.kp.enc` — AES-256-GCM encrypted keypair
+- `runtime/bots/wallets/*.kp.enc` — AES-256-GCM encrypted keypair
   files. Sealed with `BOT_MASTER_KEY` (64-hex). Without the master key,
   the encrypted files are useless.
-- `bots/data/<env>/secrets/canary` — encryption tripwire. If the canary
+- `runtime/bots/secrets/canary` — encryption tripwire. If the canary
   ciphertext doesn't decrypt with the current master key, the server
   refuses to boot rather than risk orphaning funds.
+- `runtime/bots/local.env` — autogen'd 24-word `BOT_HD_MNEMONIC` +
+  `BOT_MASTER_KEY` + `BOT_API_TOKEN`. File mode 0600. Written on
+  first boot when `STRATOS_ALLOW_AUTOGEN=1` is set in the env.
 
 ## What's NOT stored or transmitted
 
@@ -33,7 +38,7 @@ The `bots/` live fleet additionally writes:
 - **Read-only public API.** `pbx-mainnet-api.onrender.com` serves
   historical on-chain trade data; no credentials, no writes.
 - **No telemetry / no analytics.** The achievement tracker only writes
-  to your local `~/.pbx-lab/events.jsonl`.
+  to your local `runtime/lab/events.jsonl`.
 
 ## Live-trading risk (opt-in)
 
@@ -86,7 +91,7 @@ decoded strategy doesn't generalize forward.
 
 If you're running this repo via Claude Code:
 
-- `~/.pbx-lab/config.json` may hold API keys. Read it when debugging
+- `runtime/lab/config.json` may hold API keys. Read it when debugging
   the setup; don't print its contents into the conversation.
 - Don't fund a wallet or launch a live bot without an explicit
   per-action instruction from the user. The dashboard's first-deploy
@@ -114,8 +119,9 @@ Not trusted:
 
 1. Stop any running bot: `pbx-bots stop <name>` for each.
 2. Drain remaining capital to a cold wallet: `pbx-bots drain <name> --to <pubkey>`.
-3. Delete keypair files: `rm ~/.pbx-lab/bot-keypair.json` and
-   `rm bots/data/<env>/wallets/*.kp.enc`.
-4. Rotate `BOT_MASTER_KEY` and `BOT_API_TOKEN` (64-hex each).
-5. Audit `~/.pbx-lab/events.jsonl` and `bots/data/<env>/store.json` for
+3. Delete keypair files: `rm runtime/lab/wallets/*` and
+   `rm runtime/bots/wallets/*.kp.enc`.
+4. Rotate `BOT_MASTER_KEY` and `BOT_API_TOKEN` (64-hex each) in
+   `runtime/bots/local.env`.
+5. Audit `runtime/lab/events.jsonl` and `runtime/bots/store.json` for
    unexpected events.
