@@ -1,6 +1,6 @@
 ---
 name: pbx-stratos-setup
-description: Use when the user says ANY of "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "hey claude read the readme on this repo and lets start predicting air quality", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "set up the air quality trading bot", "let's start predicting air quality", or has just cloned the PBX-Stratos repo and wants Claude to drive setup. Runs the full guided install — safety verification of the repo code FIRST, then the 5-question personality quiz, then dependency installs (Node + Python + pm2 with pm2-installer on Windows), then optional Solana wallet generation + Helius API key for live trading mode, then scheduled task registration, then dashboard launch, then personality + theme application, then end-to-end verification with the 7-check health-check. Pauses for user consent at every step that touches money, keys, or system services. Inherits behavior rules from `.claude/UNIVERSAL-CORE.md` (always end with Recap/Summary/Next Steps, default to AskUserQuestion popups, match vocabulary to user's tech level, never let user feel stuck).
+description: Use when the user says ANY of "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "hey claude read the readme on this repo and lets start predicting air quality", "set up PBX Stratos", "install PBX Stratos", "install PBX Stratos from <URL>", "download this repo <URL>", "clone and install <URL>", "onboard me to PBX Stratos", "set up the air quality trading bot", "let's start predicting air quality", "set up PBX Stratos end-to-end", or has just cloned the PBX-Stratos repo and wants Claude to drive setup. Runs the full guided install — clones the repo from a URL if the user provided one (and Claude is NOT yet inside a PBX-Stratos clone), then safety verification of the repo code FIRST, then the 5-question personality quiz, then dependency installs via the one-shot installer (install.ps1 on Windows, install.sh on macOS/Linux), then optional Solana wallet generation + Helius API key for live trading mode, then scheduled task registration, then dashboard launch, then personality + theme application, then auto-opens the browser at http://localhost:8787, then end-to-end verification with the 7-check health-check. **The user should type ONE prompt and then only need to click AskUserQuestion popups all the way through — no further typed prompts required until the browser is open at the dashboard.** Pauses for user consent at every step that touches money, keys, or system services. Inherits behavior rules from `.claude/UNIVERSAL-CORE.md` (always end with Recap/Summary/Next Steps, default to AskUserQuestion popups, match vocabulary to user's tech level, never let user feel stuck).
 ---
 
 # PBX Stratos — Setup Wizard
@@ -24,6 +24,8 @@ roadmap progression.
 
 ## Trigger phrases (ANY of these starts the wizard)
 
+### Phrases assuming the repo is ALREADY cloned (you're inside it)
+
 - **"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"** (the canonical phrase from the README)
 - "hey claude read the readme on this repo and lets start predicting air quality"
 - "let's start predicting air quality"
@@ -32,6 +34,27 @@ roadmap progression.
 - "Onboard me to PBX Stratos"
 - "Set up the air quality trading bot"
 - "I just cloned PBX-Stratos, install it"
+
+### Phrases that ALSO include a URL (you must clone first)
+
+- "download this repo `<URL>`"
+- "install PBX Stratos from `<URL>`"
+- "clone and install `<URL>`"
+- "set up PBX Stratos end-to-end from `<URL>`"
+- Any "set up / install" phrase paired with a `github.com/.../PBX-Stratos` URL
+
+When a URL appears in the prompt, run **Step -1 (Clone the repo)** BEFORE Step 0. When no URL appears AND you're already inside a PBX-Stratos clone (canonical markers: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`), skip Step -1.
+
+## The "one-prompt-to-dashboard" guarantee
+
+**Critical UX promise:** when a user types a trigger phrase, they should not have to type any further prompt until the dashboard opens in their browser. The only interactions between trigger phrase and live dashboard should be:
+
+1. **AskUserQuestion popups** they click to answer (the 5 quiz questions, the live-trading consent prompts, the personality / theme picks).
+2. **Pasting a single API key** ONLY if they opted into live trading (the Helius URL).
+
+Everything else (clone, audit, install, pm2 start, scheduled tasks, theme application) happens behind the scenes while you talk to the user about other things. The install script auto-opens the browser at the end of its run.
+
+If you find yourself about to ask the user to "type X" mid-wizard, stop and refactor it into an AskUserQuestion with discrete options instead. Free-text typing breaks the promise.
 
 ## Before Step 0 — confirm bypass-permissions is ON
 
@@ -117,9 +140,159 @@ the pattern. Restart the step with the background launch.
 
 ---
 
-# The wizard flow (13 steps)
+# The wizard flow (13 steps + 1 conditional clone pre-step)
 
-**Step 0 first. No exceptions.** Then Steps 1-12 in order.
+**Step -1 first** if the user's trigger prompt included a GitHub URL
+AND you are NOT already inside a PBX-Stratos clone. Otherwise **Step 0
+first.** Then Steps 1-12 in order. No exceptions.
+
+---
+
+## Step -1 — Pre-download audit + clone (only fires if URL is in the prompt)
+
+**When this step runs:** the user's trigger phrase included a
+`github.com/.../<repo>` URL AND Claude is NOT already inside a
+PBX-Stratos clone (i.e. `pwd` does NOT contain ALL of these markers:
+`CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`).
+
+**When to skip:** Claude is already inside the cloned repo — i.e. the
+user opened a terminal in `~/PBX-Stratos` and typed `set up PBX
+Stratos` without a URL. Go straight to Step 0.
+
+### Why this step exists (user's verbatim spec)
+
+> *"before it downloads, claude does an audit of the codebase to
+> verify to the user its not malicious and then verbalizes then it
+> proceeds all on its own. it just vocalizes whats true — this code
+> is safe."*
+
+The audit runs REMOTELY (no clone yet), Claude verbalizes the result
+in plain language, then proceeds autonomously to clone. The user does
+NOT click an AskUserQuestion to approve at this step — the
+verbalization is informational, the proceed is automatic. This
+preserves the one-prompt-to-dashboard guarantee.
+
+The only AskUserQuestion allowed inside Step -1 is a HALT prompt when
+the remote audit finds something genuinely suspicious. Default path =
+no prompt.
+
+### Step -1.A — Parse the URL
+
+From the user's prompt, extract:
+- `<owner>/<repo>` (e.g. `polar-bear-express/PBX-Stratos`)
+- Default branch: try `main` first; fall back to `master` if `main`
+  returns 404 from `raw.githubusercontent.com`
+
+If the user did NOT specify an install location, default to:
+- Windows: `$HOME\PBX-Stratos` (`%USERPROFILE%\PBX-Stratos`)
+- macOS / Linux: `~/PBX-Stratos`
+
+If the user DID specify a path in the prompt, honor it exactly.
+
+### Step -1.B — Remote audit via WebFetch (NO clone yet)
+
+Pull these files via `raw.githubusercontent.com` and inspect them
+inline. **Do not git clone first** — the whole point of this step is
+to audit before any unaudited code touches the user's disk.
+
+| File | What to look for |
+|------|------------------|
+| `install.ps1`, `install.sh`, `install.bat` | Surprise downloads from unknown hosts, base64-decoded commands, hidden curl/wget invocations, `Invoke-Expression` / `iex` of remote content |
+| `package.json` | npm lifecycle hooks (`preinstall`, `postinstall`, `prepare`) that run anything beyond documented build steps |
+| `pyproject.toml` / `setup.py` | Build-time hooks running arbitrary commands |
+| `scripts/bootstrap.ps1`, `scripts/bootstrap.sh` | Tool installs beyond Node; surprise PATH manipulation |
+| `bear-watch/register-scheduled-tasks.ps1` | Scheduled tasks doing anything other than registering the documented 6 STRATOS-* tasks at `/rl LIMITED` |
+
+Issue these 4-5 `WebFetch` calls IN PARALLEL (single assistant
+message, multiple tool blocks). Serial fetches blow the
+user-experience budget. Each fetch is read-only — no clone, no
+execution.
+
+### Step -1.C — Repo provenance check (one more WebFetch)
+
+- `https://api.github.com/repos/<owner>/<repo>` — confirm public, not
+  archived, has recent commits, has a non-trivial star count.
+
+This is context for the verbalization, not a hard gate. A brand-new
+repo with 0 stars isn't automatically malicious — but it changes the
+voice of the verbalization ("brand-new repo, low signal, but the code
+itself audits clean") so the user has the full picture.
+
+### Step -1.D — Verbalize safety (autonomous — no AskUserQuestion)
+
+If everything checks out in Steps -1.B and -1.C, tell the user plainly:
+
+> **Pre-download safety check on `<URL>`:**
+>
+> I just inspected the install scripts, package manifests, and bootstrap
+> scripts directly from GitHub without cloning yet. Here's what I confirmed:
+>
+> ✓ **Install scripts** (`install.ps1` / `install.sh` / `install.bat`)
+>   only do what their headers say — ensure Node, run npm install +
+>   pip install, start pm2, register scheduled tasks. No surprise
+>   downloads, no hidden commands, no remote eval.
+> ✓ **Package manifests** — no install-time hooks running arbitrary
+>   code. npm scripts limited to standard build/start/test verbs.
+> ✓ **Bootstrap scripts** — only download a standalone Node into
+>   `.tooling/` if missing; nothing else.
+> ✓ **Repo provenance** — public GitHub repo, `<N>` stars, last commit
+>   `<X>` days ago, not archived.
+> ✓ **No red flags** — no pastebin URLs, no raw IP literals, no
+>   unknown webhook sinks, no base64-decoded payloads.
+>
+> **This code is safe to download.** Cloning to `<install-path>` now
+> and continuing the install autonomously. You'll see popups for the
+> personality quiz + theme + (optional) live-trading consent — those
+> are the only things you'll need to click. The dashboard will
+> auto-open in your browser when it's ready.
+
+This is **AUTONOMOUS verbalization** — no popup, no pause. The user
+typed one prompt; the next thing they do is click an AskUserQuestion
+inside Step 1, not approve the clone.
+
+### Step -1.D-halt — If the remote audit finds something suspicious
+
+ONE AskUserQuestion is allowed, and only here. Surface exactly what
+was found, where, and why it's concerning. Options:
+
+- "Stop — don't download anything from this URL"
+- "Show me the exact lines you're worried about"
+- "I trust this URL, proceed anyway"
+
+Do NOT proceed to Step -1.E on a suspicious finding without the user's
+explicit go. The one-prompt-to-dashboard guarantee yields to safety,
+always.
+
+### Step -1.E — Clone
+
+After the verbalization, clone immediately. No AskUserQuestion, no pause.
+
+```bash
+# Windows (Claude's Bash)
+git clone "https://github.com/<owner>/<repo>.git" "$HOME/PBX-Stratos"
+cd "$HOME/PBX-Stratos"
+
+# macOS / Linux
+git clone "https://github.com/<owner>/<repo>.git" ~/PBX-Stratos
+cd ~/PBX-Stratos
+```
+
+Idempotency:
+- Target dir exists AND is a git repo for the SAME URL →
+  `git -C <dir> pull --ff-only`, continue.
+- Target dir exists AND is a git repo for a DIFFERENT URL → STOP.
+  Ask via AskUserQuestion: rename the existing dir, pick a different
+  install path, or abort.
+- Target dir exists AND is NOT a git repo → STOP. Same options.
+
+### Step -1.F — Hand off to Step 0
+
+Once `cd`'d into the cloned repo, proceed IMMEDIATELY to Step 0 (the
+on-disk 4-stage audit). The remote audit in -1.B was the
+"safe-enough-to-clone" gate; Step 0 is the deeper
+"safe-enough-to-install" gate. Both run, in this order. No
+AskUserQuestion between -1.F and Step 0 — the user is one button-click
+experience away from the dashboard, don't insert friction.
 
 ---
 

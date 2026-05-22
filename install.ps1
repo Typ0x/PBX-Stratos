@@ -185,4 +185,26 @@ Write-Host ""
 Write-Host " Personality + theme picks (interactive):" -ForegroundColor Gray
 Write-Host "   Tell Claude  ""set up PBX Stratos""  or  ""run the personality quiz""" -ForegroundColor Gray
 Write-Host ""
+Write-Host " Opening the dashboard in your default browser..." -ForegroundColor White
+Write-Host ""
+
+# Auto-open the dashboard. Server needs a beat to come fully online
+# after pm2 start — wait until /health returns 200 before launching
+# the browser tab so the user doesn't see a connection-refused page.
+$maxWait = 20
+$elapsed = 0
+while ($elapsed -lt $maxWait) {
+  try {
+    $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
+    if ($r.StatusCode -eq 200) { break }
+  } catch {
+    # Server still booting — keep waiting.
+  }
+  Start-Sleep -Seconds 1
+  $elapsed++
+}
+if ($elapsed -ge $maxWait) {
+  Warn "Server didn't reach /health within ${maxWait}s. Opening browser anyway -- it may need another moment."
+}
+Start-Process 'http://localhost:8787'
 exit 0
