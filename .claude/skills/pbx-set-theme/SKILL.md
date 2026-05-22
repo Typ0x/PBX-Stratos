@@ -1,6 +1,6 @@
 ---
 name: pbx-set-theme
-description: Use when the user says ANY of "switch theme to <id>", "change my theme", "swap dashboard look", "try the <X> theme", "match my theme to my personality", or wants to apply a different dashboard CSS theme without changing their personality. Reads available themes from `themes/`, validates the requested ID exists, applies the theme by copying `themes/<id>.css` to `bots/src/server/active-theme.css` (or symlinking on Unix), updates `theme_id` in `runtime/lab/user-profile.json`, and tells the user to refresh their browser tab to see the change.
+description: PBX Stratos dashboard theme switcher. Use ONLY when the user is inside a cloned PBX-Stratos repository AND asks to apply a different PBX-Stratos dashboard CSS theme (default / lambo / camo / beach / academia / matrix) without changing their personality. Canonical trigger phrases — "switch PBX Stratos theme to <id>", "change my PBX Stratos dashboard theme", "match my PBX Stratos theme to my personality". Reads available themes from `themes/`, validates the requested ID, copies `themes/<id>.css` to `bots/src/server/active-theme.css`, updates `theme_id` in `runtime/lab/user-profile.json`, tells the user to refresh their browser tab.
 ---
 
 # PBX Stratos — Set Theme

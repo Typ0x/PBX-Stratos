@@ -1,6 +1,6 @@
 ---
 name: pbx-personality-quiz
-description: Use when the user says ANY of "run the personality quiz", "retake the personality quiz", "redo the quiz", "I want to update my personality settings", "recalibrate my Claude", "change how Claude talks to me", or asks to update any single field in their user profile (tech_level / communication_style / goal / consent_level / autonomy_level). Re-runs the 5-question intake from the original PBX Stratos setup wizard without going through the full install. Writes the updated answers to `runtime/lab/user-profile.json` and confirms what changed.
+description: PBX Stratos personality-quiz re-runner. Use ONLY when the user is inside a cloned PBX-Stratos repository AND asks to retake the 5-question personality quiz from the original install (or update one of the 5 profile fields: tech_level / communication_style / goal / consent_level / autonomy_level). Canonical trigger phrases — "run the personality quiz", "retake the personality quiz", "recalibrate my Claude". Re-runs the 5 questions, writes updated answers to `runtime/lab/user-profile.json`, confirms what changed. Does not install anything, does not touch wallets, does not run shell commands beyond the profile JSON write.
 ---
 
 # PBX Stratos — Personality Quiz (standalone)

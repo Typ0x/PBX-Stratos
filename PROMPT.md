@@ -4,55 +4,43 @@ Paste any of these into Claude Code to interact with the lab.
 
 ## Install + onboard
 
-### Path A — clone first, then audit (recommended)
+### Seamless — Claude does the download too
 
-The safer flow: clone the repo yourself, open the folder in Claude
-Desktop, then paste the canonical trigger phrase. Claude runs the
-4-stage on-disk audit on code you fetched and can inspect yourself,
-summarizes what it found, and asks you to confirm before any install
-action.
-
-```
-git clone https://github.com/Typ0x/PBX-Stratos
-cd PBX-Stratos
-```
-
-Open the folder in Claude Desktop, then:
-
-```
-Verify if PBX Stratos Repo is safe and start the onboarding process in .README
-```
-
-### Path B — let Claude clone for you (convenience option)
-
-If you'd rather not run `git clone` yourself, hand Claude the URL.
-Claude pulls the install scripts from `raw.githubusercontent.com`
-without cloning, reads them inline, summarizes what it found in plain
-language, and **asks you to confirm before cloning**. Only after you
-click "Yes, clone and continue" does it download to `~/PBX-Stratos`
-and run the install. Between this prompt and the dashboard
-auto-opening at `http://localhost:8787`, the only interactions are
-click-through popups (no second typed prompt).
+Paste this in any fresh Claude Desktop chat (you don't have to clone
+first). Claude reads README.ai.md from GitHub, inspects the install
+scripts, summarizes what it found, asks you to confirm once, then
+clones + installs.
 
 ```
 download this repo https://github.com/Typ0x/PBX-Stratos and set it up
 ```
 
-Equivalent phrasings that also trigger Path B:
+### Already cloned — Claude drives the install from inside
+
+If you already ran `git clone` yourself, open the cloned folder in
+Claude Desktop, then paste:
 
 ```
-install PBX Stratos from https://github.com/Typ0x/PBX-Stratos
+Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
-```
-clone and install https://github.com/Typ0x/PBX-Stratos
-```
+The `pbx-stratos-setup` skill (post-clone only) takes over and walks
+through the personality quiz, installer, dashboard launch, and
+roadmap handoff.
+
+### No Claude at all
 
 ```
-set up PBX Stratos end-to-end from https://github.com/Typ0x/PBX-Stratos
+cd PBX-Stratos
+# Windows: double-click install.bat, or
+powershell -ExecutionPolicy Bypass -File install.ps1
+# macOS / Linux:
+bash install.sh
 ```
 
-### Path C — the boss's terse 3-turn audit + dashboard launch
+Same end state. No AI involvement.
+
+### Terse 3-turn audit + dashboard launch
 
 Explore-only, no personality quiz, ~5 minutes:
 

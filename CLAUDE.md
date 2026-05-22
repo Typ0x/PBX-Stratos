@@ -586,16 +586,19 @@ green-on-black theme).
 Skills live in `.claude/skills/<id>/SKILL.md`. Each has trigger phrases
 that cause Claude to invoke the skill flow rather than improvise.
 
-| Skill | Trigger phrases | What it does |
+All skills are PBX-Stratos-specific and only fire when the working
+directory contains the canonical PBX-Stratos markers (`install.bat`,
+`CLAUDE.md`, `bear-watch/`, `.claude/skills/`). None of them clone or
+download — the user clones first (`git clone` or ZIP from GitHub).
+
+| Skill | Canonical trigger | What it does |
 |-------|-----------------|--------------|
-| `pbx-stratos-setup` (gamified path, URL in prompt — convenience) | "download this repo `<URL>`", "install PBX Stratos from `<URL>`", "clone and install `<URL>`", "set up PBX Stratos end-to-end from `<URL>`", or any "set up / install" phrase paired with a `github.com/.../PBX-Stratos` URL | Same wizard as the no-URL gamified path, but Claude is NOT yet inside a clone. Triggers **Step -1** (pre-download remote inspection + AskUserQuestion confirmation gate) before Step 0. Claude pulls the install scripts + manifests + bootstrap scripts via WebFetch on `raw.githubusercontent.com`, reads them inline, summarizes what it found in plain language, **calls AskUserQuestion to confirm the clone**, and only clones to `~/PBX-Stratos` after the user picks "Yes, clone and continue." The clone-first path is safer (the user controls the download) and is recommended over this URL-prompt path; this is the convenience option for users who'd rather not run `git clone` themselves. The one-prompt-to-dashboard guarantee still holds: between the trigger phrase and the dashboard auto-opening, the user only clicks AskUserQuestion popups (no second typed prompt required). |
-| `pbx-stratos-setup` (gamified path, already cloned) | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "let's start predicting air quality" | The install wizard, skipping Step -1 because Claude is already inside the clone (canonical markers: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`). Two views of the same flow: **(a) internal — 13 steps + 1 conditional clone pre-step defined in [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md)**, which is what Claude actually executes. **(b) user-facing — numbered points in [`README.md`](README.md) "What happens when you type the trigger phrase"**, which is the condensed presentation. Both are accurate; use whichever fits the audience. |
-| `pbx-stratos-setup` (boss's terse path) | "Onboard me onto this PBX-Stratos repo. I'm not a developer — follow the 'For Claude: Onboarding Runbook' section in README. Be brief." | The explore-only path: clone-audit → bootstrap → launch browser at the local dashboard → hand off. ~5 minutes on a healthy laptop. No personality quiz, no roadmap intro. User can flip into the gamified mode any time later. |
-| `pbx-personality-quiz` | "retake the personality quiz", "redo the quiz", "recalibrate my Claude", "change how Claude talks to me" | Re-runs the 5-question intake and writes the answers back to the profile. |
-| `pbx-set-personality` | "switch to <id>", "try the <X> personality", "swap personality" | Validates the requested personality exists, updates `personality_id`, optionally previews the voice before committing. |
-| `pbx-set-theme` | "switch theme to <id>", "change my theme", "match my theme to my personality" | Applies a theme by copying `themes/<id>.css` to the active-theme slot and updating `theme_id`. |
-| `pbx-recover-bot` | "something's wrong with the bot", "the bot is broken", "the dashboard isn't loading", "I got an alert" | The diagnostic runbook: pm2 status → health-check → recent alerts → recent commits → pm2 logs → prescribed fix. |
-| `wallet-decoder` | "decode this wallet", "what's this address doing" | Decodes a Solana pubkey's recent activity. |
+| `pbx-stratos-setup` | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos" | The install wizard: optionally audit → personality quiz → run `install.bat`/`install.sh` → live trading + wallet enablement (if opted in) → personality + theme apply → dashboard opens → roadmap handoff. Post-clone only — does not clone. |
+| `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake from the install wizard and writes updated answers to `runtime/lab/user-profile.json`. |
+| `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in `runtime/lab/user-profile.json` without re-running the quiz. Optionally also updates `theme_id` to the matching theme. |
+| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bots/src/server/active-theme.css` and updates `theme_id` in the profile. |
+| `pbx-recover-bot` | "the PBX Stratos bot is broken", "PBX Stratos dashboard isn't loading", "I got a STRATOS alert" | Standard PBX-Stratos diagnostic runbook: pm2 status → `/debug/health` → recent alerts → recent commits → pm2 logs → prescribed fix. |
+| `wallet-decoder` | "decode this PBX wallet `<pubkey>`", "run the PBX Stratos wallet decoder on `<pubkey>`" | Drives the lab decoder pipeline (`wallet-decoder.py` → `wallet-evolve.py` → `wallet-ml.py` → `agentic-decode.py`) and reports the decoded entry/exit rule in the user's active personality voice. |
 
 Skills are invocable when the user says the trigger phrase. If you're
 unsure whether a phrase matches, ask — don't guess into a skill flow.
