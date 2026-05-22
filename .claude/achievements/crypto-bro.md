@@ -370,32 +370,69 @@ roadmap.
 
 ## Section 7 — Mastery
 
-### s7.t1 — "30-Day Fleet"
-> A month of multi-bot operation, real capital, zero crashes. This is what "running an operation" actually looks like.
+### Endurance tier
 
-### s7.t2 — "Multi-Wallet"
-> Independent risk pools. Pro-tier risk management.
+### s7.t1 — "7 Days Live"
+> Full week of live trading, no manual intervention, no panic-stops. Through weekends, weather flips, multiple regimes. Bot ran itself like infra is supposed to. ser this is what most degens never reach.
 
-### s7.t3 — "3 Profitable Months"
+### s7.t2 — "14 Days Live"
+> Two weeks straight. Past the rookie window. Multiple weekend cycles in the books, multiple weather patterns survived. Confidence in the stack is durable now, not vibes.
+
+### s7.t3 — "30 Days Live"
+> Full month of live operation. You've operated through the kinds of conditions that wash out the early luck and surprise beginners. This is the "boring infra, interesting strategy" thesis printing in real-time.
+
+### s7.t4 — "Profitable Week"
+> Week-over-week realized PnL net positive. Not a single fluke trade — a sustainable seven-day run with the print spread across multiple closes. Real signal, not noise.
+
+### s7.t5 — "Profitable Month"
+> Month-over-month positive PnL. This is what success looks like at the right timescale, ser. Most operators never reach this bar — most never even keep score this long. You did both.
+
+### s7.t6 — "7 Days Paper Continuous"
+> A strategy you tweaked has paper-traded 168 hours without crashing. Pm2 didn't restart, the tick loop never stalled. Endurance proven before any real money touches it. This is how you should be testing every new variant.
+
+### s7.t7 — "Your Strategy: 3 Days Paper"
+> YOUR original strategy has 72 hours of operation, zero crashes. Foundation laid. The variant is behaving like a real strategy, not a script with bugs.
+
+### s7.t8 — "Your Strategy: 7 Days Paper"
+> Full week of YOUR original strategy in paper with 3+ closed trades. It's not just running — it's making decisions, closing positions, generating data you can reason about. This is the bar before any promotion talk starts.
+
+### s7.t9 — "Framework Upgrade Survived"
+> You pulled a non-trivial stratos release, followed the migration notes, and your install still works end-to-end. 7-check health-check still green, no manual recovery beyond following the notes. Migrations are real ops — you did one and survived. WAGMI.
+
+### Beyond-the-author tier
+
+### s7.t10 — "30-Day Fleet"
+> A month of multi-bot operation, real capital, zero crashes. This is what "running an operation" actually looks like. Multiple strategies, multiple positions, all behaving. Pro tier.
+
+### s7.t11 — "HD-Derived Wallet Fleet"
+> Three or more derived bot wallets spawning off your HD mnemonic, each running a distinct strategy. You've verified isolation by checking on-chain balances independently — one bot's bad trade can't drain another. Independent risk pools, real ones.
+
+### s7.t12 — "3 Profitable Months"
 > Sustained edge over meaningful time. Most retail never clears this bar. You did.
 
-### s7.t4 — "Onboarded a Fren"
-> Someone you know is running PBX Stratos because of you. Network effect of one. Magnify it.
+### s7.t13 — "Onboarded a Fren"
+> Someone you know is running PBX Stratos because of you. Network effect of one. Magnify it — every fren you onboard is another node on the chain.
 
-### s7.t5 — "Research Note Published"
-> Your discovery, documented, shareable. Alpha that wouldn't exist without you.
+### s7.t14 — "Research Note Published"
+> Your discovery, documented, shareable. Alpha that wouldn't exist without you. This is how the framework grows.
 
-### s7.t6 — "AQ-Price Forecaster Cooking"
+### s7.t15 — "AQ-Price Forecaster Cooking"
 > You built a near-term PM2.5 → price model using `bear-scout/aq-price/` and it BEAT the persistence baseline on 7 days of held-out data. Forecasting next-hour PM2.5 is the upstream of the alpha — owning that pipeline is genuine research territory, ser.
 
-### s7.t7 — "New Sensor Integrated"
-> Data source the project never knew about, now feeding decisions.
+### s7.t16 — "New Sensor Integrated"
+> Data source the project never knew about, now feeding decisions. The bot sees more than the OG architecture did.
 
-### s7.t8 — "Personality Adopted"
-> Something you wrote is being used by someone else. Open-source contribution validated by adoption.
+### s7.t17 — "Personality Adopted"
+> Something you wrote is being used by someone else. Open-source contribution validated by adoption. Your voice is in someone else's chat now.
 
-### s7.t9 — "90 Days Live"
-> Three months continuous. You've seen enough market regimes to have real intuition.
+### s7.t18 — "90 Days Live"
+> Three months continuous. You've seen enough market regimes to have real intuition — not pattern-matching from a backtest window.
 
-### s7.t10 — "Leaderboard"
-> When the public leaderboard exists, you're on it. PnL, uptime, strategy count, or pure creativity — any of those count. **Section 7: cleared. From here you're guiding the framework, not following it. WAGMI confirmed.**
+### s7.t19 — "Leaderboard"
+> When the public leaderboard exists, you're on it. PnL, uptime, strategy count, or pure creativity — any of those count.
+
+### s7.t20 — "Upstream PR Shipped"
+> You opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement, ser — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing /debug/health signal. Merged or not, you're in the contributor history. The framework got sharper for everyone after you.
+
+### s7.t21 — "Parallel Claude Scopes Coordinated"
+> A second scope's `_context/` exists in your install — maybe `bear-scout` for research while `bear-watch` handles ops — and both scopes have journal entries that reference work the other did. No manual cross-briefing, no telling each chat what the other did. The journals are the sync layer, like they're meant to be. **Section 7 cleared. From here you're guiding the framework, not following it. WAGMI confirmed.**

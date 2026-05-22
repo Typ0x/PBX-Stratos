@@ -163,9 +163,17 @@ export async function fetchBackfill(
   let rows: ManifestRow[];
   try {
     const res = await fetchImpl(`${DATASET_RAW}/manifest.csv`);
-    if (!res.ok) return result;
+    if (!res.ok) {
+      console.warn(
+        `[airquality-backfill] manifest fetch returned ${res.ok ? 'ok' : 'not ok'} from ${DATASET_RAW}/manifest.csv — skipping cold-start backfill (live PurpleAir/AirNow still primary).`,
+      );
+      return result;
+    }
     rows = parseManifest(await res.text());
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[airquality-backfill] manifest fetch threw from ${DATASET_RAW}/manifest.csv: ${err instanceof Error ? err.message : String(err)} — skipping cold-start backfill.`,
+    );
     return result;
   }
   // The dataset lags reality by several days, so anchor the day window on

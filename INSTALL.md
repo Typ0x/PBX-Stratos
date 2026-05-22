@@ -110,8 +110,30 @@ boss's 4-check methodology is fastest (run all 4 in parallel):
 | D3 | Grep repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for shell-eval functions, runtime evaluators (Python/JS), dynamic function constructors, OS command interfaces, shell-true subprocesses | No path from LLM output to runtime code execution |
 | D4 | Grep all `https?://` literals across `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` and check against allowlist | Hosts limited to PBX API, your RPC, DEX SDKs (Meteora/Orca/Jupiter/Solana). No pastebins, telemetry, raw IPs. |
 
-If anything looks off, stop and ask in the PBX Stratos AI Agent group
-voice channel before proceeding.
+If anything looks off, stop and ask Claude in your install chat
+(or, if you don't have one, open an issue on
+`https://github.com/Typ0x/PBX-Stratos/issues`).
+
+---
+
+## What you're about to set up (secrets glossary)
+
+PBX Stratos uses a handful of secret files + env vars. The manual
+steps below mention them by name, so here's what each one is and
+why it exists in advance — so the steps aren't a wall of unfamiliar
+variables.
+
+| Secret | Where it lives | What it does | Why you need it |
+|---|---|---|---|
+| `HELIUS_MAINNET_URL` | `.env` at repo root | A URL with an embedded API key that lets your bot read + write to Solana mainnet. | Only needed for live trading. Without this set, every live endpoint returns 503 and the bot stays in paper mode — this is the master safety gate. |
+| `BOT_API_TOKEN` | `runtime/bots/local.env` (auto-generated, mode 0600) | The token the dashboard uses to authenticate against the bot server's local API. | The server generates this on first boot; you almost never touch it. |
+| `BOT_MASTER_KEY` | `runtime/bots/local.env` (auto-generated, mode 0600) | A 32-byte random string used to AES-256-GCM-encrypt your wallet keypairs on disk. | If you lose this AND your `BOT_HD_MNEMONIC`, the wallet is unrecoverable. Back up to your password manager. |
+| `BOT_HD_MNEMONIC` | `runtime/bots/local.env` (auto-generated, mode 0600) | A 24-word BIP39 seed phrase. Every bot wallet you spawn is derived from this single phrase. | If you lose it, every wallet your fleet ever derived is gone forever. Back this up on PAPER, in a safe. Never screenshot, never paste into unprotected cloud storage. |
+
+All four are gitignored. **None of them ever leave your machine** if
+you use the framework as designed. The secret-scrub pre-commit hook
+(`tools/secret-scrub/install.sh`) is a belt-and-suspenders check
+against accidentally committing them.
 
 ---
 

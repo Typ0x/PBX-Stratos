@@ -178,15 +178,6 @@ up per Universal Core.
 ### s3.t19 — "filter math understood"
 > you know why the threshold is where it is. no cargo culting.
 
-### s3.t20 — "evolve done, rule found"
-> `wallet-evolve.py` ran 10 epochs. BEAT_STRATEGY.md has the decoded rule. you read the entry, the exit, the lift. how the OG thesis was discovered. `Reverse Engineer` event achievement auto-unlocked — boss's lab framework noticed.
-
-### s3.t21 — "agentic 10 rounds, refined"
-> `agentic-decode.py` ran 10 rounds. claude proposed DSL predicates, evaluator scored fitness, simulator walked round-trips after 30bps fees, claude refined. agentic-rounds.jsonl has the trace. closed loop with LLM in search.
-
-### s3.t22 — "verdict pass"
-> decoded rule cleared the verdict gate. positive held-out P&L on walk-forward 70/30 + entry-fit + exit-fit. survives data the decoder never saw. deployable. **section 3 done.**
-
 ---
 
 ## Section 4 — Architect
@@ -241,18 +232,6 @@ up per Universal Core.
 
 ### s4.t17 — "winner picked"
 > one decisively better, loser archived. ego-free decision making.
-
-### s4.t18 — "strategy documented"
-> markdown explains what + why. audit-friendly.
-
-### s4.t19 — "evo loop ran"
-> genetic algorithm used. toolkit expanded.
-
-### s4.t20 — "original discovery"
-> you found something claude didn't suggest first. past apprentice.
-
-### s4.t21 — "DSL predicate, hand-written"
-> you wrote an entry+exit predicate in the strategy DSL yourself. no agentic-decode, no genetic algo. pick a feature, threshold, ship to paper. now when agentic-decode proposes one, you can read it like a poem. **section 4 done.**
 
 ---
 
@@ -386,35 +365,69 @@ up per Universal Core.
 
 ## Section 7 — Mastery
 
-### s7.t1 — "30-day fleet"
+### Endurance tier
+
+### s7.t1 — "7 days live"
+> full week live, no manual intervention. weekends, weather flips, regime shifts — all survived. uptime is real.
+
+### s7.t2 — "14 days live"
+> two weeks straight. past the rookie window. multiple weekend cycles, multiple regimes. confidence is durable now.
+
+### s7.t3 — "30 days live"
+> month of continuous live ops. you've run through the conditions that wash out the early luck.
+
+### s7.t4 — "profitable week"
+> 7-day realized PnL net positive. not a fluke close — a sustainable run.
+
+### s7.t5 — "profitable month"
+> month-over-month positive. most operators never get here. you did.
+
+### s7.t6 — "7 days paper continuous"
+> tweaked variant ran 168 hours in paper, zero crashes. endurance check passed.
+
+### s7.t7 — "your strategy: 3 days paper"
+> 72 hours of your original strategy, no crashes. foundation in.
+
+### s7.t8 — "your strategy: 7 days paper"
+> full week of your own strategy in paper, 3+ closed trades. behaving like a real one.
+
+### s7.t9 — "framework upgrade survived"
+> pulled a non-trivial stratos release, followed migration notes, install still works end-to-end. 7-check health-check green. real ops, executed.
+
+### Beyond-the-author tier
+
+### s7.t10 — "30-day fleet"
 > month of multi-bot, real capital, zero crashes. real operation.
 
-### s7.t2 — "multi-wallet"
-> independent risk pools. pro tier.
+### s7.t11 — "HD-derived fleet"
+> 3+ derived wallets off your HD mnemonic, each running its own strategy. isolation verified on-chain. independent risk pools.
 
-### s7.t3 — "3 profitable months"
+### s7.t12 — "3 profitable months"
 > sustained edge over meaningful time. most never clear this.
 
-### s7.t4 — "onboarded a fren"
+### s7.t13 — "onboarded a fren"
 > someone you know is running PBX Stratos because of you.
 
-### s7.t5 — "research note shipped"
+### s7.t14 — "research note shipped"
 > your discovery documented and shareable.
 
-### s7.t6 — "aq-price forecaster beats persistence"
+### s7.t15 — "aq-price forecaster beats persistence"
 > built a near-term PM2.5 → price model in `bear-scout/aq-price/`. beat persistence baseline on 7 days of held-out data. forecasting next-hour PM2.5 is the upstream of the alpha. owning that pipeline is research-tier.
 
-### s7.t7 — "new sensor integrated"
+### s7.t16 — "new sensor integrated"
 > data source the project never knew about.
 
-### s7.t8 — "personality adopted"
+### s7.t17 — "personality adopted"
 > someone else is using something you wrote.
 
-### s7.t9 — "90 days live"
+### s7.t18 — "90 days live"
 > three months continuous. real intuition built.
 
-### s7.t10 — "leaderboard"
+### s7.t19 — "leaderboard"
 > public recognition earned.
 
 ### s7.t20 — "upstream PR shipped"
-> opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing /debug/health signal. merged or not, you're in the contributor history. framework gets sharper for everyone after. **section 7 done. you guide the framework now. gg.**
+> opened a PR against `Typ0x/PBX-Stratos` with a tooling improvement — better decoder, smarter evolver, new swap-router venue, sharper PM2.5 forecast, or a missing /debug/health signal. merged or not, you're in the contributor history. framework gets sharper for everyone after.
+
+### s7.t21 — "parallel scopes coordinated"
+> a second scope's `_context/` exists — maybe `bear-scout` for research while `bear-watch` handles ops — and both scopes journal entries reference each other's work. no manual cross-briefing. journals are the sync layer, working as designed. **section 7 done. you guide the framework now. gg.**

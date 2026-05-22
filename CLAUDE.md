@@ -945,7 +945,7 @@ the human-facing version; this is the Claude-facing operational version.
 | Key handling + network policy + encryption | [`docs/SECURITY.md`](docs/SECURITY.md) |
 | Emergency-stop escalation ladder | [`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md) |
 | Codebase audit protocols (handoff templates) | [`bear-watch/audit-brief.md`](bear-watch/audit-brief.md), [`bear-watch/audit-professional.md`](bear-watch/audit-professional.md) |
-| Decoder framework (runners, outputs) | `lab/README.md` |
+| Decoder framework (runners, outputs) | `bear-scout/README.md` |
 | Live bot fleet CLI + multi-bot ops | `bots/README.md` |
 | Event-driven achievement spec | `achievements/definitions.json` |
 | Per-scope state (read on session start) | `_context/<scope>/STATUS.md` + today's `journal/<YYYY-MM-DD>.md` |

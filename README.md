@@ -127,10 +127,22 @@ Three install paths. Pick whichever fits.
 
 ### 1. Claude-driven (recommended for non-coders)
 
-This is the smoothest path. Install
-[Claude Desktop](https://claude.ai/download) with a Pro Plan account,
-toggle **Settings → Claude Code → "Allow bypass permissions mode" ON
-→ "Bypass permissions" ON**, then paste ONE of these prompts:
+This is the smoothest path. You need three things first:
+
+1. **[Claude Desktop](https://claude.ai/download)** (the desktop app, not the
+   browser version at `claude.ai`) installed and signed in.
+2. A **Claude Pro subscription** (~$20/month, paid). The free tier of
+   Claude won't drive this install — Claude Code is a Pro-tier feature.
+   If you're on free, upgrade in Claude Desktop's settings, or use the
+   double-click installer below (works without Pro).
+3. **Bypass-permissions toggled ON.** In Claude Desktop go to
+   **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass
+   permissions" ON**. Without these, Claude asks for permission on every
+   action and the install takes ~5× longer or stalls.
+
+Once those three are set, **paste ONE of the prompts below into Claude
+Desktop's chat box** (the main text input at the bottom of the app — not
+your terminal, browser, or notepad), then press Enter.
 
 **Path A — you've already cloned the repo + opened it (recommended):**
 
@@ -195,8 +207,11 @@ See [`INSTALL.md`](INSTALL.md) for the step-by-step manual checklist.
 
 ## What you need
 
-- **[Claude Desktop](https://claude.ai/download)** with a Pro Plan
-  account (only for the Claude-driven install path)
+- **[Claude Desktop](https://claude.ai/download)** with a **Claude Pro
+  subscription** (~$20/month, paid — required for Claude Code which
+  drives the install). Free tier won't work for the Claude-driven path.
+  If you don't have Pro, use the double-click installer below instead —
+  no Claude subscription needed.
 - A computer that stays on — Windows, Mac, or Linux. Windows is best
   tested as of this writing; the bootstrap script handles no-admin
   Node install on all three
@@ -383,7 +398,7 @@ with *"switch to `<id>`"*.
 
 | Personality | Vibe | Voice | Dashboard theme |
 |---|---|---|---|
-| **Default** | Neutral, balanced, professional | Calm, complete sentences, light technical detail | Clean dark (slate + indigo) |
+| **Default** | Neutral, balanced, professional | Calm, complete sentences, light technical detail | `default` (slate + indigo) |
 | **Crypto Bro** | Degen KOL who's "made it" and is showing his bro the ropes | "ser", "ngmi", "alpha", "printing", "ape in" — measured slang, real respect for stakes | Lambo (gold + black) |
 | **Drill Sergeant** | Strict, terse, military discipline | All-caps callouts, "ROGER THAT", no fluff | Camo green + amber alerts |
 | **Surf Bro** | Chill, encouraging, low-stakes vibe | Slangy ("yo", "dude", "totally gnarly"), upbeat | Beach pastels (coral + teal) |

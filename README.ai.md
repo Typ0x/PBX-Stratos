@@ -777,7 +777,7 @@ personality = Claude voice only. The default pairings:
 
 | ID | Voice | Default theme |
 |---|---|---|
-| `default` | Neutral, balanced, professional | `clean-dark` (slate + indigo) |
+| `default` | Neutral, balanced, professional | `default` (slate + indigo) |
 | `crypto-bro` | Degen KOL who's "made it" — "ser", "ngmi", "alpha", "printing", "ape in" — measured slang with real respect for stakes | `lambo` (gold + black) |
 | `drill-sergeant` | Strict, terse, military discipline — ALL-CAPS callouts, "ROGER THAT", no fluff | `camo` (camo green + amber) |
 | `surf-bro` | Chill, encouraging, upbeat — "yo", "dude", "totally gnarly" — slangy and warm | `beach` (coral + teal) |
@@ -814,7 +814,7 @@ that voice for the rest of the session. The personality file has:
 ### Applying a theme
 
 ```bash
-cp "themes/<theme-id>.css" "bots/public/dashboard/active-theme.css"
+cp "themes/<theme-id>.css" "bots/src/server/active-theme.css"
 ```
 
 The active-theme slot is what the dashboard's HTML imports. Update
@@ -1684,7 +1684,7 @@ Once you've absorbed this file, your daily ops reference is
 | [`.claude/UNIVERSAL-CORE.md`](.claude/UNIVERSAL-CORE.md) | The behavior rules every Claude session in this project follows (under your chosen personality). Mission, voice, Recap/Summary/Next-Steps response shape, AskUserQuestion discipline. |
 | [`.claude/personalities/<id>.md`](.claude/personalities/) | Active personality's voice + vocabulary + progress-filler language |
 | [`.claude/achievements/<id>.md`](.claude/achievements/) | Active personality's achievement-celebration text (1:1 with ROADMAP task IDs) |
-| `lab/README.md` | Decoder framework — what each runner does, what outputs land where |
+| `bear-scout/README.md` | Decoder framework — what each runner does, what outputs land where |
 | `bots/README.md` | Live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep |
 | `achievements/definitions.json` | Event-driven achievement spec (auto-tracked) |
 
