@@ -374,12 +374,43 @@ extended outage during the original project build. Don't skip this check.
 
 ---
 
-## Step 3 — Install repo dependencies
+## Step 3 — Install everything in one shot (recommended path)
 
-`scripts/bootstrap.{sh,ps1}` is the canonical path — it ensures
-Node ≥ 18, ensures Python ≥ 3.10, then runs `scripts/setup.mjs` which
-does `npm install` at the repo root (workspaces pull in `bots/` and
-`packages/*` automatically). If bootstrap fails, fall back to:
+**Preferred for both humans and Claude:** the repo ships a one-shot
+installer at the root that handles Node ensure, npm install, Python
+venv, pm2 install + start, scheduled task registration, and the
+ready-marker write — all in a single command. Call it via:
+
+```bash
+# Windows (Claude runs this as a single Bash call):
+powershell -ExecutionPolicy Bypass -NoProfile -File install.ps1
+
+# macOS / Linux:
+bash install.sh
+```
+
+`install.ps1` orchestrates Steps 3–4 + Step 11 (deps, pm2, schtasks)
+in one process. Idempotent — safe to re-run. Takes 3-5 min on a
+fresh machine, less on a warm one. Surfaces success/failure per
+step so you can narrate progress to the user as it runs.
+
+When Claude runs it, the recommended pattern is:
+
+1. Launch it as a **background Bash call** (`run_in_background: true`)
+   while you ask the user the 5 personality-quiz questions
+   (Step 1). The install + the quiz run in parallel.
+2. The harness notifies you when the install completes. Confirm
+   in voice: "install finished while we were talking — pm2 fleet
+   up, 6 scheduled tasks registered, dashboard live."
+3. If `install.ps1` exits non-zero, examine the captured output to
+   identify the failing step and either re-run that step manually
+   (see Step 3-fallback below) or surface the failure to the user.
+
+### Fallback — manual step-by-step if `install.ps1` errors out
+
+`scripts/bootstrap.{sh,ps1}` is the canonical Node-ensure path — it
+downloads a standalone Node into `.tooling/` if missing, then runs
+`scripts/setup.mjs`. If you need to run the post-Node steps manually:
 
 ```bash
 # Node side — root npm install covers bots/ + packages/* via workspaces

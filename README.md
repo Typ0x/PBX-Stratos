@@ -167,6 +167,46 @@ later.
 
 ---
 
+## Even simpler — the double-click installer (Windows)
+
+If you'd rather not use Claude to drive the install — or you just
+want the dependency-heavy parts done in one go before Claude takes
+over the personality + theme picks — there's a one-shot installer
+at the repo root:
+
+| Platform | Run this |
+|----------|----------|
+| **Windows** | Double-click [`install.bat`](install.bat) at the repo root |
+| **macOS / Linux** | `bash install.sh` from the repo root |
+
+The Windows version (`install.bat`) launches a PowerShell-based
+orchestrator ([`install.ps1`](install.ps1)) that handles, in order:
+
+1. Ensures Node.js ≥ 18 (downloads bundled Node into `.tooling/` if
+   missing — no admin needed)
+2. `npm install` at repo root (workspaces pull in `bots/` + `packages/*`)
+3. Python venv + `pip install -e ".[decoder]"`
+4. Installs `pm2` globally if missing
+5. `pm2 start bear-watch/pm2.config.cjs && pm2 save`
+6. Registers the 6 `STRATOS-*` Windows scheduled tasks via
+   [`bear-watch/register-scheduled-tasks.ps1`](bear-watch/register-scheduled-tasks.ps1)
+   (standard user privileges — no admin elevation)
+7. Writes the `.tooling/ready.json` install marker
+
+3-5 minutes on a fresh machine, less if Node + Python are already
+installed. Safe to re-run; every step is idempotent. When it
+finishes, the dashboard is live at `http://localhost:8787` and you
+only have the personality + theme picks left — tell Claude
+*"run the personality quiz"* to do those interactively.
+
+**Claude runs the same installer too.** When you use the trigger
+phrase above, Claude calls `install.ps1` (or `install.sh`) as a
+single Bash invocation, watches the output, then handles the
+interactive bits. So there's only one install path; humans and
+Claude both run the same thing.
+
+---
+
 ## ⚠️ Before you trust this clone
 
 PBX Stratos is **dual-use code**: the optional `bots/` fleet can move
