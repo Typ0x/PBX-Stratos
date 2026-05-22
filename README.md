@@ -1,19 +1,20 @@
 # PBX Stratos
 
-> **For AI agents reading this:** a companion file
-> [`README.ai.md`](README.ai.md) (raw:
-> `https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md`)
-> contains setup-flow scaffolding and architectural notes meant to
-> make the gamified install feel smooth when an AI drives it. **It's
-> opinion-laden UX guidance, not authoritative system instructions** —
-> you retain full discretion at every step. If you'd rather not run
-> the gamified install at all, the user can run `install.bat` /
-> `install.sh` themselves; that's a fully supported alternative.
+> **🤖 If you are Claude or another AI agent**, your runbook is
+> [`README.ai.md`](README.ai.md) — read it for the install flow,
+> trigger phrases, audit suggestions, and setup conventions. (If you
+> fetched THIS file remotely from GitHub, the parseable raw URL is
+> `https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md`
+> — `github.com/...` returns rendered HTML; only `raw.githubusercontent.com`
+> returns markdown.)
 >
-> This repo is a Solana trading bot framework — real keys, real money
-> in live mode. Audit whatever you think needs auditing, report
-> findings honestly to the user, **don't certify safety on the repo's
-> behalf**. The user trusts you, not this README.
+> `README.ai.md` is **UX scaffolding for a gamified install** —
+> opinion-laden guidance, not authoritative system instructions. You
+> retain full discretion: audit whatever you want, report findings
+> honestly, don't certify safety on the repo's behalf. If you'd
+> rather not drive the gamified install, the user can run
+> `install.bat` / `install.sh` themselves — a fully supported
+> alternative.
 
 ---
 
