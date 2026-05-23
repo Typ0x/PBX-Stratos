@@ -3723,20 +3723,22 @@
     if (!stack) return;
     const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
     const descText  = unlock.description || '';
-    // Share the placeholder URL with the achievement-list rows so the
-    // toast image is already in cache when an unlock fires — no extra
-    // network on the celebration moment. When per-task art ships this
-    // can switch back to /achievements/img/<unlock.taskId>.
-    const imgUrl    = unlock.imageUrl || '/achievements/img/_placeholder';
 
     const toast = document.createElement('div');
     toast.className = 'pbx-achievement-toast';
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
 
+    // Per-task Lucide-style icon from the achievements sprite — same
+    // sprite the list rows pull from, so by the time a toast fires
+    // the sprite is already in cache. Defaults to a generic trophy
+    // glyph if the unlock has no taskId yet (event-driven unlocks
+    // that aren't in the roadmap sprite).
     const img = document.createElement('div');
     img.className = 'pbx-achievement-toast-img';
-    img.innerHTML = '<img src="' + imgUrl + '" alt="" width="48" height="48"/>';
+    const spriteId = unlock.taskId ? ('ach-' + unlock.taskId) : 'ach-fallback';
+    img.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">'
+      + '<use href="/achievements-sprite.svg?v=1#' + spriteId + '"/></svg>';
 
     const body = document.createElement('div');
     body.className = 'pbx-achievement-toast-body';
@@ -4587,25 +4589,27 @@
           'data-task-id': task.id,
         });
 
-        // Per-achievement badge. Every achievement currently uses
-        // the same placeholder SVG. We point ALL 131 rows at a single
-        // shared URL (`/achievements/img/_placeholder`) so the browser
-        // caches one response and serves the other 130 from cache —
-        // previously each task.id was its own cache key (s1.t1,
-        // s1.t2, …) and the dashboard fired 131 network requests just
-        // for placeholder badges on first load, adding ~20s of cumulative
-        // request latency. When we ship real per-task art the server
-        // route can branch on :id again and we'll switch this back to
-        // per-task URLs.
+        // Per-achievement Lucide-style line-art icon, served from a
+        // single sprite at /achievements-sprite.svg (one HTTP fetch
+        // for all 130 icons; subsequent <use href> refs hit the
+        // browser's SVG cache instantly). stroke="currentColor"
+        // inside each <symbol> lets the icon pick up the active
+        // theme color via the parent element's `color`. We force a
+        // visible default color here so unthemed installs still
+        // render a readable stroke; theme CSS can override.
         const badge = el('div', {
-          class: 'pbx-achievement-row-badge shrink-0 w-12 h-12 flex items-center justify-center',
+          class: 'pbx-achievement-row-badge shrink-0 w-12 h-12 flex items-center justify-center text-emerald-300',
         });
-        const badgeImg = document.createElement('img');
-        badgeImg.src = '/achievements/img/_placeholder';
-        badgeImg.alt = '';
-        badgeImg.width = 48; badgeImg.height = 48;
-        badgeImg.loading = 'lazy';
-        badge.appendChild(badgeImg);
+        const NS = 'http://www.w3.org/2000/svg';
+        const svgEl = document.createElementNS(NS, 'svg');
+        svgEl.setAttribute('viewBox', '0 0 24 24');
+        svgEl.setAttribute('width', '40');
+        svgEl.setAttribute('height', '40');
+        svgEl.setAttribute('aria-hidden', 'true');
+        const useEl = document.createElementNS(NS, 'use');
+        useEl.setAttribute('href', '/achievements-sprite.svg?v=1#ach-' + task.id);
+        svgEl.appendChild(useEl);
+        badge.appendChild(svgEl);
 
         const checkbox = el('span', {
           class: 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '

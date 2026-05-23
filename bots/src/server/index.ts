@@ -467,6 +467,12 @@ app.addHook('onRequest', async (req, reply) => {
   if (req.url === '/dashboard' || req.url === '/dashboard.html'
       || req.url === '/dashboard.css' || req.url === '/dashboard.js'
       || req.url === '/leaderboard-sort.js') return;
+  // Sprite + per-id placeholder are also public assets — they get
+  // embedded via <use href="…"> from the public dashboard markup and
+  // pre-auth requests must succeed. The sprite URL carries an optional
+  // `?v=…` cache-bust suffix so match on the path prefix.
+  if (req.url && (req.url.startsWith('/achievements-sprite.svg')
+      || req.url.startsWith('/achievements/img/'))) return;
   // Loopback bypass — ONLY in local autogen mode AND only when BOTH the
   // socket address AND the Host header are loopback. The Host check is
   // the DNS-rebinding defense: an evil.com page rebound to 127.0.0.1
@@ -676,18 +682,60 @@ const ACHIEVEMENT_PLACEHOLDER_SVG = `<?xml version="1.0" encoding="UTF-8"?>
 </svg>`;
 
 app.get<{ Params: { id: string } }>('/achievements/img/:id', async (_req, reply) => {
-  // No per-id branching yet — placeholder for every achievement.
-  // When we add real art, check for `bots/public/achievements/<id>.svg`
-  // or .png on disk first and serve that, falling back to the
-  // placeholder below. The dashboard client routes ALL achievement-list
-  // rows to the single URL `/achievements/img/_placeholder` so we serve
-  // 1 fetch instead of 131 on dashboard load. Long-cache (1 day) so the
-  // achievement-toast also re-uses the same cached resource across
-  // tabs and sessions.
+  // Legacy route — kept for backward compat. The dashboard client now
+  // points at /achievements-sprite.svg#ach-<id> for the actual per-task
+  // line-art icons (Lucide-style line art, one sprite, themeable via
+  // currentColor). This route still answers with the generic trophy
+  // placeholder so any straggler caller (older script, external link)
+  // doesn't 404.
   reply
     .header('content-type', 'image/svg+xml')
     .header('cache-control', 'public, max-age=86400, immutable')
     .send(ACHIEVEMENT_PLACEHOLDER_SVG);
+});
+
+// Per-achievement icon sprite. ~45 KB single SVG with one <symbol>
+// per task ID (s1.t1 … s7.t21 — 130 icons total). Each symbol uses
+// stroke="currentColor" so the icon recolors with the consuming
+// element's CSS color, picking up the active theme automatically.
+// The dashboard client embeds `<svg><use href="/achievements-sprite.svg?v=1#ach-<id>"/></svg>`
+// for every achievement row + toast. One HTTP fetch covers all icons
+// across the entire dashboard session.
+// Resolve sprite path against the same anchor as readDashboardAsset:
+// `bots/src/server/<this file>` → `../../public/achievements-sprite.svg`.
+// Two-step probe with cwd fallback matches the existing pattern for the
+// dashboard HTML/CSS/JS reads above.
+function spriteCandidatePaths(): string[] {
+  const here = import.meta.dirname ?? '.';
+  return [
+    join(here, '..', '..', 'public', 'achievements-sprite.svg'),
+    join(process.cwd(), 'bots', 'public', 'achievements-sprite.svg'),
+  ];
+}
+let _achievementsSpriteCache: { path: string; mtime: number; body: string } | null = null;
+function readAchievementsSprite(): string {
+  for (const p of spriteCandidatePaths()) {
+    try {
+      const st = statSync(p);
+      const mtime = st.mtimeMs;
+      if (_achievementsSpriteCache && _achievementsSpriteCache.path === p && _achievementsSpriteCache.mtime === mtime) {
+        return _achievementsSpriteCache.body;
+      }
+      const body = readFileSync(p, 'utf8');
+      _achievementsSpriteCache = { path: p, mtime, body };
+      return body;
+    } catch { /* try next candidate */ }
+  }
+  // Sprite file missing on every candidate path — return a tiny
+  // one-symbol fallback so the <use> tags in the dashboard still
+  // resolve to something visible instead of an empty box.
+  return '<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><symbol id="ach-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></symbol></svg>';
+}
+app.get('/achievements-sprite.svg', async (_req, reply) => {
+  reply
+    .header('content-type', 'image/svg+xml')
+    .header('cache-control', 'public, max-age=86400, immutable')
+    .send(readAchievementsSprite());
 });
 
 // ─── Health ────────────────────────────────────────────────────────────

@@ -720,9 +720,21 @@
   .achievement-row:hover {
     background: rgba(255, 255, 255, 0.02);
   }
-  .pbx-achievement-row-badge img {
+  .pbx-achievement-row-badge {
+    /* Sets the `color` that stroke="currentColor" inside each sprite
+       symbol picks up — every active theme overrides --theme-accent /
+       --accent-primary, so the same sprite recolors per theme without
+       per-icon CSS. */
     color: var(--theme-accent, var(--accent-primary, #10b981));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pbx-achievement-row-badge img,
+  .pbx-achievement-row-badge svg {
     display: block;
+    width: 40px;
+    height: 40px;
   }
   /* Pulsing-highlight applied for ~10s when the toast-click navigator
      scrolls a row into view (or when a manual mark fires). Theme-aware
