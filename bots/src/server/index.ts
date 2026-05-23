@@ -679,10 +679,14 @@ app.get<{ Params: { id: string } }>('/achievements/img/:id', async (_req, reply)
   // No per-id branching yet — placeholder for every achievement.
   // When we add real art, check for `bots/public/achievements/<id>.svg`
   // or .png on disk first and serve that, falling back to the
-  // placeholder below.
+  // placeholder below. The dashboard client routes ALL achievement-list
+  // rows to the single URL `/achievements/img/_placeholder` so we serve
+  // 1 fetch instead of 131 on dashboard load. Long-cache (1 day) so the
+  // achievement-toast also re-uses the same cached resource across
+  // tabs and sessions.
   reply
     .header('content-type', 'image/svg+xml')
-    .header('cache-control', 'public, max-age=600')
+    .header('cache-control', 'public, max-age=86400, immutable')
     .send(ACHIEVEMENT_PLACEHOLDER_SVG);
 });
 

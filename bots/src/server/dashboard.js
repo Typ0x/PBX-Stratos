@@ -3736,7 +3736,11 @@
     if (!stack) return;
     const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
     const descText  = unlock.description || '';
-    const imgUrl    = unlock.imageUrl || ('/achievements/img/' + encodeURIComponent(unlock.taskId));
+    // Share the placeholder URL with the achievement-list rows so the
+    // toast image is already in cache when an unlock fires — no extra
+    // network on the celebration moment. When per-task art ships this
+    // can switch back to /achievements/img/<unlock.taskId>.
+    const imgUrl    = unlock.imageUrl || '/achievements/img/_placeholder';
 
     const toast = document.createElement('div');
     toast.className = 'pbx-achievement-toast';
@@ -4596,15 +4600,21 @@
           'data-task-id': task.id,
         });
 
-        // Per-achievement badge. All achievements currently use the
-        // same placeholder SVG (served via /achievements/img/:id with
-        // currentColor so themes recolor it). When we ship per-task
-        // art the server-side route will branch on :id.
+        // Per-achievement badge. Every achievement currently uses
+        // the same placeholder SVG. We point ALL 131 rows at a single
+        // shared URL (`/achievements/img/_placeholder`) so the browser
+        // caches one response and serves the other 130 from cache —
+        // previously each task.id was its own cache key (s1.t1,
+        // s1.t2, …) and the dashboard fired 131 network requests just
+        // for placeholder badges on first load, adding ~20s of cumulative
+        // request latency. When we ship real per-task art the server
+        // route can branch on :id again and we'll switch this back to
+        // per-task URLs.
         const badge = el('div', {
           class: 'pbx-achievement-row-badge shrink-0 w-12 h-12 flex items-center justify-center',
         });
         const badgeImg = document.createElement('img');
-        badgeImg.src = '/achievements/img/' + encodeURIComponent(task.id);
+        badgeImg.src = '/achievements/img/_placeholder';
         badgeImg.alt = '';
         badgeImg.width = 48; badgeImg.height = 48;
         badgeImg.loading = 'lazy';
