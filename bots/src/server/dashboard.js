@@ -3112,11 +3112,11 @@
 
     // 1 — Welcome / congrats (with confetti)
     steps.push({
-      title: "You're set up",
+      title: "You're in",
       body: () => [
         el('p', null,
-          "Claude installed everything, generated your wallet, started the dashboard + paper-trade bot, and registered six background watchdogs."),
-        el('p', { class: 'muted' }, '11 quick steps follow — most just take a click. Skip anytime; replay from the "?" icon top-left.'),
+          "Setup: done. Wallet minted, dashboard live, paper bot ticking, 6 watchdogs on patrol. Nice."),
+        el('p', { class: 'muted' }, '11 quick stops next — mostly one-click. Bail anytime; the "?" icon up top replays.'),
       ],
       onEnter: () => onboardConfetti(),
     });
@@ -3138,9 +3138,9 @@
       highlight: '#hero-start',
       body: () => [
         el('p', null,
-          'Discover scans the PBX market for wallets that are currently making money. Click ',
+          'First mission: scout the wallets currently winning on PBX. Hit ',
           el('strong', { class: 'text-emerald-300' }, 'Find top traders & decode'),
-          ' to kick it off — runs ~2 minutes in the background.'),
+          " — Claude handles it (~2 min) while we keep moving."),
       ],
       gate: {
         description: 'Waiting for: click Find top traders & decode',
@@ -3173,7 +3173,7 @@
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          "Claude's decoding the top 10 wallets here in the background — live progress streams in as each one finishes. We'll tour the rest while it works."),
+          "Claude is cracking the top 10 wallets right here. Rows light up green as each one falls. Tour rolls on while it works."),
       ],
     });
 
@@ -3187,11 +3187,11 @@
       highlight: '#market-leaderboard',
       body: () => [
         el('p', null,
-          'Every wallet Discover finds lands here, ranked by trading volume. Pick one and hit ',
+          "Every wallet Discover catches lands here, ranked by trading volume. Spot one you like? Hit ",
           el('strong', { class: 'text-emerald-300' }, 'Decode'),
-          ' to reverse-engineer its strategy.'),
+          " to crack its strategy."),
         el('p', { class: 'muted' },
-          "Still loading? Use Just continue below."),
+          "Table still loading? Skip with Just continue below."),
       ],
       gate: {
         description: 'Waiting for: click Decode on any wallet row',
@@ -3227,7 +3227,7 @@
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          "The decoder runs Claude against the wallet's trade history to extract entry + exit rules. Each decoded strategy lands here, ready to backtest, paper-trade, or promote to live."),
+          "Cracked strategies land here — entry + exit rules pulled straight from the wallet's trade history. Backtest, paper-trade, or push to live whenever you're ready."),
       ],
     });
 
@@ -3245,9 +3245,9 @@
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
-          'Paper trading runs strategies against real prices with fake money. Validate here before risking real funds.'),
+          "Real prices, fake money. Prove a strategy can hang before risking a cent."),
         el('p', { class: 'muted' },
-          "Those two cards above are samples — your bots will look like this."),
+          "Those two cards above? Samples. Yours will look the same."),
       ],
     });
 
@@ -3266,9 +3266,9 @@
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
-          'Real money on Solana mainnet. Bots here actually swap USDC for region tokens. Only promote strategies you\'ve paper-traded for at least a week.'),
+          "The real ring. Bots here actually swap USDC for region tokens on Solana mainnet. Rule: paper-trade a strategy a full week before promoting it."),
         el('p', { class: 'muted' },
-          "Samples shown above — same layout as paper."),
+          "Samples up top — same layout as paper."),
       ],
     });
 
@@ -3282,6 +3282,9 @@
     // Accuracy note: wallet path was previously `~/.pbx-bots/local.env`
     // — stale from before the three-layer refactor. Canonical path is
     // now `runtime/bots/local.env` per CLAUDE.md's Layer-3 map.
+    // Step 7 — wallet setup. Universal Core safety rule: real-money
+    // / key-handling content stays in PLAIN voice. Intro can be a
+    // little lighter but the two bullets are strict and unembellished.
     steps.push({
       title: 'Step 7: Wallet (optional)',
       view: 'live',
@@ -3290,7 +3293,7 @@
         el('p', null,
           'The ',
           el('strong', null, 'funder wallet'),
-          ' above is the root for every live bot. Two things to do later if you want to trade live:'),
+          " up top spawns every live bot. Two things to lock in before you ever trade real money:"),
         el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
           el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
             el('li', null,
@@ -3306,7 +3309,7 @@
           ),
         ),
         el('p', { class: 'muted text-[12px]' },
-          'Skippable. Live trading stays disabled until both are done; paper trading works either way.'),
+          'Paper-only? Skip and move on — live stays gated until both are done.'),
       ],
     });
 
@@ -3317,14 +3320,14 @@
     // will land once Discover finishes. (Was #view-strategies — same
     // invisible-outline issue as Step 4.)
     steps.push({
-      title: 'Step 8: Where decoded wallets land',
+      title: 'Step 8: Where loot lands',
       view: 'strategies',
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          'When Discover finishes, each decoded wallet shows up here as a strategy row — entry rules, exit logic, paper/live status. Backtest it, deploy it as paper, or promote a paper-tested winner to live.'),
+          "Every cracked wallet drops a row here — entry rules, exit logic, paper/live tag. Backtest it, deploy as paper, promote a winner to live."),
         el('p', { class: 'muted text-[12px]' },
-          "Empty for now — Discover's still running. Strategies populate here in real time."),
+          "Empty for now — strategies pop in real time as Discover finishes."),
       ],
     });
 
@@ -3340,14 +3343,14 @@
     // for the selector to land in the DOM, so the highlight catches
     // the card after the API response settles.
     steps.push({
-      title: 'Step 9: System health',
+      title: 'Step 9: Mission control',
       view: 'health',
       highlight: '#health-checks-card',
       body: () => [
         el('p', null,
-          'One-screen status: server uptime, paper-trade heartbeat, AQI feed, disk space, RPC — all live. Plus 6 background watchdogs run every 5 min / hour / day (checks, backups, digests, recovery). Hands-off.'),
+          "7 live checks (server, heartbeat, AQI, disk, RPC...) + 6 watchdogs running every 5 min / hour / day. Backups, digests, auto-recovery — all hands-free."),
         el('p', { class: 'muted text-[12px]' },
-          'Green = humming. Red = needs attention. "Re-check" button up top refreshes.'),
+          'Green = good. Red = poke at it. Hit "Re-check" up top to refresh.'),
       ],
     });
 
@@ -3361,19 +3364,19 @@
     // renderAchievements is async — onboardHighlight retries up to ~2s
     // for the selector to land in the DOM.
     steps.push({
-      title: 'Step 10: Roadmap + achievements',
+      title: 'Step 10: The roadmap',
       view: 'achievements',
       highlight: '#achievements-profile-card',
       body: () => [
         el('p', null,
-          '7 sections, 131 tasks. Section 1 (Genesis) is auto-tracked — Claude marks tasks done from your install state. Sections 2-7 unlock as you trade, decode wallets, and explore.'),
+          "7 sections, 131 quests. Section 1 (Genesis) auto-tracks — Claude marks tasks done from your install. Sections 2–7 unlock as you trade, decode, and explore. Hit a milestone, get celebrated."),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5 text-[12px]' },
           el('p', { class: 'text-zinc-300' },
-            'Just talk to Claude — try ',
+            'Just ping Claude — try ',
             el('em', { class: 'text-emerald-300' }, '"help me decode a wallet"'),
             ' or ',
-            el('em', { class: 'text-emerald-300' }, '"show me my next achievement"'),
-            '. Claude knows the roadmap and marks tasks done as you complete them.'),
+            el('em', { class: 'text-emerald-300' }, "\"what's my next achievement\""),
+            ". Claude knows the map and ticks tasks done as you go."),
         ),
       ],
     });
@@ -3385,15 +3388,15 @@
     // Telegram CTA + handoff line. No highlight; the modal IS the
     // focal point here.
     steps.push({
-      title: "You're ready",
+      title: "Go",
       view: 'achievements',
       body: () => [
         el('p', null,
-          "That's the whole dashboard. Work the roadmap with Claude one chat at a time — achievements track every milestone live."),
+          "That's the whole game. Work the roadmap with Claude one chat at a time — every milestone tracked live."),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5' },
-          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the operator community'),
+          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Squad up'),
           el('p', { class: 'text-[12px] text-zinc-300 mb-2' },
-            'Compare strategies, share decoded wallets, coordinate on signal shifts. Free.'),
+            'Operators share strategies, decoded wallets, and signal shifts in Telegram. Free to join.'),
           el('a', {
             href: 'https://t.me/+CmFL4HXFGFE3NTgx',
             target: '_blank',
