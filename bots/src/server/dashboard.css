@@ -684,3 +684,50 @@
     }
     .pbx-achievement-toast-leaving { transform: none; }
   }
+
+  /* ─── Achievement row (Achievements list view) ───────────────────────
+     Each row in the per-section task list. The badge image sits at the
+     left, then a title + description block, then the trailing control
+     (auto-tracked label / manual checkbox / Mark-done button). Padding
+     is generous to give each achievement its own visible bounding box
+     and breathing room. */
+  .achievement-row {
+    transition: background 200ms ease-out, box-shadow 200ms ease-out;
+  }
+  .achievement-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .pbx-achievement-row-badge img {
+    color: var(--theme-accent, var(--accent-primary, #10b981));
+    display: block;
+  }
+  /* Pulsing-highlight applied for ~10s when the toast-click navigator
+     scrolls a row into view (or when a manual mark fires). Theme-aware
+     glow uses the accent CSS variable, falling back to emerald. */
+  .achievement-row-pulsing {
+    background: rgba(16, 185, 129, 0.07);
+    animation: achievement-row-pulse 1.25s ease-in-out infinite;
+    border-radius: 8px;
+    /* Lift the row slightly above its neighbors so the glow isn't
+       clipped by the bottom-border of the previous row. */
+    position: relative;
+    z-index: 1;
+  }
+  @keyframes achievement-row-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 0 var(--theme-accent, rgba(16, 185, 129, 0.55)),
+        0 0 0 0 rgba(16, 185, 129, 0);
+    }
+    50% {
+      box-shadow:
+        0 0 0 3px var(--theme-accent, rgba(16, 185, 129, 0.45)),
+        0 0 16px 6px rgba(16, 185, 129, 0.35);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .achievement-row-pulsing {
+      animation: none;
+      box-shadow: 0 0 0 2px var(--theme-accent, rgba(16, 185, 129, 0.55));
+    }
+  }

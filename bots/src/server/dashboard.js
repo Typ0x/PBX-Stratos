@@ -3606,11 +3606,100 @@
     // Slide-in animation handled by CSS keyframe + class flip.
     requestAnimationFrame(() => toast.classList.add('pbx-achievement-toast-visible'));
 
-    // Click anywhere on the toast dismisses it early.
-    toast.addEventListener('click', () => dismissToast(toast));
+    // Click on the toast: jump to the achievement in the list (open
+    // its section, scroll the row into view, pulse it ~10s) and
+    // dismiss. Dismiss anyway so the user can still click an X-style
+    // close — there's no separate close button; the whole toast is
+    // the navigate trigger.
+    toast.addEventListener('click', () => {
+      navigateToAchievement(unlock.taskId);
+      dismissToast(toast);
+    });
+    toast.style.cursor = 'pointer';
+    toast.title = 'Click to jump to this achievement in the list';
 
     // Auto-dismiss after 6s.
     setTimeout(() => dismissToast(toast), 6000);
+  }
+
+  // Flip a row from "not done" to "done" without re-rendering the
+  // whole achievements view. Used by the manual mark buttons so the
+  // user keeps their scroll position and the surrounding list state.
+  // The row gets a brief pulse to confirm the click landed before the
+  // toast slides in.
+  function applyDoneToRow(rowEl, task) {
+    if (!rowEl) return;
+    // Toggle the checkbox icon if we can find it inside the row.
+    const cb = rowEl.querySelector('.inline-flex.items-center.justify-center.w-4.h-4');
+    if (cb) {
+      cb.textContent = '✓';
+      cb.className = 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '
+        + 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300';
+    }
+    // Swap the trailing button (last flex child) with a static "manual ✓"
+    // indicator so the user can't double-click and re-fire the request.
+    const lastChild = rowEl.lastElementChild;
+    if (lastChild && lastChild.tagName === 'BUTTON') {
+      const indicator = document.createElement('span');
+      indicator.className = 'text-[10px] mono muted shrink-0';
+      indicator.title = 'Manually marked done';
+      indicator.textContent = 'manual ✓';
+      lastChild.parentNode.replaceChild(indicator, lastChild);
+    }
+    // Mark task model done in case anything reads it later.
+    if (task) task.done = true;
+  }
+
+  // Programmatic navigation from a toast click. Switches to the
+  // achievements view if necessary, expands the row's parent section
+  // if collapsed, scrolls the row into view, and adds a pulsing-glow
+  // class that auto-clears after ~10s.
+  function navigateToAchievement(taskId) {
+    if (!taskId) return;
+    // 1. Switch view if we're not already on Achievements. Note that
+    // showView('achievements') triggers renderAchievements() which
+    // tears down + rebuilds the DOM; our row-pulse needs to find the
+    // FRESH row, so we wait a beat before querying.
+    if (typeof showView === 'function') {
+      try { showView('achievements'); } catch { /* falls through */ }
+    }
+    // Poll for the row — showView triggers an async render of the
+    // achievements view, so the row DOM node might not exist yet at
+    // toast-click time. Retry every 100ms for up to 2 seconds; give
+    // up silently if the render never lands (network failure, etc.)
+    // rather than leave a hanging timer.
+    const selector = '.achievement-row[data-task-id="' + cssEscape(taskId) + '"]';
+    let attempts = 0;
+    const tryFind = () => {
+      const row = document.querySelector(selector);
+      if (row) {
+        // Walk up to the parent section card and expand its body if hidden.
+        const section = row.closest('section.card[data-section-id]');
+        if (section && section._body && section._body.classList.contains('hidden')) {
+          section._body.classList.remove('hidden');
+          if (section._chev) section._chev.style.transform = 'rotate(90deg)';
+        }
+        // Scroll the row to center-ish, smooth.
+        try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        catch { row.scrollIntoView(); /* old browser */ }
+        // Apply the pulse class for 10s, then clear so subsequent
+        // navigations re-trigger the animation cleanly.
+        row.classList.add('achievement-row-pulsing');
+        setTimeout(() => row.classList.remove('achievement-row-pulsing'), 10000);
+        return;
+      }
+      if (++attempts < 20) setTimeout(tryFind, 100);
+    };
+    tryFind();
+  }
+
+  // CSS.escape polyfill for old browsers — only used for the
+  // data-task-id selector which contains a "." (e.g. "s1.t3").
+  function cssEscape(s) {
+    if (typeof CSS !== 'undefined' && CSS && typeof CSS.escape === 'function') {
+      return CSS.escape(s);
+    }
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, function (c) { return '\\' + c; });
   }
 
   function dismissToast(toast) {
@@ -4317,6 +4406,28 @@
       const sectionHasAuto = tasks.some((t) => autoDetected.has(t.id));
 
       const rows = tasks.map((task) => {
+        // Stable selector so the toast-click handler can find this row,
+        // expand its parent section, scroll it into view, and pulse it
+        // for ~10s after a manual mark or programmatic navigation.
+        const rowEl = el('div', {
+          class: 'achievement-row flex items-start gap-4 py-4 px-2 border-b border-zinc-800/40 last:border-b-0 rounded-md',
+          'data-task-id': task.id,
+        });
+
+        // Per-achievement badge. All achievements currently use the
+        // same placeholder SVG (served via /achievements/img/:id with
+        // currentColor so themes recolor it). When we ship per-task
+        // art the server-side route will branch on :id.
+        const badge = el('div', {
+          class: 'pbx-achievement-row-badge shrink-0 w-12 h-12 flex items-center justify-center',
+        });
+        const badgeImg = document.createElement('img');
+        badgeImg.src = '/achievements/img/' + encodeURIComponent(task.id);
+        badgeImg.alt = '';
+        badgeImg.width = 48; badgeImg.height = 48;
+        badgeImg.loading = 'lazy';
+        badge.appendChild(badgeImg);
+
         const checkbox = el('span', {
           class: 'inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 mt-0.5 '
             + (task.done
@@ -4353,7 +4464,26 @@
               manualBtn.textContent = 'saving…';
               try {
                 await apiPost('/api/ops/achievements/mark', { taskId: task.id });
-                renderAchievements();
+                // Optimistic in-place update — no full re-render. Flip
+                // the checkbox icon + colors, replace the button with
+                // the "manual ✓" indicator, mark the row done.
+                applyDoneToRow(rowEl, task);
+                // Pre-register with the toast-dedupe set so the 30s
+                // background poll doesn't re-toast this same id.
+                const seenSet = loadToastedUnlocks();
+                seenSet.add(task.id);
+                saveToastedUnlocks(seenSet);
+                // Toast + confetti right away (≤ 1.5s) so the user sees
+                // the celebration tied to their click, not a delayed
+                // poll-driven popup.
+                setTimeout(() => {
+                  showAchievementToast({
+                    taskId: task.id,
+                    title: task.title || task.id,
+                    description: task.description || '',
+                  });
+                  achievementConfetti();
+                }, 250);
               } catch (err) {
                 manualBtn.disabled = false;
                 manualBtn.textContent = 'retry';
@@ -4383,7 +4513,18 @@
             markBtn.textContent = 'saving…';
             try {
               await apiPost('/api/ops/achievements/mark', { taskId: task.id });
-              renderAchievements();
+              applyDoneToRow(rowEl, task);
+              const seenSet = loadToastedUnlocks();
+              seenSet.add(task.id);
+              saveToastedUnlocks(seenSet);
+              setTimeout(() => {
+                showAchievementToast({
+                  taskId: task.id,
+                  title: task.title || task.id,
+                  description: task.description || '',
+                });
+                achievementConfetti();
+              }, 250);
             } catch (err) {
               markBtn.disabled = false;
               markBtn.textContent = 'retry';
@@ -4395,14 +4536,19 @@
           trailing = markBtn;
         }
 
-        return el('div', {
-          class: 'flex items-start gap-3 py-2 border-b border-zinc-800/40 last:border-b-0',
-        },
+        // Build the row's content: badge + title block + trailing control.
+        const titleRow = el('div', { class: 'flex items-center gap-2 mb-1 flex-wrap' },
           checkbox,
-          el('span', { class: 'text-[11px] mono muted shrink-0 w-12' }, task.id || ''),
-          el('div', { class: 'flex-1 min-w-0 text-[12px] text-zinc-200' }, task.description || ''),
-          trailing,
+          el('span', { class: 'text-[11px] mono muted shrink-0' }, task.id || ''),
+          el('div', { class: 'text-[13.5px] font-semibold text-zinc-100' }, task.title || task.id || ''),
         );
+        const descEl = el('div', { class: 'text-[12px] text-zinc-300 leading-snug' }, task.description || '');
+        const titleBlock = el('div', { class: 'flex-1 min-w-0' }, titleRow, descEl);
+
+        rowEl.appendChild(badge);
+        rowEl.appendChild(titleBlock);
+        if (trailing) rowEl.appendChild(trailing);
+        return rowEl;
       });
 
       // Per-section auto-tracked footer note. Only sections that contain
@@ -4418,7 +4564,18 @@
         : el('div', { class: 'text-[12px] muted text-center py-3' }, 'No tasks in this section yet.'),
         autoFooter);
 
-      return el('section', { class: 'card rounded-xl p-5' }, header, body);
+      // Tag the section card with its id ('s1', 's2', ...) so the
+      // toast-click → navigate handler can find it and ensure its body
+      // is expanded before scrolling to the row.
+      const sectionCard = el('section', {
+        class: 'card rounded-xl p-5',
+        'data-section-id': sec.id,
+      }, header, body);
+      // Expose the body's hidden-toggle so the row-pulse navigator can
+      // open a collapsed section without simulating a click.
+      sectionCard._body = body;
+      sectionCard._chev = chev;
+      return sectionCard;
     });
 
     // ── Event-driven achievements ──

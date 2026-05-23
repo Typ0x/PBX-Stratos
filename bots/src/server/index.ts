@@ -1976,6 +1976,29 @@ app.get('/api/ops/achievements', async () => {
   const roadmapPath = join(repoRoot, 'ROADMAP.md');
   const definitionsPath = join(repoRoot, 'achievements', 'definitions.json');
 
+  // Canonical neutral titles per roadmap task. Pulled from default.md
+  // (the personality-neutral baseline achievement pack). Personality
+  // packs use different titles per voice (e.g. crypto-bro: "Drip Check
+  // — your dashboard looking clean fam") — but the dashboard list and
+  // toast UI show the SAME title for every user regardless of which
+  // personality they picked, so we always read from default.md.
+  //
+  // Pattern in default.md: `### sN.tM — "Title in quotes"`
+  const titleByTaskId = new Map<string, string>();
+  try {
+    const defaultPackPath = join(repoRoot, '.claude', 'achievements', 'default.md');
+    if (existsSync(defaultPackPath)) {
+      const packText = readFileSync(defaultPackPath, 'utf8');
+      const titleRe = /^###\s+(s\d+\.t\d+)\s+[—–-]\s+["']([^"']+)["']/gm;
+      for (let m; (m = titleRe.exec(packText)) !== null; ) {
+        titleByTaskId.set(m[1]!, m[2]!.trim());
+      }
+    }
+  } catch {
+    // Fail-soft: missing or malformed pack just means rows render
+    // without a title (fall back to the task id), not a hard failure.
+  }
+
   // ── profile ──
   // Strict read: if the file exists but parses as garbage, REFUSE
   // to proceed. The previous version of this block silently fell
@@ -2223,7 +2246,7 @@ app.get('/api/ops/achievements', async () => {
   // Pattern: each section starts with "## Section N — <name>" and has
   // one or more markdown tables with rows like "| `s1.t14` | <desc> | …".
   // We pull the section name, the task id, and the description column.
-  type RoadmapTask = { id: string; description: string; done: boolean; doneAt: string | null };
+  type RoadmapTask = { id: string; title: string; description: string; done: boolean; doneAt: string | null };
   type RoadmapSection = { id: string; name: string; totalTasks: number; doneTasks: number; tasks: RoadmapTask[] };
   const sections: RoadmapSection[] = [];
   try {
@@ -2256,6 +2279,7 @@ app.get('/api/ops/achievements', async () => {
           if (desc.length > 280) desc = desc.slice(0, 277) + '…';
           tasks.push({
             id,
+            title: titleByTaskId.get(id) || id,
             description: desc,
             done: unlockedTasks.has(id),
             doneAt: null,
