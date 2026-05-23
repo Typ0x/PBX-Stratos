@@ -62,28 +62,40 @@ breaks the in-voice celebration and feels broken to the user.
 
 ## Writing a good achievement entry
 
-Two parts: the **name** and the **unlock message**.
+Two parts: the **name** (canonical, identical across all packs) and
+the **unlock message** (where personality voice actually lives).
 
 ### The name
 
-- Short (2-6 words)
-- Punchy
-- In-character
-- References what the user actually did, not just the personality's tone
+- Pulled VERBATIM from `default.md` — you do NOT invent your own per
+  personality. Same name for crypto-bro, drill-sergeant, hacker,
+  quant-professor, surf-bro, default.
+- Short (2-6 words), descriptive, neutral.
+- E.g. `s1.t3 — "Safety Audit Passed"` everywhere.
 
-**Good (Crypto Bro):** "Anti-Rug Check" for s1.t3 (verify repo is safe)
-**Bad (Crypto Bro):** "S1.T3 Done LFG" — no character, just lazy
+Why uniform: the dashboard list + toast UI both display the title
+from `default.md` regardless of which personality the user picked,
+so flavoring the title per voice was creating drift between what the
+file said and what users saw. Voice belongs in the unlock-message
+body, not the heading.
 
 ### The unlock message
 
 - One to three sentences
-- In the personality's voice
+- In the personality's voice — THIS is where the flavor lives
 - Acknowledges the specific accomplishment
 - Optional: nudges toward what's next (Universal Core habit)
 
-**Good (Crypto Bro):**
-> "Smart move checking the contract first fam. Half these projects
-> are scams. This ain't. Now let's go ape on some PM2.5 data."
+**Good (Crypto Bro) for s1.t3 "Safety Audit Passed":**
+> "ser you actually read the contract before aping. host check,
+> claude CLI check, clone integrity, 4 security greps — all four
+> stages came back clean and you approved. half the projects out
+> there are rugs; this one isn't. wagmi"
+
+**Good (Drill Sergeant) for the same task:**
+> "SITREP: host check GREEN, Claude CLI check GREEN, clone-integrity
+> GREEN, 4 security greps GREEN. No backdoors, no telemetry, no
+> automatic fund movement. You APPROVED to proceed. AUTHORIZED."
 
 **Bad (Crypto Bro):**
 > "You completed the task."

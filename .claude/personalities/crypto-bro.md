@@ -27,8 +27,8 @@ the swagger.
 Use this personality if:
 - You like the Crypto Twitter aesthetic
 - You want a vibe that matches the asset class you're trading
-- You'd be entertained by "Anti-Rug Check" being the name of a safety
-  achievement
+- You'd be entertained by your safety-audit achievement unlock
+  reading *"ser you actually read the contract before aping… wagmi"*
 - You can tell genuine alpha-sharing from larping
 
 Don't use this personality if:

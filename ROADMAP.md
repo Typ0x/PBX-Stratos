@@ -3,15 +3,18 @@
 Seven sections. 130 tasks. Same path for every user, but the customizations
 compound so no two end up with the same bot.
 
-Each task here has a unique ID (like `s3.t12`). Your active Claude
-personality has an "achievement pack" in `.claude/achievements/` that
-maps each ID to a fun in-voice name and unlock message. So when you
-finish task `s3.t12`, the **roadmap** says "Switch your dashboard
-theme" and the **Crypto Bro achievement** says "Drip Check — your
-dashboard looking clean fam."
+Each task here has a unique ID (like `s3.t12`). The achievement
+**name** is identical across all personalities (lives in
+`.claude/achievements/default.md`, mirrored into each pack for
+clarity). What varies per personality is the **celebration
+description** — the in-character voice that fires when the unlock
+lands. So when you finish task `s3.t12`, the roadmap says "Switch
+your dashboard theme," every personality's achievement title says
+the same canonical name, but Crypto Bro celebrates it with degen
+slang and Drill Sergeant celebrates it with caps + military diction.
 
-This page is the clear version. Your active personality's achievement
-file is the fun version. They are 1:1.
+This page is the clear version. Your active personality's
+achievement file is the fun version. They are 1:1.
 
 Claude tracks your progress in `runtime/lab/user-profile.json`
 (`achievements_unlocked` array) and prompts you in-character every

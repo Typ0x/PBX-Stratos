@@ -1977,11 +1977,13 @@ app.get('/api/ops/achievements', async () => {
   const definitionsPath = join(repoRoot, 'achievements', 'definitions.json');
 
   // Canonical neutral titles per roadmap task. Pulled from default.md
-  // (the personality-neutral baseline achievement pack). Personality
-  // packs use different titles per voice (e.g. crypto-bro: "Drip Check
-  // — your dashboard looking clean fam") — but the dashboard list and
-  // toast UI show the SAME title for every user regardless of which
-  // personality they picked, so we always read from default.md.
+  // (the personality-neutral baseline achievement pack). All six
+  // personality packs now mirror these exact same titles per a
+  // 2026-05-22 reconciliation pass — voice flavor lives in the
+  // blockquote body, not the title. We still read from default.md
+  // (vs any of the other packs) because default.md is the
+  // documented source of truth for titles; the other packs match
+  // by sync, not by independent authorship.
   //
   // Pattern in default.md: `### sN.tM — "Title in quotes"`
   const titleByTaskId = new Map<string, string>();

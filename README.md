@@ -375,13 +375,15 @@ PBX Stratos has **two achievement systems** that complement each
 other:
 
 1. **Roadmap-track (story-driven):** the 130 task IDs in
-   `ROADMAP.md`. Each task has a clear baseline description AND a
-   personality-voiced name in
-   `.claude/achievements/<personality-id>.md`. Unlock by completing
-   the task (sometimes Claude detects it automatically, sometimes
-   you tell Claude). Personality celebrates each unlock in voice
-   — Crypto Bro: *"Drip Check — your dashboard looking clean fam"*;
-   Drill Sergeant: *"DRIP CHECK COMPLETE. DISMISSED."*
+   `ROADMAP.md`. Each task has a canonical baseline name (identical
+   across all personalities for clarity) AND a personality-voiced
+   celebration description in `.claude/achievements/<personality-id>.md`.
+   Unlock by completing the task (sometimes Claude detects it
+   automatically, sometimes you tell Claude). Personality voices the
+   celebration text in the description — e.g. for "Safety Audit Passed"
+   (s1.t3), Crypto Bro reads *"ser you actually read the contract
+   before aping… wagmi"* while Drill Sergeant reads *"SITREP: …
+   AUTHORIZED."*
 2. **Event-driven (auto-tracked):** the achievements in
    [`achievements/definitions.json`](achievements/definitions.json)
    — `First Light`, `Reverse Engineer`, `First Backtest`, `Sharper
