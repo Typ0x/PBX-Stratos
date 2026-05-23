@@ -3115,9 +3115,8 @@
       title: "You're set up",
       body: () => [
         el('p', null,
-          "Claude just audited the code, installed dependencies, generated your wallet keys, started the dashboard server and paper-trade bot, and registered six background watchdogs. ",
-          "This tour shows you how to actually use what you've got."),
-        el('p', { class: 'muted' }, 'Eleven short steps follow — most just take a click. You can skip anytime, or replay later with the "?" Setup Guide icon top-left.'),
+          "Claude installed everything, generated your wallet, started the dashboard + paper-trade bot, and registered six background watchdogs."),
+        el('p', { class: 'muted' }, '11 quick steps follow — most just take a click. Skip anytime; replay from the "?" icon top-left.'),
       ],
       onEnter: () => onboardConfetti(),
     });
@@ -3139,11 +3138,9 @@
       highlight: '#hero-start',
       body: () => [
         el('p', null,
-          'Discover finds the wallets currently making money on PBX. Click the green ',
+          'Discover scans the PBX market for wallets that are currently making money. Click ',
           el('strong', { class: 'text-emerald-300' }, 'Find top traders & decode'),
-          ' button to start the search. It takes about two minutes.'),
-        el('p', { class: 'muted' },
-          "While it runs we'll walk through the rest of the dashboard."),
+          ' to kick it off — runs ~2 minutes in the background.'),
       ],
       gate: {
         description: 'Waiting for: click Find top traders & decode',
@@ -3163,28 +3160,29 @@
 
     // 3 — Discovery running, let's tour the rest
     steps.push({
-      title: 'Step 2: While that runs, let’s tour the rest of the site',
+      title: 'Step 2: While that runs…',
       view: 'discover',
       body: () => [
         el('p', null,
-          "Discovery is working in the background. Meanwhile, let me show you the other four pages so you know what's where."),
-        el('p', { class: 'muted' }, 'Click Next to keep moving.'),
+          "Discovery's working in the background. Let's tour the rest of the dashboard while we wait."),
       ],
     });
 
     // 4 — Leaderboard: click any wallet's Decode button
+    //
+    // Accuracy note: the leaderboard subtitle in dashboard.html says
+    // "ranked by volume" — earlier tour copy said "P&L" which was wrong.
     steps.push({
       title: 'Step 3: The Leaderboard',
       view: 'leaderboard',
       highlight: '#market-leaderboard',
       body: () => [
         el('p', null,
-          'Leaderboard ranks every wallet Discover has found, sorted by recent P&L. ',
-          'Pick a wallet that looks interesting and click its ',
+          'Every wallet Discover finds lands here, ranked by trading volume. Pick one and hit ',
           el('strong', { class: 'text-emerald-300' }, 'Decode'),
-          ' button — that kicks off the strategy reverse-engineering and takes you to the Strategies page.'),
+          ' to reverse-engineer its strategy.'),
         el('p', { class: 'muted' },
-          "If the table is still loading, hit Refresh up top or use Just continue below."),
+          "Still loading? Use Just continue below."),
       ],
       gate: {
         description: 'Waiting for: click Decode on any wallet row',
@@ -3220,10 +3218,7 @@
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          'You just kicked off the wallet decoder. It runs Claude in a loop against historical trades to extract the entry and exit rules. ',
-          'Decoded strategies land here.'),
-        el('p', null,
-          'From this page you can backtest, deploy to paper, or promote to live. Click Next to keep touring.'),
+          "The decoder runs Claude against the wallet's trade history to extract entry + exit rules. Each decoded strategy lands here, ready to backtest, paper-trade, or promote to live."),
       ],
     });
 
@@ -3241,10 +3236,9 @@
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
-          'Paper trading runs a strategy against live market prices without spending real money. ',
-          'Use it to validate a decoded strategy before going live.'),
+          'Paper trading runs strategies against real prices with fake money. Validate here before risking real funds.'),
         el('p', { class: 'muted' },
-          "We've shown you some sample data here so you can see what an active paper bot looks like."),
+          "Those two cards above are samples — your bots will look like this."),
       ],
     });
 
@@ -3263,10 +3257,9 @@
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
-          'Live trading is the real-money mode. A bot here actually swaps USDC for region tokens on Solana mainnet. ',
-          'Only promote strategies you’ve paper-traded for at least a week.'),
+          'Real money on Solana mainnet. Bots here actually swap USDC for region tokens. Only promote strategies you\'ve paper-traded for at least a week.'),
         el('p', { class: 'muted' },
-          "Like paper, we've populated some sample bots so you can see the layout."),
+          "Samples shown above — same layout as paper."),
       ],
     });
 
@@ -3277,36 +3270,34 @@
     // intent to trade live. Live-trading endpoints stay 503 until
     // BOT_HD_MNEMONIC is set up + the funder is funded, so deferring
     // is safe.
+    // Accuracy note: wallet path was previously `~/.pbx-bots/local.env`
+    // — stale from before the three-layer refactor. Canonical path is
+    // now `runtime/bots/local.env` per CLAUDE.md's Layer-3 map.
     steps.push({
-      title: 'Step 7: Set up your wallet (optional)',
+      title: 'Step 7: Wallet (optional)',
       view: 'live',
       highlight: '#funder-card',
       body: () => [
         el('p', null,
-          "Discovery's still running in the background. While you wait, lock down your wallet so you're ready if you decide to trade live later. ",
-          "The card highlighted above is your ",
+          'The ',
           el('strong', null, 'funder wallet'),
-          ' — every live bot derives from it.'),
+          ' above is the root for every live bot. Two things to do later if you want to trade live:'),
         el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
-          el('div', { class: 'text-amber-200 font-medium' }, '⚠ Recommended (skippable):'),
           el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
             el('li', null,
-              'Back up the 24-word recovery phrase: open ',
-              el('code', { class: 'mono text-amber-200' }, '~/.pbx-bots/local.env'),
-              ' and copy the words after ',
+              'Back up the 24-word phrase in ',
+              el('code', { class: 'mono text-amber-200' }, 'runtime/bots/local.env'),
+              ' (line after ',
               el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
-              ' onto paper. Fireproof storage. ',
-              el('strong', null, 'Do not screenshot, do not paste into a cloud sync.'),
+              ') to paper. Fireproof. ',
+              el('strong', null, 'Do not screenshot.'),
             ),
             el('li', null,
-              "If you want to actually trade live later, send USDC + SOL to the address shown on the funder card above (~$50 USDC + ~0.05 SOL covers one bot). ",
-              el('span', { class: 'muted' }, "Skip this if you're just paper-trading — costs nothing."),
-            ),
+              'Fund the funder with USDC + SOL (~$50 + 0.05 SOL per bot).'),
           ),
         ),
         el('p', { class: 'muted text-[12px]' },
-          "Not ready yet? Click Next to skip — you can come back to this anytime. ",
-          "Live trading stays gated until you do, but everything else still works."),
+          'Skippable. Live trading stays disabled until both are done; paper trading works either way.'),
       ],
     });
 
@@ -3317,17 +3308,14 @@
     // will land once Discover finishes. (Was #view-strategies — same
     // invisible-outline issue as Step 4.)
     steps.push({
-      title: 'Step 8: Where the cool stuff lands',
+      title: 'Step 8: Where decoded wallets land',
       view: 'strategies',
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          'This is the Strategies page — every decoded wallet Discover finishes turns into a strategy on this list.'),
-        el('p', null,
-          'Each row is a reverse-engineered rule with its own entry filters, exit logic, and a status flag (paper / live). ',
-          'You can backtest any strategy, deploy it as a paper bot, or promote a paper-tested winner to live.'),
+          'When Discover finishes, each decoded wallet shows up here as a strategy row — entry rules, exit logic, paper/live status. Backtest it, deploy it as paper, or promote a paper-tested winner to live.'),
         el('p', { class: 'muted text-[12px]' },
-          "Page might be empty right now — Discover hasn't finished yet. Strategies populate here in real time as it does."),
+          "Empty for now — Discover's still running. Strategies populate here in real time."),
       ],
     });
 
@@ -3343,19 +3331,14 @@
     // for the selector to land in the DOM, so the highlight catches
     // the card after the API response settles.
     steps.push({
-      title: 'Step 9: Your system, at a glance',
+      title: 'Step 9: System health',
       view: 'health',
       highlight: '#health-checks-card',
       body: () => [
         el('p', null,
-          'The Health page is your one-screen ops view. The 7-check above tracks server uptime, ',
-          'paper-trade heartbeat freshness, AQI feed, disk space, and the Solana RPC connection — all live.'),
-        el('p', null,
-          'Six background watchdogs (STRATOS-* scheduled tasks) also run on their own cadence ',
-          'every 5 min / hourly / daily — they handle health checks, weather pulls, daily digests, ',
-          'state + codebase backups, and outage recovery without you ever clicking anything.'),
+          'One-screen status: server uptime, paper-trade heartbeat, AQI feed, disk space, RPC — all live. Plus 6 background watchdogs run every 5 min / hour / day (checks, backups, digests, recovery). Hands-off.'),
         el('p', { class: 'muted text-[12px]' },
-          'Green dots = humming. Red = something needs attention. Hit "Re-check" up top to refresh.'),
+          'Green = humming. Red = needs attention. "Re-check" button up top refreshes.'),
       ],
     });
 
@@ -3369,27 +3352,19 @@
     // renderAchievements is async — onboardHighlight retries up to ~2s
     // for the selector to land in the DOM.
     steps.push({
-      title: 'Step 10: Your roadmap + achievements',
+      title: 'Step 10: Roadmap + achievements',
       view: 'achievements',
       highlight: '#achievements-profile-card',
       body: () => [
         el('p', null,
-          'Every install gets a 7-section, 131-task roadmap. Section 1 (Genesis) is mostly auto-tracked ',
-          'already — Claude detects what you\'ve done from your install state and marks it complete.'),
-        el('p', null,
-          'Sections 2 through 7 unlock as you ',
-          el('strong', null, 'trade, decode wallets, and explore the dashboard'),
-          '. Tasks in those sections need a real action to fire — Claude celebrates each one in your chosen personality voice.'),
+          '7 sections, 131 tasks. Section 1 (Genesis) is auto-tracked — Claude marks tasks done from your install state. Sections 2-7 unlock as you trade, decode wallets, and explore.'),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5 text-[12px]' },
-          el('div', { class: 'text-zinc-100 font-medium mb-1' }, '💡 How to actually complete the rest'),
           el('p', { class: 'text-zinc-300' },
-            'Just talk to Claude in chat. Say things like ',
+            'Just talk to Claude — try ',
             el('em', { class: 'text-emerald-300' }, '"help me decode a wallet"'),
-            ', ',
+            ' or ',
             el('em', { class: 'text-emerald-300' }, '"show me my next achievement"'),
-            ', or ',
-            el('em', { class: 'text-emerald-300' }, '"deploy a paper bot"'),
-            ' — Claude knows the roadmap and will guide you through each milestone, then mark them done automatically when conditions are met.'),
+            '. Claude knows the roadmap and marks tasks done as you complete them.'),
         ),
       ],
     });
@@ -3401,15 +3376,15 @@
     // Telegram CTA + handoff line. No highlight; the modal IS the
     // focal point here.
     steps.push({
-      title: "You're ready to start",
+      title: "You're ready",
       view: 'achievements',
       body: () => [
         el('p', null,
-          "That's the whole site. The roadmap is now your map — work through it with Claude one chat at a time, and the achievements page tracks every milestone in real time."),
+          "That's the whole dashboard. Work the roadmap with Claude one chat at a time — achievements track every milestone live."),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5' },
-          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the PBX Stratos operator community'),
+          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the operator community'),
           el('p', { class: 'text-[12px] text-zinc-300 mb-2' },
-            'Other operators meet on Telegram to compare strategies, share decoded wallets, and coordinate during signal regime changes. Free to join.'),
+            'Compare strategies, share decoded wallets, coordinate on signal shifts. Free.'),
           el('a', {
             href: 'https://t.me/+CmFL4HXFGFE3NTgx',
             target: '_blank',
@@ -3418,7 +3393,7 @@
           }, 'Open Telegram invite ↗'),
         ),
         el('p', { class: 'muted text-[12px] mt-2' },
-          'Replay this tour anytime — click the "?" Setup Guide icon at the top of the sidebar.'),
+          'Replay anytime — "?" icon in the sidebar.'),
       ],
     });
 
