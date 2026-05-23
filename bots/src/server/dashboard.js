@@ -3106,17 +3106,271 @@
   // Track which sample-data injections are live so we can remove them
   // when leaving the relevant step or dismissing the tour.
   let onboardSampleNodes = [];
+  // Track helper overlays / popups so they get cleaned up on
+  // step-change / tour-dismiss (e.g. seed-phrase modal, sample-strategy
+  // preview).
+  let onboardHelperNodes = [];
+
+  // ── Tour body helpers ──────────────────────────────────────────────
+  //
+  // The bright/bold "what to do next" sentence that every step ends
+  // with. Uses Tailwind text-emerald-300 so each theme's existing
+  // override paints it in the theme accent (gold for lambo, phosphor
+  // for matrix, coral for beach, etc.). font-semibold matches the
+  // rest of the dashboard's emphasized text. The wrapper div adds
+  // top spacing so it visually separates from the formal explanation
+  // above it.
+  function onboardActionLine(text) {
+    return el('p', {
+      class: 'mt-3 text-emerald-300 font-semibold text-[13px] leading-snug',
+    }, text);
+  }
+  // Modal-internal CTA button — used on steps where the "action" is
+  // a click inside the tour modal itself (Begin Tour, Continue to
+  // Leaderboard, Show me a sample, Got it, etc.) rather than on the
+  // dashboard behind it. Styled to match the existing emerald-500
+  // CTA convention; theme files repaint .bg-emerald-500 to their
+  // accent so the button changes color per theme automatically.
+  function onboardModalButton(label, onClick) {
+    const btn = el('button', {
+      type: 'button',
+      class: 'mt-1 bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 text-[12px] hover:bg-emerald-400 transition shadow-sm shadow-emerald-500/20',
+    }, label);
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  // ── Seed-phrase reveal modal (step 6 of new tour) ──────────────────
+  //
+  // POST /api/wallet/mnemonic, render a 4x6 grid of the 24 words in
+  // mono, attach copy-to-clipboard + "I've saved this" + Cancel
+  // buttons. resolve('saved') advances the tour; resolve('cancel')
+  // dismisses without advancing.
+  function openSeedPhraseModal() {
+    return new Promise(async (resolve) => {
+      // Backdrop covers the whole viewport, dimmer than the tour
+      // backdrop, so the modal sits on top of everything including
+      // the tour modal itself.
+      const backdrop = el('div', {
+        class: 'fixed inset-0 z-[70] flex items-center justify-center px-4',
+        style: 'background: rgba(0,0,0,0.82);',
+      });
+      // The modal card — uses theme-aware background via .card class.
+      const card = el('div', {
+        class: 'card rounded-xl p-6 w-full max-w-2xl space-y-4 shadow-2xl',
+      });
+      const title = el('h2', {
+        class: 'text-[15px] font-semibold text-zinc-50',
+      }, 'Your 24-word recovery phrase');
+      const warning = el('div', {
+        class: 'border border-amber-500/40 bg-amber-500/5 rounded p-3 text-[12px] text-amber-100 leading-relaxed',
+      },
+        el('strong', null, 'Write these words on paper and store them somewhere fireproof.'),
+        ' ',
+        'Do not screenshot. Do not save to a cloud service or password manager. Anyone with these 24 words can drain every wallet your fleet derives.',
+      );
+
+      // Loading state until the fetch returns.
+      const grid = el('div', {
+        class: 'mono text-[14px] text-zinc-200 py-4 text-center',
+      }, 'Loading...');
+      const copyBtn = el('button', {
+        type: 'button',
+        class: 'border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded px-3 py-1.5 text-[12px] transition disabled:opacity-50 disabled:cursor-not-allowed',
+        disabled: true,
+      }, 'Copy to clipboard');
+      const savedBtn = el('button', {
+        type: 'button',
+        class: 'bg-emerald-500 text-[#0a0d13] font-semibold rounded px-4 py-1.5 text-[13px] hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed',
+        disabled: true,
+      }, "I've saved this to paper");
+      const cancelBtn = el('button', {
+        type: 'button',
+        class: 'text-zinc-400 hover:text-zinc-200 text-[12px] underline-offset-2 hover:underline',
+      }, 'Cancel');
+
+      const buttonRow = el('div', { class: 'flex items-center justify-between gap-3 pt-2' },
+        copyBtn,
+        el('div', { class: 'flex items-center gap-3' }, cancelBtn, savedBtn),
+      );
+
+      card.append(title, warning, grid, buttonRow);
+      backdrop.append(card);
+      document.body.append(backdrop);
+      onboardHelperNodes.push(backdrop);
+
+      const cleanup = () => {
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        const idx = onboardHelperNodes.indexOf(backdrop);
+        if (idx !== -1) onboardHelperNodes.splice(idx, 1);
+      };
+      cancelBtn.addEventListener('click', () => { cleanup(); resolve('cancel'); });
+      savedBtn.addEventListener('click', () => { cleanup(); resolve('saved'); });
+
+      let mnemonic = null;
+      try {
+        const res = await apiPost('/api/wallet/mnemonic', {});
+        if (res && res.ok && res.mnemonic) {
+          mnemonic = String(res.mnemonic).trim();
+        } else {
+          grid.textContent = (res && res.error) || 'Could not load mnemonic from runtime/bots/local.env.';
+          grid.className = 'text-rose-300 text-[12px] py-4 text-center';
+          return;
+        }
+      } catch (e) {
+        grid.textContent = 'Could not reach the server: ' + (e && e.message ? e.message : 'unknown error');
+        grid.className = 'text-rose-300 text-[12px] py-4 text-center';
+        return;
+      }
+
+      // Render the 24-word grid (4 columns x 6 rows). Each cell shows
+      // its 1-based index + the word in mono. Generous gap + padding
+      // so the words are easy to read off the screen.
+      const words = mnemonic.split(/\s+/);
+      const newGrid = el('div', {
+        class: 'grid grid-cols-4 gap-2 p-3 rounded border border-zinc-700 bg-[#0a0d13]/60',
+      });
+      words.forEach((word, i) => {
+        newGrid.append(
+          el('div', {
+            class: 'flex items-baseline gap-2 mono text-[13px] text-zinc-100 leading-tight',
+          },
+            el('span', { class: 'text-zinc-500 text-[10px] w-5 text-right shrink-0' }, String(i + 1) + '.'),
+            el('span', null, word),
+          ),
+        );
+      });
+      grid.replaceWith(newGrid);
+
+      copyBtn.disabled = false;
+      savedBtn.disabled = false;
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(mnemonic);
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 1500);
+        } catch {
+          copyBtn.textContent = 'Copy failed';
+          setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 1500);
+        }
+      });
+    });
+  }
+
+  // ── Sample-strategy preview popup (step 4 of new tour) ─────────────
+  //
+  // Renders an inline card showing what a real decoded-strategy row
+  // looks like (realistic entry/exit DSL, fake PnL, paper/live tag,
+  // action buttons). Returns a Promise that resolves when the user
+  // clicks "Got it" — which advances the tour.
+  function openSampleStrategyPanel() {
+    return new Promise((resolve) => {
+      const backdrop = el('div', {
+        class: 'fixed inset-0 z-[70] flex items-center justify-center px-4',
+        style: 'background: rgba(0,0,0,0.82);',
+      });
+      const card = el('div', {
+        class: 'card rounded-xl p-6 w-full max-w-2xl space-y-4 shadow-2xl',
+      });
+      const title = el('h2', {
+        class: 'text-[15px] font-semibold text-zinc-50',
+      }, 'Sample decoded strategy');
+      const subtitle = el('p', {
+        class: 'text-[12px] text-zinc-400',
+      }, "This is what a real wallet's decoded strategy looks like after the decoder finishes. (Don't worry — this is just an example.)");
+
+      // Realistic-looking fake strategy. The DSL syntax + region label
+      // matches what a real agentic-decode.py output would look like.
+      const strategyCard = el('div', {
+        class: 'rounded border border-zinc-700 bg-[#0a0d13]/60 p-4 space-y-3',
+      },
+        el('div', { class: 'flex items-center justify-between gap-3' },
+          el('div', null,
+            el('div', { class: 'text-[13px] font-semibold text-zinc-100' }, 'demo_wallet_8pLL_q1xY'),
+            el('div', { class: 'text-[11px] mono text-zinc-500' }, 'NYC region · 30bps fees · walk-forward 70/30'),
+          ),
+          el('div', { class: 'flex items-center gap-2' },
+            el('span', { class: 'text-[10px] mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/30' }, 'PAPER'),
+            el('span', { class: 'text-[11px] mono text-emerald-400 font-semibold' }, '+247.1 PnL'),
+          ),
+        ),
+        el('div', { class: 'grid grid-cols-2 gap-3 text-[12px] mono text-zinc-300' },
+          el('div', null,
+            el('div', { class: 'label text-zinc-500' }, 'Entry rule'),
+            el('div', { class: 'text-emerald-300' }, 'pm25_z < -1.0 AND price_dev <= -5%'),
+          ),
+          el('div', null,
+            el('div', { class: 'label text-zinc-500' }, 'Exit rule'),
+            el('div', { class: 'text-rose-300' }, 'pm25_z > +0.5 OR hold_age >= 4h'),
+          ),
+        ),
+        el('div', { class: 'grid grid-cols-4 gap-3 text-[11px] mono text-zinc-300 pt-2 border-t border-zinc-800/60' },
+          el('div', null, el('div', { class: 'label text-zinc-500' }, 'Win rate'), el('div', null, '78%')),
+          el('div', null, el('div', { class: 'label text-zinc-500' }, 'Avg trade'), el('div', null, '+1.8%')),
+          el('div', null, el('div', { class: 'label text-zinc-500' }, 'Trades'), el('div', null, '48')),
+          el('div', null, el('div', { class: 'label text-zinc-500' }, 'Sharpe'), el('div', null, '2.31')),
+        ),
+        el('div', { class: 'flex items-center gap-2 pt-2' },
+          el('button', {
+            type: 'button',
+            class: 'text-[11px] mono rounded px-2 py-1 border border-zinc-700 text-zinc-400 cursor-not-allowed',
+            disabled: true,
+          }, 'Backtest'),
+          el('button', {
+            type: 'button',
+            class: 'text-[11px] mono rounded px-2 py-1 border border-emerald-500/40 text-emerald-300 cursor-not-allowed',
+            disabled: true,
+          }, 'Deploy as paper'),
+          el('button', {
+            type: 'button',
+            class: 'text-[11px] mono rounded px-2 py-1 border border-rose-500/40 text-rose-300 cursor-not-allowed',
+            disabled: true,
+          }, 'Promote to live'),
+        ),
+      );
+
+      const gotIt = el('button', {
+        type: 'button',
+        class: 'bg-emerald-500 text-[#0a0d13] font-semibold rounded px-4 py-1.5 text-[13px] hover:bg-emerald-400 transition',
+      }, 'Got it');
+      const buttonRow = el('div', { class: 'flex items-center justify-end pt-1' }, gotIt);
+
+      card.append(title, subtitle, strategyCard, buttonRow);
+      backdrop.append(card);
+      document.body.append(backdrop);
+      onboardHelperNodes.push(backdrop);
+
+      const cleanup = () => {
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        const idx = onboardHelperNodes.indexOf(backdrop);
+        if (idx !== -1) onboardHelperNodes.splice(idx, 1);
+      };
+      gotIt.addEventListener('click', () => { cleanup(); resolve('ok'); });
+    });
+  }
+
+  // Drop any open helper overlays (modals, popups) on step change /
+  // tour dismiss. Called by renderOnboardStep and closeOnboardOverlay.
+  function removeHelperNodes() {
+    while (onboardHelperNodes.length) {
+      const node = onboardHelperNodes.pop();
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+    }
+  }
 
   function buildOnboardSteps() {
     const steps = [];
 
-    // 1 — Welcome / congrats (with confetti)
+    // 1 — Setup complete (welcome + confetti)
     steps.push({
-      title: "You're in",
+      title: "Setup complete",
       body: () => [
         el('p', null,
-          "Setup: done. Wallet minted, dashboard live, paper bot ticking, 6 watchdogs on patrol. Nice."),
-        el('p', { class: 'muted' }, '11 quick stops next — mostly one-click. Bail anytime; the "?" icon up top replays.'),
+          "Claude has installed dependencies, generated your wallet, started both the dashboard and the paper-trade bot, and registered six background watchdogs. Everything required to begin is now in place."),
+        el('p', { class: 'muted text-[12px]' },
+          'This short tour covers the dashboard\'s main views. Most steps are a single click; you can exit at any time and replay the tour later from the "?" icon in the sidebar.'),
+        onboardActionLine('Click Begin Tour to start.'),
+        onboardModalButton('Begin Tour', () => advanceOnboard()),
       ],
       onEnter: () => onboardConfetti(),
     });
@@ -3138,9 +3392,8 @@
       highlight: '#hero-start',
       body: () => [
         el('p', null,
-          'First mission: scout the wallets currently winning on PBX. Hit ',
-          el('strong', { class: 'text-emerald-300' }, 'Find top traders & decode'),
-          " — Claude handles it (~2 min) while we keep moving."),
+          "Discover scans the PBX market and identifies the wallets currently producing positive returns. The process takes about two minutes and runs in the background."),
+        onboardActionLine('Click the green Find top traders & decode button above to begin.'),
       ],
       gate: {
         description: 'Waiting for: click Find top traders & decode',
@@ -3173,7 +3426,9 @@
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          "Claude is cracking the top 10 wallets right here. Rows light up green as each one falls. Tour rolls on while it works."),
+          "Claude is now reverse-engineering the trading rules used by the ten wallets Discover identified. Each row updates as its decode completes; you do not need to wait here. The tour will continue while the decoder runs."),
+        onboardActionLine('Click Continue to advance to the Leaderboard.'),
+        onboardModalButton('Continue to the Leaderboard →', () => advanceOnboard()),
       ],
     });
 
@@ -3187,11 +3442,10 @@
       highlight: '#market-leaderboard',
       body: () => [
         el('p', null,
-          "Every wallet Discover catches lands here, ranked by trading volume. Spot one you like? Hit ",
-          el('strong', { class: 'text-emerald-300' }, 'Decode'),
-          " to crack its strategy."),
-        el('p', { class: 'muted' },
-          "Table still loading? Skip with Just continue below."),
+          "The Leaderboard lists every wallet Discover has identified, ranked by trading volume. Selecting a wallet and clicking Decode begins the reverse-engineering process for that wallet's strategy."),
+        el('p', { class: 'muted text-[12px]' },
+          "If the table is still loading, use Just continue below to advance."),
+        onboardActionLine('Click Decode on any wallet row above to begin.'),
       ],
       gate: {
         description: 'Waiting for: click Decode on any wallet row',
@@ -3222,12 +3476,19 @@
     // wrapper exists statically in dashboard.html, so it's present
     // the instant showView('strategies') flips the view visible.
     steps.push({
-      title: 'Step 4: Strategies',
+      title: 'Step 4: Decoded strategies',
       view: 'strategies',
       highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          "Cracked strategies land here — entry + exit rules pulled straight from the wallet's trade history. Backtest, paper-trade, or push to live whenever you're ready."),
+          "Decoded strategies appear on this page. Each strategy includes its extracted entry and exit rules and can be backtested, deployed as a paper bot, or promoted to live trading."),
+        onboardActionLine('Click below to preview what a real decoded strategy looks like.'),
+        onboardModalButton('Show me a sample strategy →', async () => {
+          // openSampleStrategyPanel returns when the user clicks "Got it".
+          // Advance immediately after.
+          await openSampleStrategyPanel();
+          advanceOnboard();
+        }),
       ],
     });
 
@@ -3240,98 +3501,71 @@
     steps.push({
       title: 'Step 5: Paper trading',
       view: 'paper',
-      highlight: '#bot-cards',
-      onEnter: () => injectSamplePaperBots(),
+      // Highlight the injected sample section (#onboard-paper-sample)
+      // rather than #bot-cards — refreshAll's renderBots wipes
+      // #bot-cards every 15s, so injecting the samples there has them
+      // disappear mid-tour. The sample section is prepended above
+      // bot-cards in view-paper and is safe from that wipe.
+      highlight: '#onboard-paper-sample',
+      // Inject the sample paper bots with a Deploy button on the first
+      // (profitable) one. Clicking Deploy runs a fake "deploying →
+      // deployed" pulse, then advances the tour via the onDeploy
+      // callback.
+      onEnter: () => injectSamplePaperBots({ onDeploy: () => advanceOnboard() }),
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
-          "Real prices, fake money. Prove a strategy can hang before risking a cent."),
-        el('p', { class: 'muted' },
-          "Those two cards above? Samples. Yours will look the same."),
+          "Paper trading runs a strategy against real market prices using simulated funds. Use it to validate a strategy's behavior before deploying real capital."),
+        el('p', { class: 'muted text-[12px]' },
+          "The two cards above are sample bots — your own paper bots will use the same layout."),
+        onboardActionLine('Click Deploy on the sample paper bot above to see how a strategy goes live.'),
+        el('p', { class: 'text-[11px] text-zinc-500 italic mt-1' },
+          "(don't worry — this is just an example)"),
       ],
     });
 
-    // 7 — Live trading + injected sample data
+    // 6 — Live trading + Wallet (COMBINED).
     //
-    // Highlights #onboard-live-sample (the injected sample bot section
-    // — see injectSampleLiveBots). renderOnboardStep runs onEnter
-    // BEFORE onboardHighlight, so the sample section exists in the
-    // DOM by the time the highlight selector resolves. Previous
-    // #view-live was the full <main> container — invisible outline.
-    steps.push({
-      title: 'Step 6: Live trading',
-      view: 'live',
-      highlight: '#onboard-live-sample',
-      onEnter: () => injectSampleLiveBots(),
-      onLeave: () => removeSampleNodes(),
-      body: () => [
-        el('p', null,
-          "The real ring. Bots here actually swap USDC for region tokens on Solana mainnet. Rule: paper-trade a strategy a full week before promoting it."),
-        el('p', { class: 'muted' },
-          "Samples up top — same layout as paper."),
-      ],
-    });
-
-    // 8 — Wallet setup reminder, anchored on the Live trading view
-    //     so the funder-card is right there as the user reads it.
+    // Universal Core safety rule: real-money / key-handling content
+    // stays in PLAIN voice. The seed-phrase reveal modal includes a
+    // prominent "do not screenshot" warning. Server-side endpoint
+    // (POST /api/wallet/mnemonic) returns the BOT_HD_MNEMONIC value
+    // from runtime/bots/local.env. Auth-gated by the same loopback
+    // / bearer-token hook as every other /api endpoint.
     //
-    // Skip-able by design: the user might be exploring with no
-    // intent to trade live. Live-trading endpoints stay 503 until
-    // BOT_HD_MNEMONIC is set up + the funder is funded, so deferring
-    // is safe.
-    // Accuracy note: wallet path was previously `~/.pbx-bots/local.env`
-    // — stale from before the three-layer refactor. Canonical path is
-    // now `runtime/bots/local.env` per CLAUDE.md's Layer-3 map.
-    // Step 7 — wallet setup. Universal Core safety rule: real-money
-    // / key-handling content stays in PLAIN voice. Intro can be a
-    // little lighter but the two bullets are strict and unembellished.
+    // Highlight: #funder-card (the dashboard element that represents
+    // the funder wallet — the source of every live trading bot).
+    // Skipped the live-sample injection here since the combined step
+    // is about WALLET SETUP, not the live-bot layout. (Layout was
+    // already established by Step 5 paper trading — live bots use
+    // the same layout with red accents.)
     steps.push({
-      title: 'Step 7: Wallet (optional)',
+      title: 'Step 6: Live trading and your wallet',
       view: 'live',
       highlight: '#funder-card',
       body: () => [
         el('p', null,
-          'The ',
+          "Live trading executes real-money trades on Solana mainnet, swapping USDC for region tokens according to the strategy's rules. Every live trading bot is funded by your ",
           el('strong', null, 'funder wallet'),
-          " up top spawns every live bot. Two things to lock in before you ever trade real money:"),
-        el('div', { class: 'border border-amber-500/30 bg-amber-500/5 rounded p-3 text-[12px] space-y-2' },
-          el('ul', { class: 'list-disc ml-5 space-y-1.5 text-zinc-300 leading-relaxed' },
-            el('li', null,
-              'Back up the 24-word phrase in ',
-              el('code', { class: 'mono text-amber-200' }, 'runtime/bots/local.env'),
-              ' (line after ',
-              el('code', { class: 'mono text-amber-200' }, 'BOT_HD_MNEMONIC='),
-              ') to paper. Fireproof. ',
-              el('strong', null, 'Do not screenshot.'),
-            ),
-            el('li', null,
-              'Fund the funder with USDC + SOL (~$50 + 0.05 SOL per bot).'),
-          ),
-        ),
-        el('p', { class: 'muted text-[12px]' },
-          'Paper-only? Skip and move on — live stays gated until both are done.'),
-      ],
-    });
-
-    // 9 — Strategies page (where decoded strategies populate after Discover)
-    //
-    // Navigates to /view-strategies + highlights the decoded-strategies
-    // section card so the user can SEE where their decoded strategies
-    // will land once Discover finishes. (Was #view-strategies — same
-    // invisible-outline issue as Step 4.)
-    steps.push({
-      title: 'Step 8: Where loot lands',
-      view: 'strategies',
-      highlight: '#strategies-decoded-section',
-      body: () => [
+          ", generated automatically during install."),
         el('p', null,
-          "Every cracked wallet drops a row here — entry rules, exit logic, paper/live tag. Backtest it, deploy as paper, promote a winner to live."),
-        el('p', { class: 'muted text-[12px]' },
-          "Empty for now — strategies pop in real time as Discover finishes."),
+          "Before live trading can begin, you need to save the funder wallet's 24-word recovery phrase to paper. This phrase is the only thing that reconstructs the wallet if anything happens to this machine."),
+        onboardActionLine('Click to view your recovery phrase, then write it down on paper.'),
+        onboardModalButton('Show me my seed phrase →', async () => {
+          const result = await openSeedPhraseModal();
+          // "saved" advances; "cancel" leaves the user on this step
+          // so they can retry — no silent advancement on cancel.
+          if (result === 'saved') advanceOnboard();
+        }),
       ],
     });
 
-    // 10 — Health page (system at a glance)
+    // (Step 8 from the old tour — "Where loot lands" / second Strategies
+    // pass — was removed when we merged the wallet step into Live
+    // trading. Step 4 already covers what Strategies is for; the recap
+    // was redundant.)
+
+    // 7 — Health page (system at a glance)
     //
     // Navigate to /view-health + pulse-highlight the 7-check card
     // (id="health-checks-card", added by renderHealth) so the user
@@ -3343,15 +3577,34 @@
     // for the selector to land in the DOM, so the highlight catches
     // the card after the API response settles.
     steps.push({
-      title: 'Step 9: Mission control',
+      title: 'Step 7: System health',
       view: 'health',
       highlight: '#health-checks-card',
       body: () => [
         el('p', null,
-          "7 live checks (server, heartbeat, AQI, disk, RPC...) + 6 watchdogs running every 5 min / hour / day. Backups, digests, auto-recovery — all hands-free."),
+          "The Health view provides a single-screen status of the running system: seven live checks (server uptime, paper-trade heartbeat, AQI feed, disk usage, RPC connection, and others) plus six scheduled background watchdogs that handle health checks, backups, digests, and automatic recovery."),
         el('p', { class: 'muted text-[12px]' },
-          'Green = good. Red = poke at it. Hit "Re-check" up top to refresh.'),
+          'Green indicates a healthy state; red indicates an issue requiring attention.'),
+        onboardActionLine('Click Re-check at the top of the 7-check card to refresh the status.'),
       ],
+      gate: {
+        description: 'Waiting for: click Re-check',
+        listen: (advance) => {
+          // The Re-check button sits inside #health-checks-card and
+          // its text is literally "Re-check". Match on text + container
+          // so we don't false-fire on any other "re-check"-labeled
+          // control elsewhere.
+          const handler = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const container = document.getElementById('health-checks-card');
+            if (!container || !container.contains(btn)) return;
+            if ((btn.textContent || '').trim().toLowerCase() === 're-check') advance();
+          };
+          document.addEventListener('click', handler, true);
+          return () => document.removeEventListener('click', handler, true);
+        },
+      },
     });
 
     // 11 — Achievements page (the final step before handoff)
@@ -3363,22 +3616,40 @@
     //
     // renderAchievements is async — onboardHighlight retries up to ~2s
     // for the selector to land in the DOM.
+    // Step 8 — Roadmap. Highlight the NEW s1.t15 "Setup Guide
+    // Completed" row specifically and gate on the user clicking its
+    // "manual: mark done" button. This is the formal milestone that
+    // closes out the tour.
     steps.push({
-      title: 'Step 10: The roadmap',
+      title: 'Step 8: Roadmap and achievements',
       view: 'achievements',
-      highlight: '#achievements-profile-card',
+      highlight: '.achievement-row[data-task-id="s1.t15"]',
       body: () => [
         el('p', null,
-          "7 sections, 131 quests. Section 1 (Genesis) auto-tracks — Claude marks tasks done from your install. Sections 2–7 unlock as you trade, decode, and explore. Hit a milestone, get celebrated."),
-        el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5 text-[12px]' },
-          el('p', { class: 'text-zinc-300' },
-            'Just ping Claude — try ',
-            el('em', { class: 'text-emerald-300' }, '"help me decode a wallet"'),
-            ' or ',
-            el('em', { class: 'text-emerald-300' }, "\"what's my next achievement\""),
-            ". Claude knows the map and ticks tasks done as you go."),
-        ),
+          "The roadmap contains 131 tasks across seven sections. Section 1 (Genesis) is tracked automatically — Claude marks tasks complete based on your current install state. Sections 2 through 7 unlock as you trade, decode wallets, and explore the platform."),
+        el('p', { class: 'muted text-[12px]' },
+          'To progress, talk to Claude in chat. Example prompts include "help me decode a wallet" or "what is my next achievement?" — Claude knows the roadmap and will mark tasks complete as you reach each milestone.'),
+        onboardActionLine('Click the "manual: mark done" button on the Setup Guide Completed row above.'),
       ],
+      gate: {
+        description: 'Waiting for: mark Setup Guide Completed done',
+        listen: (advance) => {
+          const handler = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const row = btn.closest('.achievement-row[data-task-id="s1.t15"]');
+            if (!row) return;
+            const txt = (btn.textContent || '').toLowerCase();
+            if (txt.includes('manual: mark done') || txt.includes('saving')) {
+              // Brief delay so the user sees the row flip to "manual ✓"
+              // and the achievement toast fire before the tour moves on.
+              setTimeout(() => advance(), 1200);
+            }
+          };
+          document.addEventListener('click', handler, true);
+          return () => document.removeEventListener('click', handler, true);
+        },
+      },
     });
 
     // 12 — You're ready (final handoff, lands on Achievements view)
@@ -3387,16 +3658,20 @@
     // visual anchor (their progress card) while they read the
     // Telegram CTA + handoff line. No highlight; the modal IS the
     // focal point here.
+    // Step 9 — Final handoff. No gate; the existing Next button shows
+    // "Finish" on the last step automatically. Modal CTA replaced
+    // with the standard Finish path to keep the existing dismiss
+    // flow working.
     steps.push({
-      title: "Go",
+      title: "You're ready to begin",
       view: 'achievements',
       body: () => [
         el('p', null,
-          "That's the whole game. Work the roadmap with Claude one chat at a time — every milestone tracked live."),
+          "That concludes the tour. The roadmap serves as your guide — work through it with Claude one conversation at a time, and the achievements page will track each milestone."),
         el('div', { class: 'mt-2 p-3 rounded border border-emerald-500/40 bg-emerald-500/5' },
-          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Squad up'),
+          el('div', { class: 'text-[12px] text-zinc-100 font-medium mb-1' }, 'Join the operator community'),
           el('p', { class: 'text-[12px] text-zinc-300 mb-2' },
-            'Operators share strategies, decoded wallets, and signal shifts in Telegram. Free to join.'),
+            'Telegram is where operators compare strategies, share decoded wallets, and coordinate on signal shifts. Free to join.'),
           el('a', {
             href: 'https://t.me/+CmFL4HXFGFE3NTgx',
             target: '_blank',
@@ -3405,7 +3680,8 @@
           }, 'Open Telegram invite ↗'),
         ),
         el('p', { class: 'muted text-[12px] mt-2' },
-          'Replay anytime — "?" icon in the sidebar.'),
+          'You can replay this tour at any time using the "?" icon in the sidebar.'),
+        onboardActionLine('Click Finish to start using PBX Stratos.'),
       ],
     });
 
@@ -3421,9 +3697,13 @@
     // Mirrors the visual language of botCard() without trying to mock
     // every internal field — a single descriptive card per spec, with
     // a SAMPLE pill so the user knows it's preview, not their data.
+    // Optional Deploy button (opts.withDeploy + opts.onDeploy) is
+    // used by Step 5 of the tour — clicking it kicks a tiny
+    // "deploying → deployed" pulse + advances the tour. Wrapped in
+    // its own div so the tour can selectively highlight it.
     const accent = opts.live ? '#fb7185' : '#7dd3fc';
-    return el('article', {
-      class: 'card rounded-xl p-5 glow-up',
+    const card = el('article', {
+      class: 'card rounded-xl p-5 glow-up' + (opts.withDeploy ? ' relative' : ''),
       style: '--accent: ' + accent + '; border-left: 3px solid ' + accent + ';',
     },
       el('header', { class: 'flex items-start justify-between gap-3 mb-3' },
@@ -3450,27 +3730,64 @@
         el('div', null, el('div', { class: 'label' }, 'Last tick'), el('div', null, opts.lastTick)),
       ),
     );
+    if (opts.withDeploy) {
+      const deployBtn = el('button', {
+        type: 'button',
+        class: 'mt-3 w-full bg-emerald-500 text-[#0a0d13] font-semibold rounded px-3 py-2 text-[12px] hover:bg-emerald-400 transition',
+      }, 'Deploy');
+      deployBtn.addEventListener('click', () => {
+        if (deployBtn.disabled) return;
+        deployBtn.disabled = true;
+        deployBtn.textContent = 'Deploying...';
+        deployBtn.classList.add('animate-pulse');
+        setTimeout(() => {
+          deployBtn.classList.remove('animate-pulse');
+          deployBtn.textContent = 'DEPLOYED';
+          if (typeof opts.onDeploy === 'function') {
+            setTimeout(() => opts.onDeploy(), 450);
+          }
+        }, 700);
+      });
+      card.append(deployBtn);
+    }
+    return card;
   }
 
-  function injectSamplePaperBots() {
+  function injectSamplePaperBots(opts) {
+    // opts.onDeploy — when present, the FIRST (profitable) sample bot
+    // renders a Deploy button. Used by the Paper trading step of the
+    // tour as the user's concrete action. Click → "Deploying..." pulse
+    // → "DEPLOYED" → onDeploy() fires (which advances the tour).
+    //
+    // IMPORTANT: We PREPEND the samples to #view-paper as their own
+    // <section>, NOT into #bot-cards. The refreshAll() data poll runs
+    // every 15s and renderBots replaces #bot-cards's children entirely
+    // (see line ~818 `replace(document.getElementById('bot-cards'), ...)`),
+    // which wipes anything we'd injected directly into that container.
+    // A sibling section above bot-cards is safe from that wipe. Same
+    // pattern injectSampleLiveBots already uses.
     removeSampleNodes();
-    const host = document.getElementById('bot-cards');
-    if (!host) return;
-    const cards = [
+    const view = document.getElementById('view-paper');
+    if (!view) return;
+    const onDeploy = opts && typeof opts.onDeploy === 'function' ? opts.onDeploy : null;
+    const wrap = el('section', {
+      id: 'onboard-paper-sample',
+      class: 'grid grid-cols-3 gap-4',
+    },
       buildSampleBotCard({
         name: 'paper-eg-1', strategy: 'mean_reversion', live: false,
         pnl: '+4.7%', pnlPositive: true, age: 'up 2h', closed: '3',
         lastTick: '12s ago',
+        withDeploy: !!onDeploy,
+        onDeploy: onDeploy || undefined,
       }),
       buildSampleBotCard({
         name: 'paper-eg-2', strategy: 'pm25_zscore', live: false,
         pnl: '+1.2%', pnlPositive: true, age: 'up 8h', closed: '7',
         lastTick: '8s ago',
       }),
-    ];
-    const wrap = el('div', { id: 'onboard-paper-sample', class: 'contents' });
-    cards.forEach((c) => wrap.append(c));
-    host.append(wrap);
+    );
+    view.prepend(wrap);
     onboardSampleNodes.push(wrap);
   }
 
@@ -3971,8 +4288,11 @@
     // the next step doesn't share the same one.
     clearGateCleanup();
     // Always clear samples — each step that wants them re-injects in
-    // onEnter. This keeps the live/paper sample data isolated.
+    // onEnter. This keeps the live/paper sample data isolated. Also
+    // dismiss any open helper overlays (seed-phrase modal, sample-
+    // strategy preview) left from the previous step.
     removeSampleNodes();
+    removeHelperNodes();
 
     const step = onboardSteps[onboardCurrent];
 
@@ -4073,6 +4393,7 @@
   function closeOnboardOverlay(showToast) {
     clearGateCleanup();
     removeSampleNodes();
+    removeHelperNodes();
     const backdrop = document.getElementById('onboard-backdrop');
     if (backdrop) {
       backdrop.classList.add('hidden');
@@ -4499,7 +4820,7 @@
     // Manual outliers in Section 1 that the detector intentionally CAN'T
     // verify (paper mnemonic backup, voice call). These render as a
     // user-flippable checkbox so the existing /mark endpoint still works.
-    const sectionOneManualIds = new Set(['s1.t7', 's1.t14']);
+    const sectionOneManualIds = new Set(['s1.t7', 's1.t14', 's1.t15']);
 
     // ── Profile header card ──
     const totalDone = sections.reduce((sum, s) => sum + (s.doneTasks || 0), 0);

@@ -17,6 +17,9 @@ Universal Core.
 ### s1.t1 — "Claude Desktop + Bypass Mode Ready"
 > Hey, Claude Desktop is installed, you're on the Pro Plan, and you flipped both bypass-permissions toggles ON. That's the hardest part for most people honestly. Without those toggles the install would take like 5x longer, so good call. Onward — clone the repo and type the trigger phrase next.
 
+### s1.t15 — "Setup Guide Completed"
+> Yooo, you rode the whole guide, dude. Every section — discover, paper, live, the wallet, the works. You locked down that seed phrase too, nice work. Section 1 is officially in motion. Keep ridin'.
+
 ### s1.t2 — "Wizard Triggered"
 > You typed the trigger phrase and the setup wizard is rolling. From here, mostly Claude drives and you just hang loose and approve stuff. Up next: the 4-stage code safety check.
 

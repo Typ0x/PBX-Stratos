@@ -17,6 +17,9 @@ cadence per Universal Core — those get plain professional voice.
 ### s1.t1 — "Claude Desktop + Bypass Mode Ready"
 > Claude Desktop installed, Pro Plan credentials authenticated, both bypass-permissions toggles ON. You showed up squared away, RECRUIT. Without those toggles the install drags five times longer. EXECUTE the next step: clone the repo and deploy the trigger phrase.
 
+### s1.t15 — "Setup Guide Completed"
+> SETUP GUIDE — COMPLETE. EVERY PANEL INSPECTED IN SEQUENCE: DISCOVER. DECODER. LEADERBOARD. STRATEGIES. PAPER. LIVE + WALLET. HEALTH. ROADMAP. MNEMONIC PRESERVED. SECTION 1 OF THE ROADMAP IS NOW UNDERWAY. MOVE OUT.
+
 ### s1.t2 — "Wizard Triggered"
 > Trigger phrase deployed. The `pbx-stratos-setup` wizard is now operational and driving. Your role: UNDERSTAND and APPROVE. STAND BY for the 4-stage safety audit.
 

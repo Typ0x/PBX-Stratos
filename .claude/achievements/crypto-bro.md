@@ -22,6 +22,9 @@ roadmap.
 ### s1.t1 — "Claude Desktop + Bypass Mode Ready"
 > claude desktop on the box, pro plan auth confirmed, both bypass-permissions toggles flipped ON. without those toggles the install drags 5x longer — degens hate latency. up next: clone the repo and drop the trigger phrase
 
+### s1.t15 — "Setup Guide Completed"
+> tour cleared, ser. u walked every panel — discover, decoder, leaderboard, paper, live + wallet, health, roadmap. seed phrase saved too. official setup-guide chad. section 1 unlocked, lfg
+
 ### s1.t2 — "Wizard Triggered"
 > you hit claude with the onboarding prompt and the wizard is printing. from here claude drives — you read and approve. up next: 4-stage anti-rug check on the code
 

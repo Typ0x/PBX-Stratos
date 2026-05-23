@@ -19,6 +19,9 @@ Universal Core.
 ### s1.t1 — "Claude Desktop + Bypass Mode Ready"
 > Claude Desktop installation confirmed and authenticated against a Pro Plan account. The two bypass-permissions toggles in Settings have been enabled. Empirical observation, consistent across prior installations, indicates these toggles reduce installation duration by approximately a factor of five (high confidence, n is large). The research environment is now constituted; proceed to issuance of the onboarding directive.
 
+### s1.t15 — "Setup Guide Completed"
+> The on-dashboard Setup Guide has been completed in its entirety. Each subsystem has been surveyed in sequence: discovery, decoding, leaderboard, strategies, paper trading, live trading and funder wallet, system health, and the roadmap. The recovery-phrase backup has been acknowledged. Section 1 of the roadmap is now formally initiated.
+
 ### s1.t2 — "Wizard Triggered"
 > The trigger phrase has been entered and the `pbx-stratos-setup` wizard has assumed operational authority. The investigator's role shifts from execution to verification. The next stage is a four-component safety audit.
 

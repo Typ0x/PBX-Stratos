@@ -61,6 +61,7 @@ fires WAY before that.
 | ID | Task | Done when |
 |----|------|-----------|
 | `s1.t1` | Install **Claude Desktop** with a Pro Plan account, then toggle **Settings → Claude Code → "Allow bypass permissions mode" ON → "Bypass permissions" ON** | installer succeeded, signed in with Pro, both toggles ON (without these the install takes ~5× longer) |
+| `s1.t15` | Complete the on-dashboard **Setup Guide** tour — walks every section of the framework (Discover / Decoder / Leaderboard / Strategies / Paper / Live + Wallet / Health / Roadmap) and asks you to back up the funder seed phrase | the user manually marks this complete at the final step of the dashboard's "?" Setup Guide tour |
 | `s1.t2` | Open Claude Desktop and paste one of two prompts. **Seamless:** *"download this repo https://github.com/Typ0x/PBX-Stratos and set it up"* — Claude inspects the install scripts, summarizes once, clones + installs after your confirm. **Already cloned (`git clone` first):** *"Verify if PBX Stratos Repo is safe and start the onboarding process in .README"* from inside the cloned folder. | Claude has either summarized findings + cloned, OR opened the install wizard inside the existing clone. |
 | `s1.t3` | Sit through the 4-stage on-disk safety audit (host / Claude CLI / clone-integrity / 4 security greps) + approve | Claude reports each stage in plain English, you click "Yes, let's go" |
 | `s1.t4` | Answer the 5-question personality quiz (tech level / comm style / goal / consent / autonomy) | `runtime/lab/user-profile.json` is written with your 5 answers |

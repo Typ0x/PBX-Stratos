@@ -738,6 +738,66 @@ app.get('/achievements-sprite.svg', async (_req, reply) => {
     .send(readAchievementsSprite());
 });
 
+// ─── Wallet mnemonic reveal (Setup Guide tour) ─────────────────────────
+//
+// POST /api/wallet/mnemonic returns the funder wallet's 24-word recovery
+// phrase to the calling client. Triggered by the user clicking
+// "See my seed phrase" in the dashboard's Setup Guide tour (step 6,
+// Live trading + Wallet).
+//
+// POST (not GET) so a passive `<img src>` or stale link can't trigger
+// a reveal. Reads BOT_HD_MNEMONIC fresh from runtime/bots/local.env
+// each call so a user who rotated their wallet externally (rare —
+// usually a re-install) sees the current phrase, not whatever was in
+// memory at server boot.
+//
+// Auth: piggybacks on the existing onRequest hook — same loopback
+// bypass + bearer-token gate as every other /api/* endpoint. The
+// dashboard runs same-origin so the browser's bearer header (set by
+// /api/local-token) covers this naturally; an outside fetcher needs
+// the token AND would also need to defeat the loopback Host check
+// (DNS-rebinding defense documented in the auth hook).
+//
+// Response shape: { ok: true, mnemonic: "<24 words>" } or
+// { ok: false, error: "<reason>" } with HTTP 200 either way so the
+// client doesn't have to special-case status codes.
+function readMnemonicFromDisk(): string | null {
+  const path = join(DATA_DIR, 'local.env');
+  try {
+    if (lstatSync(path).isSymbolicLink()) return null;
+    const text = readFileSync(path, 'utf8');
+    const m = /^BOT_HD_MNEMONIC=(.+?)\s*$/m.exec(text);
+    if (!m || !m[1]) return null;
+    const phrase = m[1].trim();
+    // Sanity check: must be 24 lowercase-alpha words. Anything else
+    // is corruption / wrong file / pre-HD-derivation install — return
+    // null so the client gets a clean "not available" instead of
+    // displaying nonsense words to write down.
+    const words = phrase.split(/\s+/);
+    if (words.length !== 24) return null;
+    if (!words.every((w) => /^[a-z]+$/.test(w))) return null;
+    return phrase;
+  } catch {
+    return null;
+  }
+}
+app.post('/api/wallet/mnemonic', async (_req, reply) => {
+  const mnemonic = readMnemonicFromDisk();
+  if (!mnemonic) {
+    return reply.send({
+      ok: false,
+      error: 'Mnemonic not available — runtime/bots/local.env may not yet have a BOT_HD_MNEMONIC line. Restart the server after a successful install to autogenerate it.',
+    });
+  }
+  // Discourage proxies / browsers from caching the response — the
+  // mnemonic itself is sensitive, even if HTTPS keeps it off the wire
+  // in transit.
+  reply
+    .header('cache-control', 'no-store, no-cache, must-revalidate, private')
+    .header('pragma', 'no-cache')
+    .send({ ok: true, mnemonic });
+});
+
 // ─── Health ────────────────────────────────────────────────────────────
 //
 // The classic /health endpoint stays ok-only for backwards-compat with
@@ -2245,6 +2305,9 @@ app.get('/api/ops/achievements', async () => {
     return greens >= 5;
   }));
   // s1.t14 — voice call with team. Manual; never auto-true.
+  // s1.t15 — Setup Guide tour completed in-dashboard. Manual; only
+  // the dashboard's tour-final "mark done" click sets this. No
+  // detector, never auto-true.
 
   // ── Apply detectors & persist any newly-unlocked tasks ──
   const autoUnlocked: string[] = [];

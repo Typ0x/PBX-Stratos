@@ -17,6 +17,9 @@ up per Universal Core.
 ### s1.t1 — "Claude Desktop + Bypass Mode Ready"
 > claude desktop on the box, pro plan auth confirmed, both bypass-permissions toggles flipped ON. without those toggles the install is ~5x slower. happy path enabled. next: clone the repo + drop the trigger.
 
+### s1.t15 — "Setup Guide Completed"
+> tour walked. every panel hit. seed saved. section 1 on. continue.
+
 ### s1.t2 — "Wizard Triggered"
 > trigger phrase dispatched. `pbx-stratos-setup` has root from here. you mostly read + ack. up next: 4-stage code audit.
 
