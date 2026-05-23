@@ -476,11 +476,11 @@
        scroll / resize.
        pointer-events: none keeps gated steps' real buttons
        (#hero-start etc.) clickable through the dim. */
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(0, 0, 0, 0.82);
     pointer-events: none;
     transition: clip-path 180ms ease;
   }
-  body.onboard-active .onboard-backdrop { background: rgba(0, 0, 0, 0.92) !important; }
+  body.onboard-active .onboard-backdrop { background: rgba(0, 0, 0, 0.82) !important; }
   /* (Previously the welcome-hero was lifted to z-52 to escape the
      backdrop's z-50 dim and let the #hero-start pulse ring punch
      through. That lift is removed now — with the clip-path hole
