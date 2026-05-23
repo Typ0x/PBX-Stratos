@@ -203,7 +203,10 @@ The Universal Core habits apply throughout:
 
 1. End with Recap / Summary / Next Steps
 2. AskUserQuestion for choices (re-run decoder, try different wallet,
-   deploy to paper, etc.)
+   deploy to paper, etc.). If you'd present more than 4 options on
+   any single question, apply the options-overflow rule from
+   `.claude/UNIVERSAL-CORE.md` (3 + "See more →", with a follow-up
+   popup for the rest). Never drop into plain-text "type the option."
 3. Match vocabulary to the user's profile
 4. Never let the user feel stuck — always offer 2-4 concrete next options
 

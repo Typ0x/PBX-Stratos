@@ -641,6 +641,51 @@ app.addHook('preValidation', async (req, reply) => {
 // /dashboard so any bare-port hit lands on the actual UI.
 app.get('/', async (_req, reply) => reply.redirect('/dashboard'));
 
+// ─── Achievement images ────────────────────────────────────────────────
+//
+// Per-achievement badge images. For now every achievement uses the
+// same placeholder SVG (a generic trophy). The route accepts any
+// `:id` parameter so client code can ask for `/achievements/img/s1.t1`
+// or `/achievements/img/wallet_decoded` interchangeably; once we
+// author real per-achievement art we'll branch on id here and return
+// the matching file, falling back to the placeholder for unknown ids.
+//
+// The SVG is inlined (no separate asset file) so the install ships
+// with zero extra files. Designed to read OK against any theme — uses
+// `currentColor` so themed CSS can recolor it via the surrounding
+// element's color.
+const ACHIEVEMENT_PLACEHOLDER_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+  <defs>
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="currentColor" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="currentColor" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer star/badge shape (8-pointed rosette) -->
+  <path d="M32 4 L37 14 L48 12 L46 23 L56 28 L48 36 L52 47 L41 48 L36 58 L32 50 L28 58 L23 48 L12 47 L16 36 L8 28 L18 23 L16 12 L27 14 Z"
+        fill="url(#badgeGrad)"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linejoin="round"/>
+  <!-- Inner circle -->
+  <circle cx="32" cy="32" r="13" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.2"/>
+  <!-- Star at center -->
+  <path d="M32 22 L34.5 29.5 L42 29.5 L36 34 L38.5 41.5 L32 37 L25.5 41.5 L28 34 L22 29.5 L29.5 29.5 Z"
+        fill="currentColor"/>
+</svg>`;
+
+app.get<{ Params: { id: string } }>('/achievements/img/:id', async (_req, reply) => {
+  // No per-id branching yet — placeholder for every achievement.
+  // When we add real art, check for `bots/public/achievements/<id>.svg`
+  // or .png on disk first and serve that, falling back to the
+  // placeholder below.
+  reply
+    .header('content-type', 'image/svg+xml')
+    .header('cache-control', 'public, max-age=600')
+    .send(ACHIEVEMENT_PLACEHOLDER_SVG);
+});
+
 // ─── Health ────────────────────────────────────────────────────────────
 //
 // The classic /health endpoint stays ok-only for backwards-compat with

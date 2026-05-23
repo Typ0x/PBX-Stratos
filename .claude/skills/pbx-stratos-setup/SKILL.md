@@ -690,6 +690,13 @@ Use AskUserQuestion with options like:
 - "Pick two with different exit styles so I can compare"
 - "Skip starters — I want to write my own strategy from scratch"
 
+If the user picks "Show me the full list," the registry usually has
+>4 strategies. **Apply the options-overflow rule from
+`.claude/UNIVERSAL-CORE.md`** — Popup 1 shows the first 3 strategies
++ "See more options →" as option 4; Popup 2 shows the next 3 +
+"← See original options" as option 4; round-trip until they pick.
+Never drop into "type the strategy name."
+
 **Disclaim** in plain voice: the starter strategies are not financial
 advice and are not expected to be profitable as-shipped. They exist
 so users have something running while they learn the framework. Real

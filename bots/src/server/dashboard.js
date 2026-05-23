@@ -1655,6 +1655,12 @@
     maybeStartOnboarding();
     refreshAll();
     setInterval(refreshAll, 15000);
+    // Background achievement-unlock poll. Runs regardless of which
+    // view is active so toasts fire even when the user is on Health
+    // or Paper Trading. Initial call delayed 4s to let the dashboard
+    // settle on first load (avoids racing the initial refreshAll).
+    setTimeout(pollAchievementsForToasts, 4000);
+    setInterval(pollAchievementsForToasts, 30000);
   });
 
   // ============ workflow (Strategy Discovery) ============
@@ -3507,6 +3513,153 @@
           window.scrollBy({ top: -80, behavior: 'smooth' });
         } catch { /* old browser, no smooth-scroll — non-fatal */ }
       }, 80);
+    }
+  }
+
+  // ── Achievement unlock toasts (Steam-style, bottom-right) ───────────
+  //
+  // Server-side detection lives in /api/ops/achievements: each call
+  // re-runs the detector array and returns `autoUnlockedThisRequest`
+  // listing any task IDs unlocked in THAT request. We poll every ~30s
+  // regardless of which dashboard view is active, dedupe against a
+  // localStorage set so an unlock never toasts twice, and render a
+  // theme-aware card at bottom-right + a confetti burst from the
+  // toast's corner.
+  //
+  // Storage shape: localStorage.pbx_toasted_unlocks is a JSON array of
+  // task IDs we've already shown a toast for. Cleared by Reset-Fresh.
+
+  function loadToastedUnlocks() {
+    try {
+      const raw = localStorage.getItem('pbx_toasted_unlocks');
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch { return new Set(); }
+  }
+  function saveToastedUnlocks(set) {
+    try { localStorage.setItem('pbx_toasted_unlocks', JSON.stringify(Array.from(set))); }
+    catch { /* quota / private mode — non-fatal */ }
+  }
+
+  // Fire confetti from the bottom-right corner where the toast lives.
+  // Smaller / shorter than the onboarding burst — this is celebratory
+  // but shouldn't dominate the screen.
+  function achievementConfetti() {
+    if (typeof window.confetti !== 'function') return;
+    const c = window.confetti;
+    // Theme-aware colors: pull from CSS vars set by the active theme,
+    // falling back to the framework's emerald palette.
+    const root = getComputedStyle(document.documentElement);
+    const themeColor = (root.getPropertyValue('--accent-primary') || '').trim()
+                    || (root.getPropertyValue('--theme-accent') || '').trim()
+                    || '#10b981';
+    const colors = [themeColor, '#34d399', '#fbbf24', '#a78bfa', '#f0abfc'];
+    const defaults = { startVelocity: 30, ticks: 80, zIndex: 60, gravity: 0.9, colors };
+    // Burst angled up-and-to-the-left away from the bottom-right corner
+    // so particles fan into the visible viewport, not off-screen.
+    c({ ...defaults, particleCount: 60, angle: 135, spread: 70, origin: { x: 0.93, y: 0.92 } });
+    // Tiny follow-up burst for movement.
+    setTimeout(() => {
+      c({ ...defaults, particleCount: 30, angle: 120, spread: 90, origin: { x: 0.88, y: 0.95 } });
+    }, 220);
+  }
+
+  // Render one toast in the bottom-right stack. Auto-dismisses after
+  // ~6s. Stack supports multiple toasts when several unlocks land in
+  // a single poll — they cascade up the right edge.
+  function showAchievementToast(unlock) {
+    const stack = document.getElementById('achievement-toast-stack');
+    if (!stack) return;
+    const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
+    const descText  = unlock.description || '';
+    const imgUrl    = unlock.imageUrl || ('/achievements/img/' + encodeURIComponent(unlock.taskId));
+
+    const toast = document.createElement('div');
+    toast.className = 'pbx-achievement-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+
+    const img = document.createElement('div');
+    img.className = 'pbx-achievement-toast-img';
+    img.innerHTML = '<img src="' + imgUrl + '" alt="" width="48" height="48"/>';
+
+    const body = document.createElement('div');
+    body.className = 'pbx-achievement-toast-body';
+
+    const eyebrow = document.createElement('div');
+    eyebrow.className = 'pbx-achievement-toast-eyebrow';
+    eyebrow.textContent = 'Achievement Unlocked';
+
+    const title = document.createElement('div');
+    title.className = 'pbx-achievement-toast-title';
+    title.textContent = titleText;
+
+    const desc = document.createElement('div');
+    desc.className = 'pbx-achievement-toast-desc';
+    desc.textContent = descText;
+
+    body.append(eyebrow, title, desc);
+    toast.append(img, body);
+    stack.append(toast);
+
+    // Slide-in animation handled by CSS keyframe + class flip.
+    requestAnimationFrame(() => toast.classList.add('pbx-achievement-toast-visible'));
+
+    // Click anywhere on the toast dismisses it early.
+    toast.addEventListener('click', () => dismissToast(toast));
+
+    // Auto-dismiss after 6s.
+    setTimeout(() => dismissToast(toast), 6000);
+  }
+
+  function dismissToast(toast) {
+    if (!toast || !toast.parentNode) return;
+    toast.classList.add('pbx-achievement-toast-leaving');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 350);
+  }
+
+  // Background poll: hits /api/ops/achievements every ~30s regardless
+  // of which view is open. The endpoint runs server-side detection and
+  // returns any IDs unlocked in that call as `autoUnlockedThisRequest`,
+  // plus the canonical title/description from achievement-pack lookup.
+  // For each ID we haven't toasted yet, fire toast + confetti + record.
+  async function pollAchievementsForToasts() {
+    let data;
+    try { data = await api('/api/ops/achievements'); }
+    catch { return; /* server hiccup; retry next tick */ }
+    if (!data || typeof data !== 'object') return;
+    const fresh = Array.isArray(data.autoUnlockedThisRequest)
+      ? data.autoUnlockedThisRequest : [];
+    if (fresh.length === 0) return;
+    const seen = loadToastedUnlocks();
+    // Build a quick lookup of taskId → { title, description } from the
+    // sections payload so we can render rich content without a second
+    // API call. Falls back to taskId-only if a section row isn't found.
+    const idMeta = {};
+    if (Array.isArray(data.sections)) {
+      for (const sec of data.sections) {
+        if (!Array.isArray(sec.tasks)) continue;
+        for (const t of sec.tasks) idMeta[t.id] = { title: sec.name + ' — ' + t.id, description: t.description };
+      }
+    }
+    let toasted = 0;
+    for (const id of fresh) {
+      if (seen.has(id)) continue;
+      const meta = idMeta[id] || {};
+      showAchievementToast({
+        taskId: id,
+        title: meta.title || ('Unlocked: ' + id),
+        description: meta.description || '',
+      });
+      seen.add(id);
+      toasted++;
+    }
+    if (toasted > 0) {
+      saveToastedUnlocks(seen);
+      // One confetti burst per poll, even if multiple unlocked at once —
+      // the toast stack already conveys multiplicity visually.
+      achievementConfetti();
     }
   }
 

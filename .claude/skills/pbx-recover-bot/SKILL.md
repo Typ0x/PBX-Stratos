@@ -43,6 +43,10 @@ Don't ask the user to do this. You run it. Report back what you see.
 
 Match observed symptoms to known patterns. Use AskUserQuestion to
 confirm with the user before acting if multiple matches are possible.
+If you'd be presenting more than 4 possible symptoms/fixes, apply
+the options-overflow rule from `.claude/UNIVERSAL-CORE.md`: first 3
+matches + "See more options →" as option 4, then a follow-up popup
+with the rest + "← See original options" to round-trip.
 
 | Symptom | Likely cause | Cheap fix |
 |---------|--------------|-----------|

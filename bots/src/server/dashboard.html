@@ -197,6 +197,11 @@
   Tour complete. Click the &quot;Setup Guide&quot; button in the sidebar to replay anytime.
 </div>
 
+<!-- Achievement-unlock toast stack. New unlocks slide in here from the
+     bottom-right. Multiple unlocks stack vertically. Each toast is
+     self-removing after ~6s. -->
+<div id="achievement-toast-stack" class="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-3 items-end pointer-events-none"></div>
+
 <!-- Backup modal: stays open until the user confirms they wrote down
      the mnemonic by re-typing 3 random words. Three-step flow:
        (1) reveal — show 24 words in a grid, "I wrote these down" CTA
