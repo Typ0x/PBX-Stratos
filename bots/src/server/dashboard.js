@@ -3208,10 +3208,16 @@
     });
 
     // 5 — Strategies (no gate)
+    //
+    // Highlights the "Decoded strategies" section card (not the whole
+    // #view-strategies <main> container — that's 1440px wide so the
+    // outline is invisible at viewport scale). The decoded-section
+    // wrapper exists statically in dashboard.html, so it's present
+    // the instant showView('strategies') flips the view visible.
     steps.push({
       title: 'Step 4: Strategies',
       view: 'strategies',
-      highlight: '#view-strategies',
+      highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
           'You just kicked off the wallet decoder. It runs Claude in a loop against historical trades to extract the entry and exit rules. ',
@@ -3222,10 +3228,15 @@
     });
 
     // 6 — Paper trading + injected sample data
+    //
+    // Highlights #bot-cards (where injectSamplePaperBots writes its
+    // preview cards). Previous #view-paper drew the outline around
+    // the entire 1440px <main> — invisible at viewport scale because
+    // the outline IS the page edge.
     steps.push({
       title: 'Step 5: Paper trading',
       view: 'paper',
-      highlight: '#view-paper',
+      highlight: '#bot-cards',
       onEnter: () => injectSamplePaperBots(),
       onLeave: () => removeSampleNodes(),
       body: () => [
@@ -3238,10 +3249,16 @@
     });
 
     // 7 — Live trading + injected sample data
+    //
+    // Highlights #onboard-live-sample (the injected sample bot section
+    // — see injectSampleLiveBots). renderOnboardStep runs onEnter
+    // BEFORE onboardHighlight, so the sample section exists in the
+    // DOM by the time the highlight selector resolves. Previous
+    // #view-live was the full <main> container — invisible outline.
     steps.push({
       title: 'Step 6: Live trading',
       view: 'live',
-      highlight: '#view-live',
+      highlight: '#onboard-live-sample',
       onEnter: () => injectSampleLiveBots(),
       onLeave: () => removeSampleNodes(),
       body: () => [
@@ -3295,13 +3312,14 @@
 
     // 9 — Strategies page (where decoded strategies populate after Discover)
     //
-    // Navigates to /view-strategies + highlights the strategies table
-    // so the user can SEE where their decoded strategies will land
-    // once Discover finishes. The cool stuff happens here.
+    // Navigates to /view-strategies + highlights the decoded-strategies
+    // section card so the user can SEE where their decoded strategies
+    // will land once Discover finishes. (Was #view-strategies — same
+    // invisible-outline issue as Step 4.)
     steps.push({
       title: 'Step 8: Where the cool stuff lands',
       view: 'strategies',
-      highlight: '#view-strategies',
+      highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
           'This is the Strategies page — every decoded wallet Discover finishes turns into a strategy on this list.'),
@@ -3315,14 +3333,19 @@
 
     // 10 — Health page (system at a glance)
     //
-    // Navigate to /view-health + pulse-highlight the 7-check card so
-    // the user sees the live system status. Reassuring "we're watching
+    // Navigate to /view-health + pulse-highlight the 7-check card
+    // (id="health-checks-card", added by renderHealth) so the user
+    // sees the live system status. Reassuring "we're watching
     // everything for you" beat right before the final achievements
     // step — they should leave the tour feeling supervised, not alone.
+    //
+    // renderHealth is async — onboardHighlight retries up to ~2s
+    // for the selector to land in the DOM, so the highlight catches
+    // the card after the API response settles.
     steps.push({
       title: 'Step 9: Your system, at a glance',
       view: 'health',
-      highlight: '#view-health',
+      highlight: '#health-checks-card',
       body: () => [
         el('p', null,
           'The Health page is your one-screen ops view. The 7-check above tracks server uptime, ',
@@ -3338,14 +3361,17 @@
 
     // 11 — Achievements page (the final step before handoff)
     //
-    // Navigate to /view-achievements and highlight the Section 1
-    // section card so the user sees their auto-tracked progress.
-    // This is also where the tour lands — the final Ready step
-    // stays on this view.
+    // Navigate to /view-achievements and highlight the profile/progress
+    // card (id="achievements-profile-card", added by renderAchievements)
+    // so the user sees their auto-tracked progress. This is also where
+    // the tour lands — the final Ready step stays on this view.
+    //
+    // renderAchievements is async — onboardHighlight retries up to ~2s
+    // for the selector to land in the DOM.
     steps.push({
       title: 'Step 10: Your roadmap + achievements',
       view: 'achievements',
-      highlight: '#view-achievements',
+      highlight: '#achievements-profile-card',
       body: () => [
         el('p', null,
           'Every install gets a 7-section, 131-task roadmap. Section 1 (Genesis) is mostly auto-tracked ',
@@ -3496,11 +3522,28 @@
 
   // ── Highlight + step rendering ───────────────────────────────────────
 
+  // Cancel-token for an in-flight highlight retry loop. Set when a
+  // selector misses on the first try and we begin polling; cleared
+  // when a new highlight call starts so we don't have two retry
+  // loops racing each other.
+  let onboardHighlightRetryToken = 0;
+
   function onboardHighlight(selector) {
+    // Bump the retry token first — any in-flight poll from a previous
+    // step is now stale and will bail on its next tick.
+    onboardHighlightRetryToken += 1;
+    const myToken = onboardHighlightRetryToken;
+
     document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
     if (!selector) return;
-    const target = document.querySelector(selector);
-    if (target) {
+
+    // Try once immediately; if it lands, we're done. Otherwise poll
+    // up to ~2s for async-rendered targets — Step 9 (Health) and
+    // Step 10 (Achievements) trigger renderHealth/renderAchievements
+    // via showView() and the inner cards (#health-checks-card,
+    // #achievements-profile-card) don't exist until the API response
+    // settles. 100ms × 20 ticks = 2s budget, plenty for the fetch.
+    const apply = (target) => {
       target.classList.add('onboard-highlight');
       // Scroll the highlighted target into the top half of the
       // viewport so the bottom-anchored modal doesn't cover it.
@@ -3513,7 +3556,23 @@
           window.scrollBy({ top: -80, behavior: 'smooth' });
         } catch { /* old browser, no smooth-scroll — non-fatal */ }
       }, 80);
-    }
+    };
+
+    const immediate = document.querySelector(selector);
+    if (immediate) { apply(immediate); return; }
+
+    // Poll loop — bails if the user advanced to another step (the
+    // retry token has been bumped) so we don't apply a stale highlight.
+    let attempts = 0;
+    const maxAttempts = 20;
+    const poll = () => {
+      if (myToken !== onboardHighlightRetryToken) return;
+      const target = document.querySelector(selector);
+      if (target) { apply(target); return; }
+      if (++attempts >= maxAttempts) return;
+      setTimeout(poll, 100);
+    };
+    setTimeout(poll, 100);
   }
 
   // ── Achievement unlock toasts (Steam-style, bottom-right) ───────────
@@ -4111,7 +4170,13 @@
       statusPill(c.ok ? 'green' : 'red', c.ok ? 'ok' : 'bad'),
     ));
 
-    const checksCard = el('section', { class: 'card rounded-xl p-5' },
+    // id="health-checks-card" is the stable selector the onboarding
+    // tour Step 9 highlights. Must stay on the section element (not
+    // a child) so the pulse outline frames the whole 7-check card.
+    const checksCard = el('section', {
+      id: 'health-checks-card',
+      class: 'card rounded-xl p-5',
+    },
       checksHeader,
       checks.length === 0
         ? el('div', { class: 'text-[12px] muted text-center py-4' }, 'No checks reported.')
@@ -4366,7 +4431,13 @@
         personalityTagline(profile.personality_id, totalDone, totalTasks)),
     );
 
-    const profileCard = el('section', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+    // id="achievements-profile-card" is the stable selector the
+    // onboarding tour Step 10 highlights. Frames the whole "Roadmap
+    // Level N · <section name> · progress bar" header card.
+    const profileCard = el('section', {
+      id: 'achievements-profile-card',
+      class: 'card rounded-xl p-5 flex items-center gap-4',
+    },
       avatar, profileMeta);
 
     // ── Section cards (collapsible, current section auto-expanded) ──

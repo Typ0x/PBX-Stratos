@@ -545,8 +545,12 @@
       <div class="text-[12px] muted mt-0.5">Winners from your evolution runs, and strategies decoded from on-chain wallets.</div>
     </div>
 
-    <!-- Decoded strategies — wallet-decode runs and their results. -->
-    <section class="space-y-3">
+    <!-- Decoded strategies — wallet-decode runs and their results.
+         id="strategies-decoded-section" is a stable selector the
+         onboarding tour highlights on Steps 4 + 8 (was previously
+         #view-strategies which highlighted the entire 1440px-wide
+         content area — invisible at that scale). -->
+    <section id="strategies-decoded-section" class="space-y-3">
       <header>
         <div class="text-sm font-semibold text-zinc-50">Decoded strategies</div>
         <div class="text-[12px] muted mt-0.5">Strategies reverse-engineered from on-chain wallets, and any decode runs in progress.</div>
