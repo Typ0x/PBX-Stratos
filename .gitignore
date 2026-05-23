@@ -61,6 +61,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+# But DO track our scripts helper lib (used by scripts/setup.mjs).
+!scripts/lib/
+!scripts/lib/**
 parts/
 sdist/
 var/

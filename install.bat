@@ -30,6 +30,14 @@ if "%RC%"=="0" (
 )
 echo ================================================================
 echo.
-echo Press any key to close this window...
-pause >nul
+REM When an AI agent (or any non-interactive caller) runs this script,
+REM the final pause looks like a hang to the harness. Set
+REM PBX_NONINTERACTIVE=1 in the environment to skip the keypress wait.
+REM Double-click users get the normal pause; agents skip it.
+if defined PBX_NONINTERACTIVE (
+  echo (PBX_NONINTERACTIVE set — skipping interactive pause^)
+) else (
+  echo Press any key to close this window...
+  pause >nul
+)
 exit /b %RC%

@@ -90,6 +90,21 @@ if (-not (Test-Path $readyJsonPath)) {
 }
 $readyJson = Get-Content $readyJsonPath -Raw | ConvertFrom-Json
 $validatedPython = $readyJson.python
+$validatedNode   = $readyJson.node
+
+# bootstrap.ps1 ran as a child process so its PATH edits (prepending
+# the bundled Node dir) don't propagate up to this install.ps1 process.
+# Re-apply that prepend here using the path from ready.json so the
+# `npm`, `pm2`, etc. invocations below find the bundled binaries even
+# when there's no system Node on the box.
+if ($validatedNode -and (Test-Path $validatedNode)) {
+  $nodeDir = Split-Path -Parent $validatedNode
+  if ($env:PATH -notlike "*$nodeDir*") {
+    $env:PATH = "$nodeDir;$env:PATH"
+    Ok "prepended bundled Node dir to PATH: $nodeDir"
+  }
+}
+
 Ok "Node + bundled Python + npm deps ready (validated Python: $validatedPython)"
 
 # ----------------------------------------------------------------
@@ -183,28 +198,74 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ----------------------------------------------------------------
-Step 6 "Waiting for /health then opening the dashboard"
-# Server needs a beat to come fully online after pm2 start -- wait until
-# /health returns 200 before launching the browser tab so the user
-# doesn't see a connection-refused page.
-$maxWait = 20
+Step 6 "Waiting for /health + verifying both pm2 apps online"
+# Server needs a beat to come fully online after pm2 start. On cold
+# machines this can take 30-60s (npm cache cold, Windows Defender
+# scanning each file). Poll up to 90s.
+$maxWait = 90
 $elapsed = 0
+$healthOk = $false
 while ($elapsed -lt $maxWait) {
   try {
     $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
-    if ($r.StatusCode -eq 200) { break }
+    if ($r.StatusCode -eq 200) { $healthOk = $true; break }
   } catch {
     # Server still booting -- keep waiting.
   }
   Start-Sleep -Seconds 1
   $elapsed++
 }
-if ($elapsed -ge $maxWait) {
-  Warn "Server didn't reach /health within ${maxWait}s. Opening browser anyway -- it may need another moment."
-} else {
-  Ok "/health returned 200 after ${elapsed}s"
+
+# Don't just trust /health (which only proves the dashboard server is
+# up). Verify BOTH advertised pm2 apps are online via /health/apps,
+# which surfaces paper-trade-bot heartbeat. Catches the failure mode
+# where bear-watch-server-stratos is online but paper-trade-bot-stratos
+# silently never started (e.g. bad python interpreter, missing deps).
+$bothOnline = $false
+if ($healthOk) {
+  try {
+    $a = Invoke-WebRequest -Uri 'http://localhost:8787/health/apps' -UseBasicParsing -TimeoutSec 5
+    if ($a.StatusCode -eq 200) {
+      $apps = ($a.Content | ConvertFrom-Json).apps
+      if ($apps.server -eq 'online' -and $apps.paperTrade -eq 'online') {
+        $bothOnline = $true
+      } else {
+        Warn ("server=" + $apps.server + " paperTrade=" + $apps.paperTrade)
+      }
+    }
+  } catch {
+    Warn "could not query /health/apps for per-app status"
+  }
 }
-Start-Process 'http://localhost:8787'
+
+if (-not $healthOk) {
+  # Hard fail: dashboard never came up. Show the user where to look.
+  Write-Host ""
+  Write-Host "================================================================" -ForegroundColor Red
+  Write-Host " Install FAILED — /health never reached 200 within ${maxWait}s" -ForegroundColor Red
+  Write-Host "================================================================" -ForegroundColor Red
+  Write-Host ""
+  Write-Host " Check the pm2 logs to diagnose:" -ForegroundColor White
+  Write-Host "   pm2 list" -ForegroundColor Gray
+  Write-Host "   pm2 logs bear-watch-server-stratos --lines 100 --nostream" -ForegroundColor Gray
+  Write-Host "   pm2 logs paper-trade-bot-stratos    --lines 100 --nostream" -ForegroundColor Gray
+  Write-Host ""
+  Write-Host " Or look at the raw log files at:" -ForegroundColor White
+  Write-Host "   $RepoRoot\bots\_server_log.txt" -ForegroundColor Gray
+  Write-Host "   $RepoRoot\bear-scout\runners\_paper_trade_log.txt" -ForegroundColor Gray
+  Write-Host ""
+  Write-Host " NOT opening the browser since the install didn't complete." -ForegroundColor Yellow
+  exit 1
+}
+
+if (-not $bothOnline) {
+  Warn "Dashboard is up but paper-trade-bot looks stalled. Browser opens anyway; check paper-trade log."
+}
+Ok "/health returned 200 after ${elapsed}s"
+
+# Open /dashboard, not the bare root — the server doesn't mount "/"
+# (though we now redirect, this avoids any 302 round-trip).
+Start-Process 'http://localhost:8787/dashboard'
 
 # ----------------------------------------------------------------
 Write-Host ""

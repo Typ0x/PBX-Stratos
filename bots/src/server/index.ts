@@ -40,7 +40,7 @@ import {
   TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token';
-import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { BotOrchestrator } from './orchestrator.js';
@@ -633,9 +633,61 @@ app.addHook('preValidation', async (req, reply) => {
   }
 });
 
+// ─── Root redirect ────────────────────────────────────────────────────
+//
+// The server doesn't mount anything at "/" — the dashboard is at
+// /dashboard. install.ps1 used to open localhost:8787 directly and
+// users saw a confusing 404 ("Route GET:/ not found"). Redirect to
+// /dashboard so any bare-port hit lands on the actual UI.
+app.get('/', async (_req, reply) => reply.redirect('/dashboard'));
+
 // ─── Health ────────────────────────────────────────────────────────────
+//
+// The classic /health endpoint stays ok-only for backwards-compat with
+// install.ps1's poll. Per-app status lives at /health/apps so install
+// scripts and watchdogs can check that BOTH advertised pm2 apps
+// (bear-watch-server-stratos + paper-trade-bot-stratos) are running,
+// not just the dashboard server itself.
 
 app.get('/health', async () => ({ ok: true, ts: Date.now() }));
+
+// Per-app status: returns { ok, ts, apps: { server: "online", paperTrade: "online|stalled|down" }, issues: [...] }.
+// The server's own status is implicit (if this endpoint responds at
+// all, the dashboard server is up). paperTrade is derived from the
+// paper trader's heartbeat file under runtime/lab/.
+app.get('/health/apps', async () => {
+  const issues: string[] = [];
+  const apps: Record<string, string> = { server: 'online' };
+  // Paper-trade heartbeat — written by paper-trade.py each tick. If
+  // the file is missing or > 240s stale (1 tick + buffer), treat the
+  // app as stalled/down.
+  try {
+    const labDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
+    const hbPath = join(labDir, 'paper_trade_heartbeat.txt');
+    if (!existsSync(hbPath)) {
+      apps.paperTrade = 'down';
+      issues.push('paper-trade-bot heartbeat file missing — bot may not be running');
+    } else {
+      const stat = statSync(hbPath);
+      const ageMs = Date.now() - stat.mtimeMs;
+      if (ageMs > 240_000) {
+        apps.paperTrade = 'stalled';
+        issues.push(`paper-trade-bot heartbeat ${Math.floor(ageMs / 1000)}s stale`);
+      } else {
+        apps.paperTrade = 'online';
+      }
+    }
+  } catch (err) {
+    apps.paperTrade = 'unknown';
+    issues.push(`paper-trade-bot health probe error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return {
+    ok: issues.length === 0,
+    ts: Date.now(),
+    apps,
+    issues,
+  };
+});
 
 // ─── Workflow: discover top traders ────────────────────────────────────
 //

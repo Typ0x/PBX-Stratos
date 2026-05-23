@@ -22,21 +22,48 @@ export function isUsablePython(versionText) {
   return v.major > 3 || (v.major === 3 && v.minor >= 9);
 }
 
-/** Probes candidate interpreter names; returns the path of the first >= 3.9. */
-function findSystemPython() {
-  const candidates = process.platform === 'win32'
-    ? ['python', 'python3']
-    : ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3.9', 'python3'];
+/** Probes a single candidate, returns interpreter path or null. */
+function probePython(cand) {
+  // The `py` launcher needs `-3` to prefer Python 3 over a default 2 install.
+  const args = (cand === 'py') ? ['-3', '--version'] : ['--version'];
+  try {
+    const r = spawnSync(cand, args, { encoding: 'utf8' });
+    if (r.status === 0 && isUsablePython((r.stdout || r.stderr).trim())) {
+      // For `py -3` return the launcher with the -3 flag baked into the
+      // returned identifier so callers know to invoke it with -3.
+      return (cand === 'py') ? 'py -3' : cand;
+    }
+  } catch {
+    /* candidate not found — keep looking */
+  }
+  return null;
+}
+
+/**
+ * Probes candidate interpreter names + paths and returns the first
+ * usable Python >= 3.9. On Windows expands the search beyond bare PATH
+ * lookups to cover `py` launcher + per-user / system-wide install dirs.
+ */
+async function findSystemPython() {
+  if (process.platform === 'win32') {
+    const { windowsPythonCandidates } = await import('./lib/platform.mjs');
+    for (const cand of windowsPythonCandidates()) {
+      const found = probePython(cand);
+      if (found) return found;
+    }
+    return null;
+  }
+  const candidates = ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3.9', 'python3', 'python'];
   for (const cand of candidates) {
-    const r = spawnSync(cand, ['--version'], { encoding: 'utf8' });
-    if (r.status === 0 && isUsablePython((r.stdout || r.stderr).trim())) return cand;
+    const found = probePython(cand);
+    if (found) return found;
   }
   return null;
 }
 
 async function ensurePython() {
-  const sys = findSystemPython();
-  if (sys && process.platform !== 'win32') {
+  const sys = await findSystemPython();
+  if (sys) {
     console.log(`[setup] using system Python: ${sys}`);
     return sys;
   }
@@ -44,24 +71,45 @@ async function ensurePython() {
     // macOS/Linux without a usable Python — rare. Surface clearly.
     throw new Error('No Python 3.9+ found. Install Python 3.9+ and re-run.');
   }
-  // Windows: always bundle. See spec — detection here is unreliable.
-  const { pythonWinEmbedUrl } = await import('./lib/platform.mjs');
+  // Windows: no system Python found, fall back to bundled.
+  // We use the OFFICIAL Python installer (.exe), not the embeddable ZIP
+  // distro. The embeddable ZIP lacks pip + venv + ensurepip and would
+  // break `python -m venv .venv` and `pip install -e .[decoder]` later.
+  const { pythonWinInstallerUrl, PYTHON_VERSION } = await import('./lib/platform.mjs');
   const pyDir = join(toolingDir, 'python');
-  if (existsSync(join(pyDir, 'python.exe'))) {
-    console.log('[setup] bundled Python already present');
-    return join(pyDir, 'python.exe');
+  const pyExe = join(pyDir, 'python.exe');
+  if (existsSync(pyExe)) {
+    console.log('[setup] bundled Python already present at', pyExe);
+    return pyExe;
   }
-  console.log('[setup] downloading bundled Python for Windows...');
-  const url = pythonWinEmbedUrl(process.arch);
+  console.log(`[setup] downloading bundled Python ${PYTHON_VERSION} for Windows...`);
+  const url = pythonWinInstallerUrl(process.arch);
   mkdirSync(pyDir, { recursive: true });
-  const zip = join(toolingDir, 'python-embed.zip');
-  await downloadFile(url, zip);
-  // Expand-Archive via PowerShell (always present on Windows).
-  const r = spawnSync('powershell', ['-NoProfile', '-Command',
-    `Expand-Archive -Force -LiteralPath '${zip}' -DestinationPath '${pyDir}'`], { stdio: 'inherit' });
-  if (r.status !== 0) throw new Error('failed to extract bundled Python');
-  rmSync(zip, { force: true });
-  return join(pyDir, 'python.exe');
+  const exe = join(toolingDir, 'python-installer.exe');
+  await downloadFile(url, exe);
+  console.log('[setup] running silent per-user install to', pyDir);
+  // Per-user, no admin, no PATH pollution, install into our .tooling dir.
+  // /quiet = no UI, InstallAllUsers=0 = current user only, no admin needed.
+  // PrependPath=0 = don't touch the system PATH (we manage it ourselves).
+  // TargetDir = our bundled location. Include_pip + Include_launcher
+  // ensure pip + py launcher are installed inside our bundle.
+  const args = [
+    '/quiet',
+    'InstallAllUsers=0',
+    'PrependPath=0',
+    'Include_test=0',
+    'Include_doc=0',
+    'Include_pip=1',
+    'Include_launcher=0',
+    `TargetDir=${pyDir}`,
+  ];
+  const r = spawnSync(exe, args, { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error(`bundled Python installer exited ${r.status}`);
+  rmSync(exe, { force: true });
+  if (!existsSync(pyExe)) {
+    throw new Error(`installer ran but ${pyExe} not present — install layout unexpected`);
+  }
+  return pyExe;
 }
 
 /** Streams a URL to a file using fetch (Node 18+). */
@@ -121,9 +169,14 @@ async function main() {
   const python = await ensurePython();
   npmInstall();
   ensureClaudeCli();
+  // Record both the python AND node paths the bootstrap chose so that
+  // install.ps1 (which runs in a separate process and doesn't inherit
+  // bootstrap.ps1's PATH edits) can find them.
+  // process.execPath = the actual node binary we're running inside.
   const marker = {
     ready: true,
     python,
+    node: process.execPath,
     platform: process.platform,
     arch: process.arch,
     timestamp: new Date().toISOString(),

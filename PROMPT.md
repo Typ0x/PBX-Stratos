@@ -32,8 +32,9 @@ roadmap handoff.
 
 ```
 cd PBX-Stratos
-# Windows: double-click install.bat, or
-powershell -ExecutionPolicy Bypass -File install.ps1
+# Windows: double-click install.bat (recommended)
+# Or from a cmd window:
+install.bat
 # macOS / Linux:
 bash install.sh
 ```

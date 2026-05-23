@@ -42,6 +42,33 @@ const _runtimePaths = {
   STRATOS_LAB_HOME:      resolve(__dirname, '..', 'runtime', 'lab'),
 };
 
+// ─── resolve Python interpreter for paper-trade-bot ──────────────────
+// pm2 treats `script:` as a file path relative to `cwd`. Earlier this
+// was set to `script: "python"` which made pm2 look for a file literally
+// named "python" inside bear-scout/runners/ and silently fail (only
+// bear-watch-server-stratos came up, paper-trade-bot-stratos never did).
+//
+// Correct pm2 contract is `script: <python file>` + `interpreter:
+// <python exe>`. We read the validated interpreter from .tooling/ready.json
+// (written by scripts/setup.mjs after probing system + bundled Pythons)
+// and fall back to bare "python" only if the marker is missing — pm2
+// will then surface a clean error on first start instead of swallowing it.
+let _pythonInterpreter = 'python';
+try {
+  const _ready = JSON.parse(readFileSync(
+    resolve(__dirname, '..', '.tooling', 'ready.json'), 'utf8'));
+  if (_ready && _ready.python) {
+    // ready.json may store "py -3" when the Windows py launcher was the
+    // probe winner. pm2's `interpreter` must be a single exe path, so
+    // strip the trailing args — pm2 will run it as just `py` which is
+    // the launcher's default-to-py3 behavior on most Win installs.
+    _pythonInterpreter = String(_ready.python).split(/\s+/)[0];
+  }
+} catch {
+  /* no ready.json yet (install hasn't run) — bare "python" will at least
+     surface a clean error if it's missing, vs silent no-start */
+}
+
 module.exports = {
   apps: [
     {
@@ -95,8 +122,11 @@ module.exports = {
       // ABSOLUTE cwd — see comment on bear-watch-server-stratos above
       // for the rationale.
       cwd: resolve(__dirname, '..', 'bear-scout', 'runners'),
-      script: "python",
-      args: "paper-trade.py",
+      // CORRECT pm2 contract: script = the .py file, interpreter = the
+      // python exe. Setting `script: "python"` (the old way) made pm2
+      // resolve "python" as a path relative to cwd and silently fail.
+      script: "paper-trade.py",
+      interpreter: _pythonInterpreter,
       max_restarts: 9999,
       restart_delay: 5000,
       watch: false,
