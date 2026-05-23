@@ -497,7 +497,22 @@
     /* Punch above the dim backdrop so highlighted panels actually show. */
     isolation: isolate;
     /* Render the panel genuinely sharp + bright against the flat dim. */
-    filter: brightness(1.05) saturate(1.05);
+    filter: brightness(1.08) saturate(1.08);
+  }
+  /* Opaque backing layer for the highlight — paints UNDER the
+     element's own content but ABOVE the dim backdrop, so transparent
+     sections (e.g. #strategies-decoded-section) stop showing the
+     65–85% black overlay through their text-gap whitespace. Elements
+     that already have their own opaque background (cards, buttons)
+     paint that bg on top of this ::before, so they look unchanged. */
+  .onboard-highlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--bg-primary, #0a0d13);
+    pointer-events: none;
   }
   @media (prefers-reduced-motion: reduce) {
     .onboard-highlight { animation: none; }
