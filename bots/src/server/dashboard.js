@@ -3528,6 +3528,94 @@
   // loops racing each other.
   let onboardHighlightRetryToken = 0;
 
+  // Recomputes .onboard-backdrop's clip-path so it covers the full
+  // viewport EXCEPT a hole around the currently-highlighted element.
+  // Called on every highlight change + on every scroll / resize so the
+  // hole follows the target as the viewport changes. Without this,
+  // some highlight targets (e.g. #hero-start, which lives inside the
+  // z-52-lifted #welcome-hero) ended up with a confined dim that
+  // didn't actually cover the rest of the page — only the area within
+  // their parent stacking context — so the surrounding content stayed
+  // bright. A viewport-fixed dim with a clip-path hole avoids that
+  // entirely: it dims the whole viewport, period.
+  function updateBackdropClip() {
+    const backdrop = document.getElementById('onboard-backdrop');
+    if (!backdrop) return;
+    // No backdrop dim needed when the tour isn't open.
+    if (backdrop.classList.contains('hidden')) {
+      backdrop.style.clipPath = '';
+      return;
+    }
+    const target = document.querySelector('.onboard-highlight');
+    if (!target) {
+      // No highlight on this step (welcome, intermediate, final) →
+      // dim the entire viewport with no hole.
+      backdrop.style.clipPath = '';
+      return;
+    }
+    const r = target.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // 6px padding around the highlight so the dim hole is slightly
+    // larger than the card and the pulse outline sits comfortably
+    // inside the bright area.
+    const pad = 6;
+    const x1 = Math.max(0, Math.floor(r.left - pad));
+    const y1 = Math.max(0, Math.floor(r.top - pad));
+    const x2 = Math.min(vw, Math.ceil(r.right + pad));
+    const y2 = Math.min(vh, Math.ceil(r.bottom + pad));
+    // Polygon path: trace the viewport clockwise, then jump inward
+    // and trace the hole counter-clockwise. The shared edge from
+    // (0,0) to (x1,y1) and back is invisible since the polygon's
+    // fill is a single connected region with the inner rect
+    // subtracted out by the path's self-overlap.
+    const path =
+      '0 0,' +
+      vw + 'px 0,' +
+      vw + 'px ' + vh + 'px,' +
+      '0 ' + vh + 'px,' +
+      '0 0,' +
+      x1 + 'px ' + y1 + 'px,' +
+      x1 + 'px ' + y2 + 'px,' +
+      x2 + 'px ' + y2 + 'px,' +
+      x2 + 'px ' + y1 + 'px,' +
+      x1 + 'px ' + y1 + 'px,' +
+      '0 0';
+    backdrop.style.clipPath = 'polygon(' + path + ')';
+  }
+
+  // Throttle clip recomputes during high-frequency events (scroll,
+  // resize, smooth-scroll animation) via requestAnimationFrame so we
+  // don't recompute on every wheel tick.
+  let onboardClipRafPending = false;
+  function scheduleClipUpdate() {
+    if (onboardClipRafPending) return;
+    onboardClipRafPending = true;
+    requestAnimationFrame(() => {
+      onboardClipRafPending = false;
+      updateBackdropClip();
+    });
+  }
+  window.addEventListener('scroll', scheduleClipUpdate, { passive: true });
+  window.addEventListener('resize', scheduleClipUpdate);
+
+  // Watch the highlighted element's own size — when a view's data
+  // lands asynchronously (leaderboard rows arriving, achievements
+  // sections expanding, sample bots injected), the target element
+  // GROWS after the clip was first computed. ResizeObserver fires on
+  // each size change so the clip-path hole follows the element's
+  // current dimensions. Only one observed target at a time — we
+  // re-observe whenever onboardHighlight applies a new highlight.
+  let onboardHighlightResizeObserver = null;
+  if (typeof ResizeObserver === 'function') {
+    onboardHighlightResizeObserver = new ResizeObserver(scheduleClipUpdate);
+  }
+  function observeHighlightForResize(el) {
+    if (!onboardHighlightResizeObserver) return;
+    onboardHighlightResizeObserver.disconnect();
+    if (el) onboardHighlightResizeObserver.observe(el);
+  }
+
   function onboardHighlight(selector) {
     // Bump the retry token first — any in-flight poll from a previous
     // step is now stale and will bail on its next tick.
@@ -3535,7 +3623,12 @@
     const myToken = onboardHighlightRetryToken;
 
     document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
-    if (!selector) return;
+    if (!selector) {
+      // No highlight on this step — clip the backdrop full (no hole)
+      // so the dim covers everything except the modal.
+      updateBackdropClip();
+      return;
+    }
 
     // Try once immediately; if it lands, we're done. Otherwise poll
     // up to ~2s for async-rendered targets — Step 9 (Health) and
@@ -3545,6 +3638,10 @@
     // settles. 100ms × 20 ticks = 2s budget, plenty for the fetch.
     const apply = (target) => {
       target.classList.add('onboard-highlight');
+      // Re-point the ResizeObserver at the new target so its async
+      // growth (leaderboard rows arriving, achievements sections
+      // expanding) re-clips the dim around its new size.
+      observeHighlightForResize(target);
       // Scroll the highlighted target into the top half of the
       // viewport so the bottom-anchored modal doesn't cover it.
       // Brief delay so the .onboard-highlight class is painted
@@ -3556,6 +3653,13 @@
           window.scrollBy({ top: -80, behavior: 'smooth' });
         } catch { /* old browser, no smooth-scroll — non-fatal */ }
       }, 80);
+      // Punch the dim hole around this target. Run twice — once
+      // right away and once after the scroll has settled — so the
+      // clip lands on the correct rect after smooth-scrolling. The
+      // ResizeObserver above handles any subsequent grow events
+      // (e.g. when async API data lands).
+      updateBackdropClip();
+      setTimeout(updateBackdropClip, 500);
     };
 
     const immediate = document.querySelector(selector);
@@ -3967,7 +4071,14 @@
   function closeOnboardOverlay(showToast) {
     clearGateCleanup();
     removeSampleNodes();
-    document.getElementById('onboard-backdrop').classList.add('hidden');
+    const backdrop = document.getElementById('onboard-backdrop');
+    if (backdrop) {
+      backdrop.classList.add('hidden');
+      // Clear the inline clip-path so the next time the tour opens
+      // the backdrop starts unclipped (covers the full viewport) and
+      // we don't briefly show a stale hole from the previous session.
+      backdrop.style.clipPath = '';
+    }
     document.getElementById('onboard-modal').classList.add('hidden');
     document.body.classList.remove('onboard-active');
     onboardHighlight(null);

@@ -460,24 +460,36 @@
      65% — enough to push focus to the modal + the pulsed highlight
      without obliterating the surrounding context. */
   .onboard-backdrop {
-    /* Backdrop is now a click-passthrough no-op. The actual dim is
-       drawn by the .onboard-highlight::after spotlight (huge outward
-       box-shadow), which carves a true zero-dim "hole" around the
-       highlighted card while keeping the rest of the page covered
-       in opaque black. For steps with NO highlight (Welcome, the
-       intermediate "while that runs" step, and the final "ready"
-       step) the modal still has its own modal-bg and is the visual
-       focus on its own — no full-page dim needed there. */
-    background: transparent;
+    /* Single full-viewport dim layer that gets a clip-path hole
+       punched out of it around the currently-highlighted element.
+       Because this lives at the top of the body (position: fixed,
+       inset: 0, z-index: 50), the clip-path approach dims the
+       ENTIRE viewport regardless of which stacking context the
+       highlight target lives in — which was the failure mode of
+       the previous box-shadow spotlight (it got confined to the
+       highlight's parent stacking context, leaving sidebar / top
+       nav / hero copy at near-full brightness on some steps).
+       JS owns the clip-path: dashboard.js' updateBackdropClip
+       reads the highlight's getBoundingClientRect, builds a
+       polygon path that traces the viewport rect then carves out
+       the highlight's rect, and re-runs on highlight change /
+       scroll / resize.
+       pointer-events: none keeps gated steps' real buttons
+       (#hero-start etc.) clickable through the dim. */
+    background: rgba(0, 0, 0, 0.92);
     pointer-events: none;
+    transition: clip-path 180ms ease;
   }
-  body.onboard-active .onboard-backdrop { background: transparent !important; }
-  /* Lift the welcome-hero above the backdrop's z-50 during the tour
-     so its highlighted #hero-start CTA escapes its parent stacking
-     context and renders sharp on top of the dim. Without this the
-     pulse ring is invisible because #welcome-hero with position:
-     relative traps z-index inside its own context. */
-  body.onboard-active #welcome-hero { z-index: 52; }
+  body.onboard-active .onboard-backdrop { background: rgba(0, 0, 0, 0.92) !important; }
+  /* (Previously the welcome-hero was lifted to z-52 to escape the
+     backdrop's z-50 dim and let the #hero-start pulse ring punch
+     through. That lift is removed now — with the clip-path hole
+     in the backdrop, the dim has an actual cut-out around the
+     highlight target, so neither the button nor its outline need
+     to be above the dim layer. Lifting welcome-hero also had the
+     side effect of keeping the entire hero copy (Welcome heading +
+     01/02/03 cards) above the dim, leaving them at full brightness
+     when only the CTA button should be undimmed.) */
   /* Pulse highlight on a panel the current tour step is pointing at.
      The backdrop sits at z-50; the highlight needs z-index ABOVE that
      (z-55) AND its own stacking context (position: relative + the
@@ -503,32 +515,13 @@
        at the page's NATURAL colors, not a tinted/brightened version.
        The contrast against the dim outside is what makes it pop. */
   }
-  /* SPOTLIGHT — the dim mechanism.
-     A huge outward box-shadow extends from the highlight's box and
-     paints uniform opaque black over the rest of the viewport. The
-     shadow only renders OUTSIDE the pseudo's box, so the highlighted
-     card is left at FULL natural brightness while everything around
-     it is heavily dimmed. This is a true cut-out against the dim —
-     not a "slightly less dim" version of the same flat overlay.
-     We don't need a separate opaque-backing layer for transparent
-     sections, because the backdrop is now transparent globally
-     (.onboard-backdrop has no fill of its own) — the spotlight
-     IS the dim, and it only paints outside the highlight.
-     pointer-events: none keeps gated steps' clickable targets
-     (like #hero-start) actually clickable through the surrounding
-     dim. z-index: -1 sits this pseudo behind the highlight's own
-     content but inside the section's z-55 stacking context, so the
-     shadow paints at z-55 globally — above the page (< z-50) and
-     below the modal (z-60). */
-  .onboard-highlight::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78);
-    pointer-events: none;
-  }
+  /* No ::after spotlight — the dim is now drawn by .onboard-backdrop
+     with a JS-managed clip-path that punches a hole around the
+     highlight. That approach reliably dims the entire viewport
+     including parents that have their own stacking context (e.g.
+     #welcome-hero at z-52), which the box-shadow spotlight could
+     not do because the shadow was confined to the highlight's own
+     stacking context. */
   @media (prefers-reduced-motion: reduce) {
     .onboard-highlight { animation: none; }
   }
