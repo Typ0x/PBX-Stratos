@@ -460,14 +460,18 @@
      65% — enough to push focus to the modal + the pulsed highlight
      without obliterating the surrounding context. */
   .onboard-backdrop {
-    background: rgba(0,0,0,0.65);
-    /* CRITICAL: backdrop must NOT capture clicks. The tour gates on
-       real button clicks (e.g. Find top traders & decode on step 2);
-       if the backdrop swallows clicks, the user can see the button
-       but can't actually press it. Modal card on z-60 keeps its own
-       pointer-events:auto so Previous/Next/Skip still work. */
+    /* Backdrop is now a click-passthrough no-op. The actual dim is
+       drawn by the .onboard-highlight::after spotlight (huge outward
+       box-shadow), which carves a true zero-dim "hole" around the
+       highlighted card while keeping the rest of the page covered
+       in opaque black. For steps with NO highlight (Welcome, the
+       intermediate "while that runs" step, and the final "ready"
+       step) the modal still has its own modal-bg and is the visual
+       focus on its own — no full-page dim needed there. */
+    background: transparent;
     pointer-events: none;
   }
+  body.onboard-active .onboard-backdrop { background: transparent !important; }
   /* Lift the welcome-hero above the backdrop's z-50 during the tour
      so its highlighted #hero-start CTA escapes its parent stacking
      context and renders sharp on top of the dim. Without this the
@@ -494,24 +498,35 @@
     outline-offset: 2px;
     animation: onboard-pulse 1.8s ease-in-out infinite;
     transition: outline 0.2s ease;
-    /* Punch above the dim backdrop so highlighted panels actually show. */
     isolation: isolate;
-    /* Render the panel genuinely sharp + bright against the flat dim. */
-    filter: brightness(1.08) saturate(1.08);
+    /* No filter applied to the highlight itself — we want it to read
+       at the page's NATURAL colors, not a tinted/brightened version.
+       The contrast against the dim outside is what makes it pop. */
   }
-  /* Opaque backing layer for the highlight — paints UNDER the
-     element's own content but ABOVE the dim backdrop, so transparent
-     sections (e.g. #strategies-decoded-section) stop showing the
-     65–85% black overlay through their text-gap whitespace. Elements
-     that already have their own opaque background (cards, buttons)
-     paint that bg on top of this ::before, so they look unchanged. */
-  .onboard-highlight::before {
+  /* SPOTLIGHT — the dim mechanism.
+     A huge outward box-shadow extends from the highlight's box and
+     paints uniform opaque black over the rest of the viewport. The
+     shadow only renders OUTSIDE the pseudo's box, so the highlighted
+     card is left at FULL natural brightness while everything around
+     it is heavily dimmed. This is a true cut-out against the dim —
+     not a "slightly less dim" version of the same flat overlay.
+     We don't need a separate opaque-backing layer for transparent
+     sections, because the backdrop is now transparent globally
+     (.onboard-backdrop has no fill of its own) — the spotlight
+     IS the dim, and it only paints outside the highlight.
+     pointer-events: none keeps gated steps' clickable targets
+     (like #hero-start) actually clickable through the surrounding
+     dim. z-index: -1 sits this pseudo behind the highlight's own
+     content but inside the section's z-55 stacking context, so the
+     shadow paints at z-55 globally — above the page (< z-50) and
+     below the modal (z-60). */
+  .onboard-highlight::after {
     content: '';
     position: absolute;
     inset: 0;
     z-index: -1;
     border-radius: inherit;
-    background: var(--bg-primary, #0a0d13);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78);
     pointer-events: none;
   }
   @media (prefers-reduced-motion: reduce) {
