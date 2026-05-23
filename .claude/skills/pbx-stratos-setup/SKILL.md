@@ -335,22 +335,35 @@ This is a clean handoff, not a failure mode.
 need to know how to talk to them. The quiz takes 2-3 minutes and
 calibrates everything else.
 
-**How:** use **TWO `AskUserQuestion` calls**, not five. The tool
-schema allows up to 4 questions per call, so:
+**How:** use `AskUserQuestion` 5 times, in order — one popup per
+question. Each question has ≤4 options, so each one fits in a single
+AUQ call directly. After all 5, write the answers to
+`runtime/lab/user-profile.json`.
 
-- **Popup 1:** Q1 (tech_level), Q2 (communication_style), Q3 (goal),
-  Q4 (consent_level) — 4 questions in one call.
-- **Popup 2:** Q5 (autonomy_level), plus the Step 9 personality pick
-  and the Step 10 theme pick — 3 questions in one call.
+### ⚠ The options-overflow rule (applies later this skill at Steps 9 + 10)
 
-Total: **2 popups, not 7.** This collapses the entire onboarding to
-two click-through gates. (Per `.claude/UNIVERSAL-CORE.md`, when any
-single question has more than 4 options, make the 4th option a
-navigation slot — "See more options →" — that fans out to a follow-up
-call with the rest. None of the quiz questions below have more than 4
-options so that rule doesn't apply here, but it's the same machinery.)
+`AskUserQuestion`'s options field is capped at **4 per question** by
+the tool schema. The 5 quiz questions below each have 3-4 options, so
+the rule doesn't fire here — but it DOES fire on the personality picker
+(Step 9, 6 personalities) and the theme picker (Step 10, 6 themes).
 
-After both popups complete, write the answers to `runtime/lab/user-profile.json`.
+**The rule, from `.claude/UNIVERSAL-CORE.md`:**
+
+- ≤ 4 real options → show them all in one AUQ call.
+- > 4 real options → show the first 3 real options as 1-3, make option
+  4 a navigation slot **"See more options →"** with a description like
+  *"Show the rest of the choices"*.
+- When the user clicks "See more options →", fire a new AUQ with the
+  NEXT 3 real options as 1-3 and option 4 as a return slot
+  **"← See original options"** (description: *"Go back to the first set"*).
+- User can round-trip freely. Forward → Back → Forward — each click is
+  a fresh popup with 3 real options + a navigation slot.
+
+This applies any time you have more than 4 real options to show the
+user. **Never** drop into plain-text "type the name of the option you
+want" — that breaks the click-only UX. **Never** truncate the option
+list — that hides choices from the user. Always use the rotation
+pattern above.
 
 ### Q1: How techy are you?
 
@@ -397,18 +410,13 @@ After both popups complete, write the answers to `runtime/lab/user-profile.json`
 | We do it together — teach me as we go | Claude explains as it goes. User learns enough to do it later. |
 | I do it, you guide me | User types commands. Claude coaches. |
 
-### After both popups, tell the user:
+### After all 5 questions, tell the user:
 
-> "Got it — profile saved. Heads up: you can change any of this
-> later. Say **'run the personality quiz'** and I'll re-ask the 5
-> quiz questions. Or to tweak one field directly, edit
+> "Got it. Saving your profile now. Heads up: you can change any of
+> this later. Just say **'run the personality quiz'** and I'll re-ask
+> these 5. Or if you want to tweak one field directly, edit
 > `runtime/lab/user-profile.json` (each field has 3-4 valid values —
 > see `.claude/UNIVERSAL-CORE.md` for the schema)."
-
-The personality + theme picks land in Popup 2 alongside Q5, so by the
-time you write the JSON below you already have `personality_id` and
-`theme_id` from the user's answers — fill them in directly instead
-of leaving them as "default" placeholders.
 
 Then write the JSON file:
 
@@ -691,19 +699,38 @@ strategy development happens in Sections 3 and 4 of the roadmap.
 
 ## Step 9 — Pick personality
 
-AskUserQuestion with the 5 shipped personalities:
-- Default
-- Drill Sergeant
-- Surf Bro
-- Quant Professor
-- Hacker
+PBX Stratos ships **6 personalities**, which is more than `AskUserQuestion`
+can fit in a single popup (`maxItems: 4` on the options field). Use the
+**options-overflow pattern** from `.claude/UNIVERSAL-CORE.md`:
 
-For each option, include a one-line preview tagline. Offer:
-"Want me to show you a sample of how I'd sound in that personality
-before you commit?" If yes, read the personality file + write one
-in-character paragraph as a taste-test.
+**Popup 1 (initial)** — `AskUserQuestion` with these 4 options:
 
-Once user picks: update `personality_id` in the profile JSON.
+| Option | Label | Description |
+|---|---|---|
+| 1 | **Default** | Neutral, balanced, professional. Calm and complete. |
+| 2 | **Crypto Bro** | Degen KOL who's "made it" — "ser", "ngmi", "alpha". |
+| 3 | **Drill Sergeant** | Strict, terse, ALL-CAPS callouts, no fluff. |
+| 4 | **See more options →** | Show the other three personalities. |
+
+If the user picks 1, 2, or 3 → that's their personality, move on. If
+they pick "See more options →" → fire Popup 2:
+
+**Popup 2 (overflow)** — `AskUserQuestion` with these 4 options:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | **Surf Bro** | Chill, upbeat, slangy — "yo", "dude", "gnarly". |
+| 2 | **Quant Professor** | Formal, academic, hedged — "evidence suggests". |
+| 3 | **Hacker** | 1337, lowercase, terse, abbreviated. |
+| 4 | **← See original options** | Go back to the first three. |
+
+User round-trips freely between Popup 1 and Popup 2 until they pick.
+Once they do, offer: *"Want me to show you a sample of how I'd sound
+in that personality before you commit?"* If yes, read
+`.claude/personalities/<id>.md` and write one in-character paragraph
+as a taste-test.
+
+Once user confirms: update `personality_id` in the profile JSON.
 
 **Verify Step 9:** `python -c "import json; p=json.load(open('runtime/lab/user-profile.json')); pid=p.get('personality_id'); assert pid in ['default','crypto-bro','drill-sergeant','surf-bro','quant-professor','hacker'], f'bad personality_id: {pid}'; print('PERSONALITY_OK')"`. If you don't see `PERSONALITY_OK`, re-write the profile field with the user's pick; if still failing, halt per Terminal State 2.
 
@@ -714,15 +741,33 @@ Once user picks: update `personality_id` in the profile JSON.
 If the user wants the theme to match their personality, skip this step
 (theme comes from the personality's frontmatter `theme:` field).
 
-Otherwise AskUserQuestion with the 5 shipped themes:
-- Default (clean dark)
-- Camo (military)
-- Beach (pastels)
-- Academia (cream + serif)
-- Matrix (green-on-black)
+Otherwise PBX Stratos ships **6 themes** — same overflow situation as
+Step 9. Use the options-overflow pattern from `.claude/UNIVERSAL-CORE.md`:
 
-Symlink or copy `themes/<id>.css` to
-`bots/src/server/active-theme.css`. Update `theme_id` in profile JSON.
+**Popup 1 (initial)** — `AskUserQuestion` with these 4 options:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | **Default** (slate + indigo) | Clean dark theme. |
+| 2 | **Lambo** (gold + black) | Pairs naturally with Crypto Bro. |
+| 3 | **Camo** (military green + amber) | Pairs naturally with Drill Sergeant. |
+| 4 | **See more themes →** | Show the other three themes. |
+
+If the user picks 1, 2, or 3 → that's their theme. If they pick
+"See more themes →" → fire Popup 2:
+
+**Popup 2 (overflow)** — `AskUserQuestion` with these 4 options:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | **Beach** (coral + teal pastels) | Pairs naturally with Surf Bro. |
+| 2 | **Academia** (cream + serif) | Pairs naturally with Quant Professor. |
+| 3 | **Matrix** (green-on-black mono) | Pairs naturally with Hacker. |
+| 4 | **← See original themes** | Go back to the first three. |
+
+User round-trips freely until they pick. Once they do, copy
+`themes/<id>.css` to `bots/src/server/active-theme.css` (or symlink
+on Unix). Update `theme_id` in profile JSON.
 
 **Verify Step 10:** `test -f bots/src/server/active-theme.css && diff -q "themes/$(python -c "import json; print(json.load(open('runtime/lab/user-profile.json'))['theme_id'])").css bots/src/server/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-copy the chosen theme over `active-theme.css`; if `diff` still differs, halt per Terminal State 2.
 

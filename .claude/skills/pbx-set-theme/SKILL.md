@@ -47,8 +47,30 @@ served lazily per request).
 
 ### If the user said "change my theme" without specifying
 
-Use AskUserQuestion to list all available themes from
-`PBX-Stratos/themes/` with brief descriptions.
+PBX Stratos ships **6 themes** — more than `AskUserQuestion` can fit
+in a single popup. Apply the options-overflow rule from
+`.claude/UNIVERSAL-CORE.md`:
+
+**Popup 1** — 3 themes + nav slot:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | Default (slate + indigo) | Clean dark — pairs with Default personality |
+| 2 | Lambo (gold + black) | Pairs with Crypto Bro |
+| 3 | Camo (military green + amber) | Pairs with Drill Sergeant |
+| 4 | **See more themes →** | Show the other three |
+
+If user picks 4, fire **Popup 2** — the other 3 + return slot:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | Beach (coral + teal pastels) | Pairs with Surf Bro |
+| 2 | Academia (cream + serif) | Pairs with Quant Professor |
+| 3 | Matrix (green-on-black mono) | Pairs with Hacker |
+| 4 | **← See original themes** | Go back to the first three |
+
+User can round-trip freely until they pick. Never drop into "type
+the theme name" — always use the popup pair pattern.
 
 ## Safety rules
 

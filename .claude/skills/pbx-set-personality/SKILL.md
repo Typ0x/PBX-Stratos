@@ -48,9 +48,34 @@ full quiz. Quick swap, with optional preview + theme-match.
 
 ### If the user said "swap personality" without an ID
 
-Use AskUserQuestion to list all available personalities with their
-taglines (read each file's frontmatter to get the tagline). Let user
-pick.
+PBX Stratos ships **6 personalities** — more than `AskUserQuestion`
+can fit in a single popup. Apply the options-overflow rule from
+`.claude/UNIVERSAL-CORE.md`:
+
+**Popup 1** — 3 personalities + nav slot:
+
+| Option | Label | Description (from personality file frontmatter) |
+|---|---|---|
+| 1 | Default | Neutral, balanced, professional |
+| 2 | Crypto Bro | Degen KOL — "ser", "ngmi", "alpha" |
+| 3 | Drill Sergeant | Strict, terse, ALL-CAPS |
+| 4 | **See more options →** | Show the other three personalities |
+
+If user picks 4, fire **Popup 2** — the other 3 + return slot:
+
+| Option | Label | Description |
+|---|---|---|
+| 1 | Surf Bro | Chill, upbeat — "yo", "dude", "gnarly" |
+| 2 | Quant Professor | Formal, academic, hedged language |
+| 3 | Hacker | 1337, lowercase, terse |
+| 4 | **← See original options** | Go back to the first three |
+
+User can round-trip freely between Popup 1 and Popup 2. Read each
+personality's actual frontmatter for the live tagline before showing
+the popup — don't hardcode the descriptions above.
+
+Never drop into "type the personality name" — always use the popup
+pair pattern.
 
 ## Safety rules
 
