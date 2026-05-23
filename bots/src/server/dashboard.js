@@ -3158,13 +3158,22 @@
       },
     });
 
-    // 3 — Discovery running, let's tour the rest
+    // 3 — Decoder running on Strategies view, highlight the
+    //     decoded-strategies section so the user can see the live
+    //     decode progress for the 10 top wallets while we tour.
+    //
+    // Hitting "Find top traders & decode" on Discover navigates the
+    // app to /view-strategies and renders the in-progress decoder.
+    // Previously this step pulled the user BACK to /view-discover
+    // (a confusing jump) and applied no highlight. Now we stay on
+    // strategies and frame the live decode card.
     steps.push({
-      title: 'Step 2: While that runs…',
-      view: 'discover',
+      title: 'Step 2: Decoder running',
+      view: 'strategies',
+      highlight: '#strategies-decoded-section',
       body: () => [
         el('p', null,
-          "Discovery's working in the background. Let's tour the rest of the dashboard while we wait."),
+          "Claude's decoding the top 10 wallets here in the background — live progress streams in as each one finishes. We'll tour the rest while it works."),
       ],
     });
 
