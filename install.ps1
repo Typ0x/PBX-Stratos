@@ -242,7 +242,7 @@ if (-not $healthOk) {
   # Hard fail: dashboard never came up. Show the user where to look.
   Write-Host ""
   Write-Host "================================================================" -ForegroundColor Red
-  Write-Host " Install FAILED — /health never reached 200 within ${maxWait}s" -ForegroundColor Red
+  Write-Host " Install FAILED -- /health never reached 200 within ${maxWait}s" -ForegroundColor Red
   Write-Host "================================================================" -ForegroundColor Red
   Write-Host ""
   Write-Host " Check the pm2 logs to diagnose:" -ForegroundColor White
@@ -263,7 +263,7 @@ if (-not $bothOnline) {
 }
 Ok "/health returned 200 after ${elapsed}s"
 
-# Open /dashboard, not the bare root — the server doesn't mount "/"
+# Open /dashboard, not the bare root -- the server doesn't mount "/"
 # (though we now redirect, this avoids any 302 round-trip).
 Start-Process 'http://localhost:8787/dashboard'
 

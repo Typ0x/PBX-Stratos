@@ -1,4 +1,4 @@
-# PBX Stratos — environment profile
+# PBX Stratos -- environment profile
 #
 # Source this before running any pm2 / npm / dashboard command so
 # the shell sees the self-contained runtime layout. After this is
@@ -16,7 +16,7 @@
 # source) loads it into the current session so the vars persist.
 #
 # RepoRoot resolves dynamically from this script's path so the
-# same file works on any user's machine — no hardcoded paths.
+# same file works on any user's machine -- no hardcoded paths.
 
 $ScriptDir             = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot              = (Resolve-Path (Join-Path $ScriptDir '..')).Path

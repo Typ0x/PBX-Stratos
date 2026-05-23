@@ -20,7 +20,7 @@ Write-Host "PBX Stratos uninstaller"
 Write-Host "======================="
 Write-Host ""
 
-# ─── 1. Stop + delete pm2 apps (exact name; never *-pbxtra) ─────────
+# --- 1. Stop + delete pm2 apps (exact name; never *-pbxtra) ---------
 
 if (Get-Command pm2 -ErrorAction SilentlyContinue) {
   foreach ($app in @('bear-watch-server-stratos', 'paper-trade-bot-stratos')) {
@@ -41,7 +41,7 @@ if (Get-Command pm2 -ErrorAction SilentlyContinue) {
 
 Write-Host ""
 
-# ─── 2. Unregister the 6 STRATOS-* scheduled tasks ──────────────────
+# --- 2. Unregister the 6 STRATOS-* scheduled tasks ------------------
 
 Write-Host "Removing STRATOS-* scheduled tasks..."
 $tasks = @(
@@ -67,7 +67,7 @@ if ($removed -eq 0) {
 
 Write-Host ""
 
-# ─── 3. Optional cleanup (interactive) ──────────────────────────────
+# --- 3. Optional cleanup (interactive) ------------------------------
 
 Write-Host "Optional cleanup. Each prompt is yes/no:"
 Write-Host ""

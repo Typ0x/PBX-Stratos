@@ -9,7 +9,7 @@ $nodeVersion = 'v22.11.0'
 function Test-HaveNode {
   $node = Get-Command node -ErrorAction SilentlyContinue
   if (-not $node) { return $false }
-  # Read the full version and split in PowerShell — passing a JS string
+  # Read the full version and split in PowerShell -- passing a JS string
   # with embedded double-quotes through Windows PowerShell 5.1 to node.exe
   # mangles the quotes and breaks the eval.
   $ver = (& node -p process.versions.node) 2>$null
@@ -35,7 +35,7 @@ if (Test-HaveNode) {
   try {
     Invoke-WebRequest -Uri $url -OutFile $zip
   } catch {
-    Write-Error '[bootstrap] Node download failed — check your internet connection'
+    Write-Error '[bootstrap] Node download failed -- check your internet connection'
     exit 1
   }
   Expand-Archive -Force -LiteralPath $zip -DestinationPath $tooling

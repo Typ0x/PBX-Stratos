@@ -1,11 +1,11 @@
-# PBX Stratos — Scheduled task installer (Windows)
+# PBX Stratos -- Scheduled task installer (Windows)
 #
 # Registers the standard STRATOS-* scheduled tasks via schtasks.
-# Run this ONCE during install. Re-running is safe — /f forces
+# Run this ONCE during install. Re-running is safe -- /f forces
 # overwrite of any existing task with the same name.
 #
 # Requires: PowerShell with admin rights for some scheduled task triggers
-# (most BEARWATCH tasks run as the current user — no admin needed).
+# (most BEARWATCH tasks run as the current user -- no admin needed).
 #
 # Usage:
 #   .\register-scheduled-tasks.ps1
@@ -27,7 +27,7 @@ $bearWatch  = "$RepoRoot\bear-watch"
 
 # Helper: build a schtasks command that uses silent-run.vbs to wrap a .bat.
 #
-# IMPORTANT — argument splitting: PowerShell passes a single quoted
+# IMPORTANT -- argument splitting: PowerShell passes a single quoted
 # string to schtasks as ONE argument, but schtasks expects `/sc minute
 # /mo 5` to be FIVE separate args. We split the $Schedule on whitespace
 # and splat (@) the resulting array so each token becomes its own arg.
