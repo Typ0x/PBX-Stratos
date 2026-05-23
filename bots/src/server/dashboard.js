@@ -3724,8 +3724,15 @@
     const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
     const descText  = unlock.description || '';
 
+    // Tailwind classes piggyback on each theme's existing overrides
+    // for .text-emerald-* / .border-emerald-* so the toast border,
+    // icon stroke, and eyebrow all pick up the active theme's accent
+    // color. Without these classes, the toast's CSS-var-based defaults
+    // (--theme-accent fallback chain) always resolved to emerald
+    // because no theme actually sets --theme-accent — themes only
+    // override Tailwind utility classes.
     const toast = document.createElement('div');
-    toast.className = 'pbx-achievement-toast';
+    toast.className = 'pbx-achievement-toast text-emerald-300 border-emerald-500/60';
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
 
@@ -3733,7 +3740,9 @@
     // sprite the list rows pull from, so by the time a toast fires
     // the sprite is already in cache. Defaults to a generic trophy
     // glyph if the unlock has no taskId yet (event-driven unlocks
-    // that aren't in the roadmap sprite).
+    // that aren't in the roadmap sprite). The toast root's
+    // text-emerald-300 class (theme-overridden) sets the color this
+    // SVG's stroke="currentColor" picks up.
     const img = document.createElement('div');
     img.className = 'pbx-achievement-toast-img';
     const spriteId = unlock.taskId ? ('ach-' + unlock.taskId) : 'ach-fallback';
@@ -3744,7 +3753,7 @@
     body.className = 'pbx-achievement-toast-body';
 
     const eyebrow = document.createElement('div');
-    eyebrow.className = 'pbx-achievement-toast-eyebrow';
+    eyebrow.className = 'pbx-achievement-toast-eyebrow text-emerald-300';
     eyebrow.textContent = 'Achievement Unlocked';
 
     const title = document.createElement('div');

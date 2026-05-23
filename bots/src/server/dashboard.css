@@ -625,12 +625,18 @@
       var(--theme-card-bg, #111623) 0%,
       var(--theme-card-bg-elevated, #161b2c) 100%
     );
-    border: 1px solid var(--theme-accent, var(--accent-primary, #10b981));
+    /* Border color is set inline via the .border-emerald-500/60 Tailwind
+       class on the toast element, which each theme rewrites to its own
+       accent (gold for lambo, olive for camo, etc.). Same for the icon
+       stroke + eyebrow text — they all inherit `currentColor` from the
+       toast root, which the theme-overridden .text-emerald-300 class
+       sets. The CSS-var fallback chain was always resolving to emerald
+       because no theme actually defines --theme-accent. */
+    border: 1px solid currentColor;
     box-shadow:
       0 8px 24px rgba(0, 0, 0, 0.45),
       0 0 0 1px rgba(255, 255, 255, 0.02) inset,
       0 0 18px var(--theme-accent-glow, rgba(16, 185, 129, 0.18));
-    color: var(--theme-fg, #e4e4e7);
     /* Start state — slid off-screen to the right + faded. CSS class
        flip on next frame triggers the transition into view. */
     transform: translateX(120%);
@@ -651,7 +657,8 @@
     flex: 0 0 auto;
     width: 48px;
     height: 48px;
-    color: var(--theme-accent, var(--accent-primary, #10b981));
+    /* Icon stroke uses currentColor; the toast root's Tailwind
+       text-emerald-300 (theme-overridden) sets the color. */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -674,7 +681,8 @@
     font-size: 9.5px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--theme-accent, var(--accent-primary, #34d399));
+    /* Color comes from the .text-emerald-300 Tailwind class applied
+       to this element, which each theme overrides to its own accent. */
     opacity: 0.9;
   }
   .pbx-achievement-toast-title {
