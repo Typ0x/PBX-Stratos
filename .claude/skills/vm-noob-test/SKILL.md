@@ -63,6 +63,25 @@ success state from iteration 3 — useful as a regression starting
 point ("does X still work on a successful install"), not for the
 noob loop.
 
+## Mode preflight
+
+Before injecting the trigger prompt, the harness MUST switch Claude
+Desktop to **Auto mode** (option 4 in the `Ctrl+M` mode picker).
+The snapshot's default mode is "Accept edits" (option 2 with ✓), which
+still prompts on some actions and would trip the "zero unnecessary
+prompts" criterion. Auto mode is the closest equivalent to the noob
+user's "I trust the install, just do it" expectation.
+
+Picker shortcut: `Ctrl+M` opens the dropdown, then `1`-`5` select:
+
+| Key | Mode | Use |
+|-----|------|-----|
+| 1 | Ask permissions | Most conservative |
+| 2 | Accept edits | Snapshot default (don't use for noob test) |
+| 3 | Plan mode | Plan-only, no execution |
+| 4 | **Auto mode** | What the noob test uses |
+| 5 | Bypass permissions | Most permissive — only if Auto mode still prompts too often |
+
 ## Trigger prompt
 
 The exact prompt to inject into Claude Desktop on the VM. This is
