@@ -416,27 +416,38 @@ pattern above.
 > `runtime/lab/user-profile.json` (each field has 3-4 valid values —
 > see `.claude/UNIVERSAL-CORE.md` for the schema)."
 
-Then write the JSON file:
+Then save via the **profile API endpoint** — NOT a direct file write.
 
-```json
-{
-  "tech_level":          "<from Q1>",
-  "communication_style": "<from Q2>",
-  "goal":                "<from Q3>",
-  "consent_level":       "<from Q4>",
-  "autonomy_level":      "<from Q5>",
-  "personality_id":      "default",
-  "theme_id":            "default",
-  "roadmap_level":       1,
-  "created_at":          "<ISO timestamp>",
-  "last_updated":        "<ISO timestamp>"
-}
+```bash
+curl -X POST http://localhost:8787/api/profile/recalibrate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tech_level":          "<from Q1>",
+    "communication_style": "<from Q2>",
+    "goal":                "<from Q3>",
+    "consent_level":       "<from Q4>",
+    "autonomy_level":      "<from Q5>"
+  }'
 ```
 
-`personality_id` + `theme_id` get updated in Steps 9-10. From here on,
-all your responses should reflect the Q1-Q5 calibration.
+(Or PowerShell: `Invoke-RestMethod -Uri http://localhost:8787/api/profile/recalibrate -Method POST -ContentType 'application/json' -Body '{"tech_level":"..."}'`.)
 
-**Verify Step 1:** `python -c "import json; p=json.load(open('runtime/lab/user-profile.json')); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If you don't see `PROFILE_OK`, the profile is missing fields — re-ask the missing question(s); if still failing, halt per Terminal State 2.
+**Why API, not file write:** PS 5.1 (Windows default) writes UTF-8
+**with BOM** by default for `Set-Content` / `Out-File`, which makes
+the server's JSON parser throw 500 on every dashboard poll until the
+BOM is stripped. The API endpoint receives the JSON as bytes (no BOM
+ever lands on disk) AND validates each field against an allow-list
+(so a typo like `tech_level: "newb"` gets rejected upfront, not
+discovered later via a broken dashboard).
+
+If the server isn't up yet (Step 1 of the install fires before Step 8
+starts pm2), defer this POST to right after `pm2 start` completes.
+
+`personality_id` + `theme_id` get updated in Steps 9-10 via the same
+endpoint. From here on, all your responses should reflect the Q1-Q5
+calibration.
+
+**Verify Step 1:** `curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If you don't see `PROFILE_OK`, the recalibrate POST didn't land — re-POST with the missing fields; if still failing, halt per Terminal State 2.
 
 ---
 
@@ -740,9 +751,18 @@ in that personality before you commit?"* If yes, read
 `.claude/personalities/<id>.md` and write one in-character paragraph
 as a taste-test.
 
-Once user confirms: update `personality_id` in the profile JSON.
+Once user confirms: update `personality_id` via the profile API:
 
-**Verify Step 9:** `python -c "import json; p=json.load(open('runtime/lab/user-profile.json')); pid=p.get('personality_id'); assert pid in ['default','crypto-bro','drill-sergeant','surf-bro','quant-professor','hacker'], f'bad personality_id: {pid}'; print('PERSONALITY_OK')"`. If you don't see `PERSONALITY_OK`, re-write the profile field with the user's pick; if still failing, halt per Terminal State 2.
+```bash
+curl -X POST http://localhost:8787/api/profile/recalibrate \
+  -H "Content-Type: application/json" \
+  -d '{"personality_id":"<picked-id>"}'
+```
+
+(Same endpoint as Step 1. Field-by-field merges — only `personality_id`
+changes, all other Q1-Q5 fields stay intact.)
+
+**Verify Step 9:** `curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); pid=p.get('personality_id'); assert pid in ['default','crypto-bro','drill-sergeant','surf-bro','quant-professor','hacker'], f'bad personality_id: {pid}'; print('PERSONALITY_OK')"`. If you don't see `PERSONALITY_OK`, re-POST with the user's pick; if still failing, halt per Terminal State 2.
 
 ---
 
@@ -775,11 +795,21 @@ If the user picks 1, 2, or 3 → that's their theme. If they pick
 | 3 | **Matrix** (green-on-black mono) | Pairs naturally with Hacker. |
 | 4 | **← See original themes** | Go back to the first three. |
 
-User round-trips freely until they pick. Once they do, copy
-`themes/<id>.css` to `bots/src/server/active-theme.css` (or symlink
-on Unix). Update `theme_id` in profile JSON.
+User round-trips freely until they pick. Once they do, POST the
+`theme_id` to the profile API — the endpoint will copy
+`themes/<id>.css` to `bots/src/server/active-theme.css` automatically:
 
-**Verify Step 10:** `test -f bots/src/server/active-theme.css && diff -q "themes/$(python -c "import json; print(json.load(open('runtime/lab/user-profile.json'))['theme_id'])").css bots/src/server/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-copy the chosen theme over `active-theme.css`; if `diff` still differs, halt per Terminal State 2.
+```bash
+curl -X POST http://localhost:8787/api/profile/recalibrate \
+  -H "Content-Type: application/json" \
+  -d '{"theme_id":"<picked-id>"}'
+```
+
+(Pass `"theme_id":"auto"` to have the endpoint resolve to the
+personality's default theme — saves a lookup if the user just wants
+the matching theme for their personality.)
+
+**Verify Step 10:** `test -f bots/src/server/active-theme.css && diff -q "themes/$(curl -s http://localhost:8787/api/profile | python -c "import json,sys; print(json.load(sys.stdin)['theme_id'])").css bots/src/server/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-POST the recalibrate; if `diff` still differs, halt per Terminal State 2.
 
 ---
 
