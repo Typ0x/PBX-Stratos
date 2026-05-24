@@ -973,8 +973,34 @@ app.get('/api/workflow/preflight', async () => {
   // data-driven fallback. sklearn is reported for diagnostics only —
   // the dashboard decoders don't import it.
   const allReady = pythonOk && claudeCli.ok;
+
+  // Detect whether a background install is mid-flight. install.ps1
+  // (Step 2) and scripts/setup.mjs (ensureClaudeCli) write
+  // runtime/lab/pip-bg.log / runtime/lab/claude-cli-bg.log when they
+  // launch the deferred installs. If a log was touched in the last 5
+  // minutes, the user is in the post-install warmup window and the
+  // dashboard should show "Decoder finishing install" instead of a
+  // hard "missing" error -- closes the only UX gap from the deferred-
+  // install perf optimization (see dee7676).
+  const labDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
+  function bgInstallActive(filename: string): boolean {
+    const p = join(labDir, filename);
+    if (!existsSync(p)) return false;
+    try {
+      const ageMs = Date.now() - statSync(p).mtimeMs;
+      return ageMs < 5 * 60 * 1000;
+    } catch { return false; }
+  }
+  const bgInstall = {
+    pip: !sklearn.ok && bgInstallActive('pip-bg.log'),
+    claudeCli: !claudeCli.ok && bgInstallActive('claude-cli-bg.log'),
+  };
+  const bgInstallInProgress = bgInstall.pip || bgInstall.claudeCli;
+
   return {
     ready: allReady,
+    bgInstallInProgress,
+    bgInstall,
     checks: {
       python: { ok: pythonOk, version: python.version, minor: pythonMinor,
                 required: '>= 3.9',
@@ -983,10 +1009,15 @@ app.get('/api/workflow/preflight', async () => {
         ok: claudeCli.ok, version: claudeCli.version, error: claudeCli.error,
         note: claudeCli.ok
           ? 'Claude CLI found — wallet decoding will use the LLM refinement loop.'
-          : 'Claude CLI not found. The decode workflow requires it — install '
-            + 'and reload to enable the "Find top traders & decode" button.',
+          : bgInstall.claudeCli
+            ? 'Claude CLI install in progress in the background — usually ready 1-2 min after install.bat finishes. The decode button will enable automatically.'
+            : 'Claude CLI not found. The decode workflow requires it — install '
+              + 'and reload to enable the "Find top traders & decode" button.',
       },
-      sklearn: { ok: sklearn.ok, version: sklearn.version, error: sklearn.error },
+      sklearn: {
+        ok: sklearn.ok, version: sklearn.version, error: sklearn.error,
+        note: bgInstall.pip ? 'pip install -e .[decoder] in progress in the background — usually ready 2-3 min after install.bat finishes.' : undefined,
+      },
     },
     remediation: {
       python: !pythonOk ? {
@@ -994,7 +1025,7 @@ app.get('/api/workflow/preflight', async () => {
         linux: 'sudo apt-get install python3.12 python3.12-venv',
         note: 'Or use pyenv: curl https://pyenv.run | bash && pyenv install 3.12 && pyenv local 3.12',
       } : null,
-      claudeCli: !claudeCli.ok ? {
+      claudeCli: !claudeCli.ok && !bgInstall.claudeCli ? {
         macOS: 'npm install -g @anthropic-ai/claude-code',
         linux: 'npm install -g @anthropic-ai/claude-code',
         note: 'Required for the decode workflow. See https://docs.claude.com/en/docs/claude-code.',

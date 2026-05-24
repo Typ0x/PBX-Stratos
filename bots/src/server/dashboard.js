@@ -3269,6 +3269,38 @@
       banner.classList.add('hidden');
       return;
     }
+
+    // Friendly "background install in progress" state -- when the
+    // deferred pip-decoder / claude-code installs (commit dee7676)
+    // are still running, the server returns bgInstallInProgress=true.
+    // Show a calm "decoder finishing up, ready in ~2 min" message
+    // instead of the scary missing-tools list, and auto-recheck
+    // every 8s so the button enables itself once installs finish.
+    if (data.bgInstallInProgress) {
+      while (banner.firstChild) banner.removeChild(banner.firstChild);
+      const wrap = document.createElement('div');
+      wrap.className = 'text-emerald-200/90';
+      const head = document.createElement('div');
+      head.className = 'text-emerald-200 font-medium flex items-center gap-2';
+      const spinner = document.createElement('span');
+      spinner.className = 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot';
+      head.append(spinner);
+      head.appendChild(document.createTextNode('Decoder is finishing install in the background — ready in ~1-2 min'));
+      wrap.append(head);
+      const sub = document.createElement('div');
+      sub.className = 'text-[12px] muted mt-1';
+      sub.textContent = 'The dashboard is fully usable; only the "Find top traders & decode" button waits on this. It will auto-enable when ready.';
+      wrap.append(sub);
+      banner.append(wrap);
+      banner.classList.remove('hidden');
+      startBtn.disabled = true;
+      startBtn.title = 'Decoder still installing — auto-enables when ready';
+      // Re-check every 8s; once data.ready flips true, the early
+      // return at the top of this function clears the banner.
+      setTimeout(checkWorkflowPreflight, 8000);
+      return;
+    }
+
     // Render missing-tool list with remediation
     while (banner.firstChild) banner.removeChild(banner.firstChild);
     const head = document.createElement('div');

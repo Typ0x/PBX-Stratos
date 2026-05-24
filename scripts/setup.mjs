@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, rmSync, openSync } from 'node:fs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const toolingDir = join(repoRoot, '.tooling');
@@ -154,13 +154,27 @@ function ensureClaudeCli() {
   // background install finishes, /api/workflow/preflight will surface
   // the missing-CLI message; they retry after a moment.
   console.log('[setup] launching detached background install of @anthropic-ai/claude-code (ready in ~1-2 min)...');
+  // Write a marker log so /api/workflow/preflight can detect the
+  // background install is in flight and show the user a
+  // "decoder finishing install" hint instead of a hard error if they
+  // click decode before the install completes (see Bug #2 / dee7676).
   import('node:child_process').then(({ spawn }) => {
     try {
+      // Make sure runtime/lab/ exists -- it might not yet on first install
+      const labDir = process.env.STRATOS_LAB_HOME
+        || join(repoRoot, 'runtime', 'lab');
+      mkdirSync(labDir, { recursive: true });
+      const bgLog = join(labDir, 'claude-cli-bg.log');
+      writeFileSync(bgLog, `${new Date().toISOString()} -- starting background npm install -g @anthropic-ai/claude-code\n`);
+      // Touch the file periodically so /api/workflow/preflight's
+      // "modified in last 5 min" check stays true even if install is
+      // slow. Simpler: just rely on the initial timestamp being recent.
+      const out = openSync(bgLog, 'a');
       const child = spawn('npm', ['install', '-g', '@anthropic-ai/claude-code',
         '--no-audit', '--no-fund', '--loglevel=error'], {
         cwd: repoRoot,
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', out, out],
         shell: process.platform === 'win32',
       });
       child.unref();
