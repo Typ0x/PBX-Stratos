@@ -1,4 +1,12 @@
 @echo off
+REM Bug #6 fix: pin CWD to the batch file's own location regardless of
+REM how the caller invoked us. Without this, a `cmd /c install.bat`
+REM called from bash (Git Bash on Windows) inherits the bash CWD --
+REM not the bash variable, but the cmd subprocess's CWD -- and
+REM install.bat is then not found. Pinning to %~dp0 eliminates that
+REM whole class of "install.bat not recognized" first-try failures
+REM and makes double-click-from-File-Explorer work even from Recents.
+cd /D "%~dp0"
 REM PBX Stratos -- One-shot installer launcher (Windows double-click)
 REM
 REM Double-click this file to install everything in one go, or run

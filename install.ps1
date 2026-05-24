@@ -210,10 +210,15 @@ if ($LASTEXITCODE -ne 0) {
 
 # ----------------------------------------------------------------
 Step 6 "Waiting for /health + verifying both pm2 apps online"
-# Server needs a beat to come fully online after pm2 start. On cold
-# machines this can take 30-60s (npm cache cold, Windows Defender
-# scanning each file). Poll up to 90s.
-$maxWait = 90
+# Bug #3 fix: bumped from 90s -> 180s. On cold Windows machines with
+# Defender / SmartScreen scanning the freshly-downloaded node + python
+# + 262 npm packages, /health can take 90-150s to respond after pm2
+# start even when the install actually succeeded. The old 90s budget
+# was firing "Install FAILED" on otherwise-green installs, skipping
+# the browser-open, and confusing the agent driving the install.
+# 180s is enough headroom for the slowest realistic cold boot.
+# Override with STRATOS_INSTALL_HEALTH_WAIT env var if needed.
+$maxWait = if ($env:STRATOS_INSTALL_HEALTH_WAIT) { [int]$env:STRATOS_INSTALL_HEALTH_WAIT } else { 180 }
 $elapsed = 0
 $healthOk = $false
 while ($elapsed -lt $maxWait) {
@@ -250,20 +255,30 @@ if ($healthOk) {
 }
 
 if (-not $healthOk) {
-  # Hard fail: dashboard never came up. Show the user where to look.
+  # Hard fail: dashboard never came up. Tail the actual log files so
+  # the user (or the agent driving the install) gets actionable output
+  # inline -- no need to go hunt for log paths and re-run commands.
   Write-Host ""
   Write-Host "================================================================" -ForegroundColor Red
   Write-Host " Install FAILED -- /health never reached 200 within ${maxWait}s" -ForegroundColor Red
   Write-Host "================================================================" -ForegroundColor Red
+  $serverLog = Join-Path $RepoRoot 'bots\_server_log.txt'
+  $paperLog  = Join-Path $RepoRoot 'bear-scout\runners\_paper_trade_log.txt'
+  if (Test-Path $serverLog) {
+    Write-Host ""
+    Write-Host " --- last 30 lines of bots/_server_log.txt ---" -ForegroundColor Yellow
+    Get-Content $serverLog -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+  }
+  if (Test-Path $paperLog) {
+    Write-Host ""
+    Write-Host " --- last 30 lines of bear-scout/runners/_paper_trade_log.txt ---" -ForegroundColor Yellow
+    Get-Content $paperLog -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+  }
   Write-Host ""
-  Write-Host " Check the pm2 logs to diagnose:" -ForegroundColor White
+  Write-Host " Further diagnosis:" -ForegroundColor White
   Write-Host "   pm2 list" -ForegroundColor Gray
   Write-Host "   pm2 logs bear-watch-server-stratos --lines 100 --nostream" -ForegroundColor Gray
   Write-Host "   pm2 logs paper-trade-bot-stratos    --lines 100 --nostream" -ForegroundColor Gray
-  Write-Host ""
-  Write-Host " Or look at the raw log files at:" -ForegroundColor White
-  Write-Host "   $RepoRoot\bots\_server_log.txt" -ForegroundColor Gray
-  Write-Host "   $RepoRoot\bear-scout\runners\_paper_trade_log.txt" -ForegroundColor Gray
   Write-Host ""
   Write-Host " NOT opening the browser since the install didn't complete." -ForegroundColor Yellow
   exit 1
