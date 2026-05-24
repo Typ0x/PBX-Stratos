@@ -240,6 +240,38 @@ Write-Output "PROMPT_PASTED"
 Write-Output "SUBMITTED"
 "@
 
+# Separate auto-answer loop -- the install skill INTENTIONALLY shows
+# the personality quiz to keep the user occupied while bootstrap runs
+# in parallel. The install can't complete until the quiz is answered
+# (because user-profile.json is needed before pm2 start). Hammering "1"
+# in the guest at 3s intervals for 90s covers all 5 quiz questions
+# plus the personality picker (Step 9) and theme picker (Step 10).
+#
+# Picking "1" everywhere = first option in each AskUserQuestion popup.
+# Mostly "default-ish" answers; whatever non-default we land on is fine
+# for a noob install test (we're measuring install completion + dashboard
+# up time, not the semantics of the user's choices).
+$autoAnswerScript = @"
+`$ErrorActionPreference = "SilentlyContinue"
+Add-Type -AssemblyName System.Windows.Forms
+`$shell = New-Object -ComObject WScript.Shell
+# Hammer "1" every 5s for 900s. Covers Q1-Q5 quiz, Step 6 live-trading
+# prompt, Step 7 wallet prompts, Step 9 personality picker, Step 10
+# theme picker, plus any pagination dialogs. Picking "1" everywhere =
+# first option in each AskUserQuestion. The presses that land while no
+# popup is open just type "1" into the chat input (harmless -- nothing
+# submits without Enter).
+for (`$i = 0; `$i -lt 180; `$i++) {
+  Start-Sleep -Seconds 5
+  `$claude = Get-Process Claude -ErrorAction SilentlyContinue | Where-Object { `$_.MainWindowHandle -ne 0 } | Select-Object -First 1
+  if (`$claude) {
+    `$shell.AppActivate(`$claude.Id) | Out-Null
+    Start-Sleep -Milliseconds 150
+    `$shell.SendKeys("1")
+  }
+}
+"@
+
 $drivePath = Join-Path $OutDir 'drive.ps1'
 $driveScript | Out-File -FilePath $drivePath -Encoding utf8 -NoNewline
 $cp = VbmGuestCopyTo $drivePath "C:\noobharness-$RunId\drive"
@@ -270,6 +302,31 @@ $promptSentAt = Get-Date
 Log "Drive script finished at $($promptSentAt.ToString('HH:mm:ss.fff'))"
 Start-Sleep -Milliseconds 1500
 Screenshot 'after-drive' | Out-Null
+
+# Copy + launch the auto-answer loop ASYNC so it runs in parallel
+# with our /health polling. The install skill shows the personality
+# quiz (Step 1) intentionally to fill the bootstrap wait time; the
+# install can't complete until the quiz is answered. The loop
+# hammers "1" every 5s for 15 min to click through all popups.
+Log 'Copying auto-answer script to guest'
+$autoPath = Join-Path $OutDir 'auto.ps1'
+$autoAnswerScript | Out-File -FilePath $autoPath -Encoding utf8 -NoNewline
+$cp = VbmGuestCopyTo $autoPath "C:\noobharness-$RunId\auto"
+if ($cp.ExitCode -ne 0) {
+  Log "WARN: copyto auto.ps1 failed: $($cp.Output.Trim()) -- install may stall at quiz"
+} else {
+  Log 'Launching auto-answer loop in background (fire-and-forget)'
+  # Start-Process without -Wait = host returns immediately, VBoxManage
+  # blocks until guest process finishes (15 min). Auto-answer runs in
+  # parallel with the /health polling loop below.
+  Start-Process -FilePath $VbmExe -NoNewWindow `
+    -ArgumentList @('guestcontrol', $Vm, '--username', $User, '--password', $Pass,
+      'run', '--exe', 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+      '--', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+      "C:\noobharness-$RunId\auto\auto.ps1") `
+    -RedirectStandardOutput (Join-Path $OutDir 'auto-out.log') `
+    -RedirectStandardError (Join-Path $OutDir 'auto-err.log') | Out-Null
+}
 
 # --- Phase 4: poll for dashboard up ---
 Log "Polling http://localhost:8787/health from inside VM (timeout ${MaxSec}s)"
