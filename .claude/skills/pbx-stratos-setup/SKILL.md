@@ -576,11 +576,16 @@ output of `secrets.token_urlsafe(32)` is 43 chars, not hex), the
 server validates against `TOKEN_HEX_RE` and exits, boot-looping under
 pm2. Don't fight the autogen path.
 
-Lock the `.env` down on Windows:
+Lock the `.env` down on Windows. PS 5.1 (Desktop edition, the default
+on Windows 10/11) mangles `icacls`'s `/grant:r` argument when invoked
+directly — wrap in `cmd /c` so cmd.exe parses the arguments instead:
 
 ```powershell
-icacls $envPath /inheritance:r /grant:r "$env:USERNAME:F" /grant:r 'SYSTEM:F'
+cmd /c "icacls `"$envPath`" /inheritance:r /grant:r `"$env:USERNAME`":F /grant:r SYSTEM:F"
 ```
+
+(On PS 7+ the inline form works, but wrapping in `cmd /c` is safe on
+both editions and avoids the "Invalid parameter '/grant:r'" failure.)
 
 And verify `.gitignore` covers `.env` (it already does at line 9 of
 the shipped gitignore).

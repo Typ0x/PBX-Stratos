@@ -164,15 +164,22 @@ export async function fetchBackfill(
   try {
     const res = await fetchImpl(`${DATASET_RAW}/manifest.csv`);
     if (!res.ok) {
-      console.warn(
-        `[airquality-backfill] manifest fetch returned ${res.ok ? 'ok' : 'not ok'} from ${DATASET_RAW}/manifest.csv — skipping cold-start backfill (live PurpleAir/AirNow still primary).`,
+      // Bug #5 fix: the default dataset URL (Typ0x/pbx-air-quality-dataset)
+      // doesn't exist publicly yet, so on fresh installs this 404s on
+      // every cold boot. Demoted from console.warn to console.info and
+      // shortened the message — live PurpleAir / AirNow is the primary
+      // data source anyway; the dataset backfill is purely a "give the
+      // user historical context on day 1" nice-to-have. Override with
+      // STRATOS_AIRQ_DATASET_URL if you stand up your own dataset mirror.
+      console.info(
+        `[airquality-backfill] no cold-start dataset at ${DATASET_RAW} (status ${res.status}). Live data only -- this is fine.`,
       );
       return result;
     }
     rows = parseManifest(await res.text());
   } catch (err) {
-    console.warn(
-      `[airquality-backfill] manifest fetch threw from ${DATASET_RAW}/manifest.csv: ${err instanceof Error ? err.message : String(err)} — skipping cold-start backfill.`,
+    console.info(
+      `[airquality-backfill] cold-start dataset unreachable (${err instanceof Error ? err.message : String(err)}). Live data only -- this is fine.`,
     );
     return result;
   }
