@@ -327,16 +327,42 @@ This is a clean handoff, not a failure mode.
 
 ---
 
-## Step 1 — The 5-question personality quiz
+## Step 1 — Kick off prereqs in background + start the personality quiz
+
+**Why this order:** the quiz takes the user 30s-1min. Node / Python /
+Git installs take another 30-90s on a bare Win11 box (via winget).
+Run them in PARALLEL — the quiz fills the install wait, the user
+never sees idle time.
+
+**Action: launch `tools/prereqs.ps1` in the background BEFORE asking
+Q1.** This script detects what's missing and uses `winget` to install
+Node + Python + Git in parallel (faster than install.ps1's later
+sequential bootstrap downloads). The script is idempotent — it's a
+no-op if everything's already on PATH, and you can re-run it safely.
+
+```powershell
+# In a NEW PowerShell window or a background Start-Process so it
+# runs concurrently with the quiz.
+Start-Process powershell -ArgumentList @(
+  '-NoProfile', '-ExecutionPolicy', 'Bypass',
+  '-File', "$PSScriptRoot\tools\prereqs.ps1"
+) -WindowStyle Hidden -RedirectStandardOutput 'runtime/lab/prereqs-bg.log'
+```
+
+Or simpler, just spawn it and don't wait:
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/prereqs.ps1 > runtime/lab/prereqs-bg.log 2>&1 &
+```
 
 **Why first (after safety):** before you can talk to the user well, you
-need to know how to talk to them. The quiz takes 2-3 minutes and
+need to know how to talk to them. The quiz takes 30s-1min and
 calibrates everything else.
 
 **How:** use `AskUserQuestion` 5 times, in order — one popup per
 question. Each question has ≤4 options, so each one fits in a single
-AUQ call directly. After all 5, write the answers to
-`runtime/lab/user-profile.json`.
+AUQ call directly. After all 5, POST the answers to the profile API
+endpoint (see "After all 5 questions" below).
 
 ### ⚠ The options-overflow rule (applies later this skill at Steps 9 + 10)
 
