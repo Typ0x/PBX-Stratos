@@ -45,9 +45,43 @@ VirtualBox 7.x installed with the `PBX-Stratos-test` VM available.
 | Guest Additions | 7.2.8 (matches host VBox version) |
 | Claude Desktop | 1.8555.0 installed |
 | User in VM | `tester` / `Test1234!` (autologin, admin) |
-| Test snapshot | `Claude w/ Git: Prompt Ready` |
-| Snapshot UUID | `3149d505-7883-4ca0-a005-36db9d53dcce` |
-| Snapshot baseline | Win11 booted, autologged-in as `tester`, Claude Desktop open + focused, Git installed, ready for the install prompt |
+| Test snapshot | `Noob Test Clean Baseline` |
+| Snapshot UUID | `1faf08b6-5977-4020-8ddf-f32e8e8e13c7` |
+| Snapshot baseline | Win11 booted, autologged-in as `tester`, Claude Desktop open + focused, Git installed, **empty input box** + **Auto mode pre-selected** + **no pm2 processes running** + **no `C:\Users\tester\PBX-Stratos` directory**. The latter two are critical — without them, `/health` would respond instantly from a leftover dashboard and the install timing would be meaningless. |
+
+## Snapshot hygiene (re-creating the baseline)
+
+`Noob Test Clean Baseline` inherits Empty-Prompt + Auto-Mode from its
+parent but adds two cleanup steps. If a future iteration somehow
+contaminates the snapshot (pm2 processes left running, install dir
+left behind), recreate from a known-good parent:
+
+```powershell
+$vbm = "$env:ProgramFiles\Oracle\VirtualBox\VBoxManage.exe"
+$vm = 'PBX-Stratos-test'
+# 1. Revert to parent + boot
+& $vbm controlvm $vm poweroff
+& $vbm snapshot $vm restore '526c6d81-a5e9-4fcd-a2e2-01cd048ae092'  # Empty Prompt Auto On
+& $vbm startvm $vm --type headless
+Start-Sleep -Seconds 35
+# 2. Kill all bundled-runtime processes (pm2 daemon = a node process)
+& $vbm guestcontrol $vm --username=tester --password=Test1234! `
+  run --exe C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe --wait-stdout -- `
+  -NoProfile -Command "Get-Process node,python,pm2 -ErrorAction SilentlyContinue | Stop-Process -Force"
+Start-Sleep -Seconds 3
+# 3. Delete the install dir (it's at C:\Users\tester\PBX-Stratos, NOT C:\PBX-Stratos)
+& $vbm guestcontrol $vm --username=tester --password=Test1234! `
+  run --exe C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe --wait-stdout -- `
+  -NoProfile -Command "Remove-Item C:\Users\tester\PBX-Stratos -Recurse -Force -ErrorAction SilentlyContinue"
+# 4. Verify clean state (HEALTH_DOWN + ABSENT)
+& $vbm guestcontrol $vm --username=tester --password=Test1234! `
+  run --exe C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe --wait-stdout -- `
+  -NoProfile -Command "try { (iwr http://localhost:8787/health -UseBasicParsing -TimeoutSec 3).Content } catch { 'HEALTH_DOWN' }; if (Test-Path C:\Users\tester\PBX-Stratos) { 'EXISTS' } else { 'ABSENT' }"
+# 5. Take snapshot
+& $vbm snapshot $vm take "Noob Test Clean Baseline v<N>" --description "Empty Prompt + Auto Mode + no pm2 + no install dir"
+```
+
+Then update `$Snap` in `run-iteration.ps1` to the new UUID.
 
 **The snapshot is the baseline.** Reverting to it puts the VM into a
 known "fresh user about to ask Claude to install PBX Stratos" state.
@@ -63,24 +97,27 @@ success state from iteration 3 — useful as a regression starting
 point ("does X still work on a successful install"), not for the
 noob loop.
 
-## Mode preflight
+## Mode (handled by snapshot)
 
-Before injecting the trigger prompt, the harness MUST switch Claude
-Desktop to **Auto mode** (option 4 in the `Ctrl+M` mode picker).
-The snapshot's default mode is "Accept edits" (option 2 with ✓), which
-still prompts on some actions and would trip the "zero unnecessary
-prompts" criterion. Auto mode is the closest equivalent to the noob
-user's "I trust the install, just do it" expectation.
-
-Picker shortcut: `Ctrl+M` opens the dropdown, then `1`-`5` select:
+The `Claude w/ Git: Empty Prompt Auto On` snapshot ships with **Auto
+mode** already selected, so the harness no longer toggles it. If you
+ever need to recreate the snapshot or switch modes manually, the
+picker shortcut is `Ctrl+M` then a digit:
 
 | Key | Mode | Use |
 |-----|------|-----|
 | 1 | Ask permissions | Most conservative |
-| 2 | Accept edits | Snapshot default (don't use for noob test) |
+| 2 | Accept edits | What "Prompt Ready" snapshot defaults to |
 | 3 | Plan mode | Plan-only, no execution |
-| 4 | **Auto mode** | What the noob test uses |
-| 5 | Bypass permissions | Most permissive — only if Auto mode still prompts too often |
+| 4 | **Auto mode** | What the snapshot ships with — used by the noob test |
+| 5 | Bypass permissions | Documented as broken on this VM; don't use |
+
+Note: host-side `keyboardputscancode` for `Ctrl+M` did NOT reliably
+trigger Claude Desktop's chord handler (Chromium app, host scancodes
+go to OS keyboard buffer but not into Chromium's IPC). If a future
+mode swap is needed at runtime, do it from inside the guest via a
+WScript.Shell.SendKeys script (works because SendKeys uses the
+focused app's message pump).
 
 ## Trigger prompt
 

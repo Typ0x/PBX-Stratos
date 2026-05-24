@@ -35,9 +35,23 @@ param(
 $ErrorActionPreference = 'Continue'
 $VbmExe = "$env:ProgramFiles\Oracle\VirtualBox\VBoxManage.exe"
 $Vm     = 'PBX-Stratos-test'
-# Use snapshot UUID (not name) -- Start-Process arg splat can't quote
-# spaces in the name "Claude w/ Git: Prompt Ready" reliably.
-$Snap   = '3149d505-7883-4ca0-a005-36db9d53dcce'
+# Snapshot UUID (not name -- arg splat can't quote spaces reliably).
+# "Noob Test Clean Baseline" -- created 2026-05-23. Inherits the
+# Empty-Prompt + Auto-Mode state from its parent but ALSO has:
+#   - no pm2 / node / python processes running (so /health does NOT
+#     respond on snapshot revert -- the install test measures REAL
+#     time-to-dashboard rather than time-to-leftover-process)
+#   - no C:\Users\tester\PBX-Stratos directory (so Claude on the VM
+#     has to clone fresh from scratch -- no partial state to confuse
+#     the install)
+# If this snapshot ever gets contaminated again (pm2 left running,
+# install dir left behind), recreate it by:
+#   1. Revert to current snapshot, boot in headless mode
+#   2. guestcontrol run powershell.exe -- Get-Process node,python | Stop-Process -Force
+#   3. guestcontrol run powershell.exe -- Remove-Item C:\Users\tester\PBX-Stratos -Recurse -Force
+#   4. Verify /health is HEALTH_DOWN + install dir ABSENT
+#   5. VBoxManage snapshot <vm> take "Noob Test Clean Baseline v2"
+$Snap   = '1faf08b6-5977-4020-8ddf-f32e8e8e13c7'
 $User   = 'tester'
 $Pass   = 'Test1234!'
 
@@ -92,17 +106,27 @@ function VbmGuestRun {
 
 function VbmGuestCopyTo {
   param([string]$LocalPath, [string]$RemoteDir)
-  # VBox 7.x copyto semantics (empirical, not what the docs imply):
-  # the dir passed to --target-directory is treated as a FILE PATH.
-  # It must NOT pre-exist (trips "already exists and is a directory")
-  # but its PARENT must exist. We work around by mkdir-ing the parent
-  # first (idempotent with --parents) and giving copyto a unique leaf
-  # dir name per call.
-  $parent = Split-Path -Path $RemoteDir -Parent
+  # VBox 7.x copyto semantics (empirical, contradicts the help text):
+  # --target-directory=X actually treats X as the destination FILE
+  # PATH (the source is copied to X and renamed to X's leaf name).
+  # X's parent must exist; X itself must not.
+  #
+  # To get the docs' apparent behavior (copy LocalPath INTO RemoteDir
+  # keeping the source filename), we:
+  #   1. mkdir RemoteDir (so it exists as the parent for our copy)
+  #   2. construct DestFilePath = RemoteDir + source filename
+  #   3. copyto --target-directory=DestFilePath LocalPath
+  # Tested 2026-05-23 against VBox 7.2.8: mkdir C:\noobtest2 then
+  # copyto --target-directory=C:\noobtest2\sub source.ps1 produces
+  # C:\noobtest2\sub as a file (no extension). With this wrapper,
+  # source.ps1 ends up at C:\noobharness-RUN\sub\source.ps1 as
+  # expected by the caller.
   $null = VbmRun guestcontrol $Vm --username $User --password $Pass `
-    mkdir $parent --parents
+    mkdir $RemoteDir --parents
+  $fileName = Split-Path -Path $LocalPath -Leaf
+  $destFilePath = Join-Path $RemoteDir $fileName
   return VbmRun guestcontrol $Vm --username $User --password $Pass `
-    copyto "--target-directory=$RemoteDir" $LocalPath
+    copyto "--target-directory=$destFilePath" $LocalPath
 }
 
 function Screenshot {
@@ -164,41 +188,77 @@ Log "Guest Additions ready in ${bootMs}ms"
 Start-Sleep -Seconds 8
 Screenshot 'before-prompt' | Out-Null
 
-# --- Phase 3: focus Claude Desktop + inject prompt ---
-Log 'Bringing Claude Desktop to foreground'
-$focusScript = @'
-$ErrorActionPreference = "SilentlyContinue"
-$claude = Get-Process Claude -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if (-not $claude) {
+# --- Phase 3: focus + clear + Auto mode + prompt + Enter (single guest script) ---
+#
+# Host-side keyboardputscancode for Ctrl+M was failing -- the digit
+# typed but the mode picker never opened (mode stayed at "Accept
+# edits"). The snapshot also has pre-filled garbage text in the chat
+# input that our prompt was being inserted INTO rather than
+# replacing, producing a mashed string that wouldn't clone the
+# noob-loop branch.
+#
+# Fix: do the whole sequence from a single guest-side PowerShell
+# script using WScript.Shell.SendKeys, which delivers keystrokes
+# THROUGH the focused app's message pump (host scancodes were
+# bypassing Claude Desktop's chord shortcut handlers). This gives us
+# focus + Ctrl+A/Delete clear + Ctrl+M chord + "4" + prompt + Enter
+# all in one go with proper timing between each step.
+Log 'Composing guest-side focus+clear+mode+prompt+enter script'
+
+$driveScript = @"
+`$ErrorActionPreference = "SilentlyContinue"
+Add-Type -AssemblyName System.Windows.Forms
+`$claude = Get-Process Claude -ErrorAction SilentlyContinue | Where-Object { `$_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if (-not `$claude) {
   Write-Output "NO_CLAUDE_WINDOW"
   exit 1
 }
-# WScript.Shell AppActivate is the simplest reliable focus call
-# available in PS 5.1 without P/Invoke. Title-substring match: "Claude"
-# matches "Claude" or any window whose title contains it.
-$shell = New-Object -ComObject WScript.Shell
-$ok = $shell.AppActivate($claude.Id)
-if (-not $ok) {
-  # Fall back to title match (works when Process Id doesnt resolve)
-  $shell.AppActivate("Claude") | Out-Null
-}
-Start-Sleep -Milliseconds 800
+`$shell = New-Object -ComObject WScript.Shell
+`$shell.AppActivate(`$claude.Id) | Out-Null
+Start-Sleep -Milliseconds 1200
 Write-Output "FOCUSED"
+
+# Snapshot ships with empty input + Auto mode pre-selected, so we
+# skip the clear-input and mode-switch keystrokes that the earlier
+# snapshot required.
+#
+# Prompt delivery: SET-CLIPBOARD + paste, NOT SendKeys typing.
+# SendKeys can mangle characters (e.g. zero rendered as capital O,
+# special chars eaten by the SendKeys parser even after escaping).
+# Clipboard paste delivers the prompt verbatim as one atomic unit.
+`$rawPrompt = @'
+$Prompt
 '@
-$focusPath = Join-Path $OutDir 'focus.ps1'
-$focusScript | Out-File -FilePath $focusPath -Encoding utf8 -NoNewline
-$cp = VbmGuestCopyTo $focusPath "C:\noobharness-$RunId\focus"
+Set-Clipboard -Value `$rawPrompt
+Start-Sleep -Milliseconds 300
+`$shell.SendKeys("^v")
+Start-Sleep -Milliseconds 800
+Write-Output "PROMPT_PASTED"
+
+# Submit with Enter (~ is Enter in SendKeys notation)
+`$shell.SendKeys("~")
+Write-Output "SUBMITTED"
+"@
+
+$drivePath = Join-Path $OutDir 'drive.ps1'
+$driveScript | Out-File -FilePath $drivePath -Encoding utf8 -NoNewline
+$cp = VbmGuestCopyTo $drivePath "C:\noobharness-$RunId\drive"
 if ($cp.ExitCode -ne 0) {
-  Write-Output "BLOCKER: copyto focus.ps1 failed: $($cp.Output.Trim())"
-  Write-Output 'RESULT: verdict=BLOCKER reason=copyto-focus-failed'
+  Write-Output "BLOCKER: copyto drive.ps1 failed: $($cp.Output.Trim())"
+  Write-Output 'RESULT: verdict=BLOCKER reason=copyto-drive-failed'
   VbmRun controlvm $Vm poweroff | Out-Null
   exit 2
 }
-$focusRun = VbmGuestRun 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "C:\noobharness-$RunId\focus\focus.ps1") 30
-$focusOut = $focusRun.Output.Trim()
-Log "Focus result: $focusOut"
 
-if ($focusOut -match 'NO_CLAUDE_WINDOW') {
+# Take screenshots before + after the drive script so we can debug
+# where the chain breaks if it does
+Screenshot 'before-drive' | Out-Null
+Log 'Running drive script in guest (focus + clear + Auto mode + prompt + Enter)'
+$driveRun = VbmGuestRun 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "C:\noobharness-$RunId\drive\drive.ps1") 30
+$driveOut = $driveRun.Output.Trim()
+Log "Drive script output: $driveOut"
+
+if ($driveOut -match 'NO_CLAUDE_WINDOW') {
   Screenshot 'no-claude' | Out-Null
   Write-Output 'FAIL: Claude Desktop window not found in the snapshot'
   Write-Output "RESULT: verdict=FAIL reason=no-claude-window screenshot=$OutDir\no-claude.png"
@@ -206,31 +266,10 @@ if ($focusOut -match 'NO_CLAUDE_WINDOW') {
   exit 1
 }
 
-# Switch Claude Desktop to Auto mode (option 4 in the Ctrl+M picker).
-# The default snapshot opens in "Accept edits" mode, which still
-# prompts on some actions -- "Auto mode" is the closest equivalent to
-# the noob user's "just do it" expectation. Without this the install
-# stops mid-flow asking for permissions and trips the "no unnecessary
-# prompts" PASS bar criterion.
-#
-# Scancodes (hex): Ctrl=1D (1d make / 9d break), M=32/b2, 4=05/85.
-# Sequence: hold Ctrl, press+release M, release Ctrl, then press 4.
-Log 'Switching Claude Desktop to Auto mode (Ctrl+M then 4)'
-VbmRun controlvm $Vm keyboardputscancode 1d 32 b2 9d | Out-Null
-Start-Sleep -Milliseconds 500
-VbmRun controlvm $Vm keyboardputscancode 05 85 | Out-Null
-Start-Sleep -Milliseconds 600
-Screenshot 'after-mode-switch' | Out-Null
-
-# Inject the prompt + Enter
-Log 'Injecting prompt'
-VbmRun controlvm $Vm keyboardputstring $Prompt | Out-Null
-Start-Sleep -Milliseconds 400
-VbmRun controlvm $Vm keyboardputscancode 1c 9c | Out-Null
-
 $promptSentAt = Get-Date
-Log "Prompt sent at $($promptSentAt.ToString('HH:mm:ss.fff'))"
-Screenshot 'after-prompt' | Out-Null
+Log "Drive script finished at $($promptSentAt.ToString('HH:mm:ss.fff'))"
+Start-Sleep -Milliseconds 1500
+Screenshot 'after-drive' | Out-Null
 
 # --- Phase 4: poll for dashboard up ---
 Log "Polling http://localhost:8787/health from inside VM (timeout ${MaxSec}s)"
