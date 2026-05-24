@@ -145,23 +145,29 @@ function ensureClaudeCli() {
     console.log(`[setup] claude CLI present: ${probe.stdout.trim()}`);
     return;
   }
-  console.log('[setup] installing @anthropic-ai/claude-code globally (for the decode workflow)...');
-  const install = spawnSync('npm', ['install', '-g', '@anthropic-ai/claude-code',
-    '--no-audit', '--no-fund', '--loglevel=error'], {
-    cwd: repoRoot, stdio: 'inherit', shell: process.platform === 'win32',
-  });
-  if (install.status !== 0) {
-    console.warn('[setup] WARN: could not install @anthropic-ai/claude-code globally.');
-    console.warn('[setup]       The decode workflow will fail preflight until you run:');
-    console.warn('[setup]         npm install -g @anthropic-ai/claude-code');
-    return;
-  }
-  const verify = spawnSync('claude', ['--version'], {
-    encoding: 'utf8', shell: process.platform === 'win32',
-  });
-  if (verify.status === 0) {
-    console.log(`[setup] claude CLI installed: ${(verify.stdout || '').trim()}`);
-  }
+  // PERF: claude CLI is only needed by the wallet-decode workflow,
+  // which the user reaches many minutes after first dashboard load.
+  // Originally this was a blocking ~60s install at the END of bootstrap
+  // (right before install.ps1 moved on to Steps 2-4); now spawn it
+  // DETACHED so bootstrap returns immediately and the dashboard can
+  // come up sooner. If the user hits the decode button before this
+  // background install finishes, /api/workflow/preflight will surface
+  // the missing-CLI message; they retry after a moment.
+  console.log('[setup] launching detached background install of @anthropic-ai/claude-code (ready in ~1-2 min)...');
+  import('node:child_process').then(({ spawn }) => {
+    try {
+      const child = spawn('npm', ['install', '-g', '@anthropic-ai/claude-code',
+        '--no-audit', '--no-fund', '--loglevel=error'], {
+        cwd: repoRoot,
+        detached: true,
+        stdio: 'ignore',
+        shell: process.platform === 'win32',
+      });
+      child.unref();
+    } catch (e) {
+      console.warn(`[setup] WARN: could not launch detached claude CLI install: ${e.message}`);
+    }
+  }).catch(() => {});
 }
 
 async function main() {

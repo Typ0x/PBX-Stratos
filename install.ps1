@@ -143,15 +143,26 @@ try {
     }
 
     if (Test-Path $venvPy) {
-      & $venvPy -m pip install --quiet --disable-pip-version-check -e ".[decoder]"
-      if ($LASTEXITCODE -ne 0) {
-        # Don't hard-fail -- the dashboard runs without decoder deps.
-        # The user just can't run wallet-evolve / agentic-decode until
-        # they're installed manually.
-        Warn "pip install -e .[decoder] failed (exit $LASTEXITCODE). Dashboard still works; decoder scripts won't."
-      } else {
-        Ok "Python venv + decoder deps ready"
-      }
+      # PERF: pip install -e .[decoder] pulls scikit-learn + numpy
+      # (~100MB download + compile) and takes 60-180s. The dashboard
+      # works fine without these -- they're only needed by
+      # bear-scout/runners/wallet-evolve.py and wallet-ml.py, which
+      # run only when the user clicks "Find top traders & decode" or
+      # invokes the wallet-decoder skill. Defer to background so the
+      # dashboard comes up faster. Log to runtime/lab/pip-bg.log so
+      # the user can check progress if a decode click hits before it
+      # finishes.
+      $pipLogDir = Join-Path $RepoRoot 'runtime\lab'
+      if (-not (Test-Path $pipLogDir)) { New-Item -ItemType Directory -Force -Path $pipLogDir | Out-Null }
+      $pipLog = Join-Path $pipLogDir 'pip-bg.log'
+      "$(Get-Date -Format o) -- starting background pip install -e .[decoder]" | Out-File -FilePath $pipLog -Encoding utf8
+      Start-Process -FilePath $venvPy `
+        -ArgumentList @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', '.[decoder]') `
+        -WorkingDirectory $RepoRoot `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $pipLog `
+        -RedirectStandardError ($pipLog + '.err') | Out-Null
+      Ok "Python venv ready; decoder deps installing in background (logs: runtime/lab/pip-bg.log)"
     } else {
       Warn ".venv created but python.exe missing -- skipping pip install"
     }
