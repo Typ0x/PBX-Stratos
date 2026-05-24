@@ -1419,6 +1419,15 @@
     health:       { renderedAt: 0, fetching: false, everRendered: false },
     achievements: { renderedAt: 0, fetching: false, everRendered: false },
   };
+  // True while the onboarding tour is showing. Set by openOnboardOverlay
+  // via document.body.classList. Used by the data-driven renderers to
+  // suppress mid-tour DOM replacement that would otherwise yank the
+  // highlighted target out from under the spotlight (clip-path can no
+  // longer find the .onboard-highlight node → backdrop dims the whole
+  // viewport, looks like the highlight "disappeared after 3-5s").
+  function tourActive() {
+    return document.body.classList.contains('onboard-active');
+  }
   function viewIsFresh(name) {
     const c = viewCache[name];
     return c ? (Date.now() - c.renderedAt) < VIEW_FRESH_MS : false;
@@ -1447,7 +1456,13 @@
   // calls govern its refresh schedule, no need for a separate prefetch.
   // Wrapped in try/catch so a single failing endpoint doesn't tank the
   // rest of the prefetch batch.
+  //
+  // NOTE: skipped entirely while the tour is open — a mid-tour replace()
+  // would destroy the .onboard-highlight node the spotlight clip-path
+  // tracks, and the user would see the highlight vanish. The prefetch
+  // is re-attempted on tour exit (see closeOnboardOverlay below).
   function prefetchAllViews() {
+    if (tourActive()) return;
     try {
       if (!viewCache.leaderboard.fetching && !viewCache.leaderboard.everRendered) {
         if (!lbState.traders) fetchMarketLeaderboard(false);
@@ -3149,8 +3164,15 @@
   // swallowed silently so a transient blip doesn't blank rendered data.
   // viewCache.strategies tracks the last successful render so showView
   // can decide between "first paint", "silent refresh", and "no-op".
+  //
+  // Tour guard: silent refreshes are SUPPRESSED while the tour overlay
+  // is open — a replace() during the tour would yank the highlighted
+  // row out from under the spotlight. Foreground (non-silent) calls
+  // still go through because they're either a fresh first-paint or a
+  // user-initiated retry, both of which the tour can't safely skip.
   async function loadDecodedStrategies(opts) {
     const silent = !!(opts && opts.silent);
+    if (silent && tourActive()) return;
     const list = document.getElementById('decoded-list');
     const empty = document.getElementById('strategies-empty');
     if (!list) return;
@@ -4089,6 +4111,15 @@
   // when a new highlight call starts so we don't have two retry
   // loops racing each other.
   let onboardHighlightRetryToken = 0;
+  // Selector currently being highlighted — captured so the keepalive
+  // (which runs on its own timer) can re-apply the class if the
+  // original target gets replaced by a re-render mid-tour.
+  let onboardHighlightSelector = null;
+  // Handles for the keepalive interval + MutationObserver that watch
+  // for the highlight target getting yanked from the DOM. Both started
+  // in openOnboardOverlay, stopped in closeOnboardOverlay.
+  let onboardHighlightKeepaliveInterval = null;
+  let onboardHighlightMutationObserver = null;
 
   // Recomputes .onboard-backdrop's clip-path so it covers the full
   // viewport EXCEPT a hole around the currently-highlighted element.
@@ -4178,11 +4209,87 @@
     if (el) onboardHighlightResizeObserver.observe(el);
   }
 
+  // Keepalive: while the tour is open, periodically re-confirm that
+  // the highlight is still attached to a live DOM node and the
+  // backdrop's clip-path still tracks its current rect. This handles
+  // edge cases the per-event listeners miss:
+  //   - A re-render replaced the highlight target (the .onboard-
+  //     highlight class is gone with the old DOM). Re-find via the
+  //     stored selector and re-apply.
+  //   - Layout shift above the highlight (top KPI bar grew, a banner
+  //     appeared) moved the target without changing its size, so the
+  //     ResizeObserver didn't fire and the clip-path is now off-target.
+  //     A blind updateBackdropClip every tick catches this.
+  // 250ms cadence is fast enough that the user perceives the tracking
+  // as continuous, slow enough to be effectively free.
+  function startHighlightKeepalive() {
+    stopHighlightKeepalive();
+    onboardHighlightKeepaliveInterval = setInterval(() => {
+      if (!document.body.classList.contains('onboard-active')) {
+        stopHighlightKeepalive();
+        return;
+      }
+      // Re-attach: stored selector exists but no DOM node carries the
+      // class? A re-render must have replaced the target. Re-find +
+      // re-apply WITHOUT going through onboardHighlight's full reset
+      // (no retry-token bump, no scroll) so we don't fight the user's
+      // current scroll position.
+      if (onboardHighlightSelector) {
+        const hasClass = document.querySelector('.onboard-highlight');
+        if (!hasClass) {
+          const target = document.querySelector(onboardHighlightSelector);
+          if (target) {
+            target.classList.add('onboard-highlight');
+            observeHighlightForResize(target);
+          }
+        }
+      }
+      // Always recompute the clip — catches layout shifts that didn't
+      // hit our scroll / resize / ResizeObserver listeners.
+      updateBackdropClip();
+    }, 250);
+    // MutationObserver on the document body — catches the .onboard-
+    // highlight class being yanked the instant a parent's children get
+    // replaced, so we react faster than the 250ms interval for the
+    // common "renderAchievements replaced the row" case.
+    if (typeof MutationObserver === 'function') {
+      try {
+        onboardHighlightMutationObserver = new MutationObserver(() => {
+          if (!onboardHighlightSelector) return;
+          if (!document.querySelector('.onboard-highlight')) {
+            const target = document.querySelector(onboardHighlightSelector);
+            if (target) {
+              target.classList.add('onboard-highlight');
+              observeHighlightForResize(target);
+              updateBackdropClip();
+            }
+          }
+        });
+        onboardHighlightMutationObserver.observe(document.body, {
+          childList: true, subtree: true,
+        });
+      } catch { /* observe failed — keepalive interval still covers us */ }
+    }
+  }
+  function stopHighlightKeepalive() {
+    if (onboardHighlightKeepaliveInterval !== null) {
+      clearInterval(onboardHighlightKeepaliveInterval);
+      onboardHighlightKeepaliveInterval = null;
+    }
+    if (onboardHighlightMutationObserver) {
+      try { onboardHighlightMutationObserver.disconnect(); } catch {}
+      onboardHighlightMutationObserver = null;
+    }
+  }
+
   function onboardHighlight(selector) {
     // Bump the retry token first — any in-flight poll from a previous
     // step is now stale and will bail on its next tick.
     onboardHighlightRetryToken += 1;
     const myToken = onboardHighlightRetryToken;
+    // Track the current selector for the keepalive's re-attach logic.
+    // null = "no highlight on this step" (welcome, final handoff).
+    onboardHighlightSelector = selector || null;
 
     document.querySelectorAll('.onboard-highlight').forEach((node) => node.classList.remove('onboard-highlight'));
     if (!selector) {
@@ -4657,6 +4764,13 @@
     // a compact form that doesn't collide with the bottom-anchored
     // modal. Removed on close.
     document.body.classList.add('onboard-active');
+    // Start the spotlight keepalive: re-runs updateBackdropClip every
+    // 250ms while the tour is open + watches for DOM mutations that
+    // would replace the .onboard-highlight node (a renderAchievements
+    // / renderHealth that snuck through, an async fetch that landed,
+    // etc.) and re-applies the highlight class to the fresh node.
+    // Defense-in-depth on top of the tour-active render guards.
+    startHighlightKeepalive();
     renderOnboardStep();
   }
 
@@ -4675,6 +4789,19 @@
     document.getElementById('onboard-modal').classList.add('hidden');
     document.body.classList.remove('onboard-active');
     onboardHighlight(null);
+    // Stop the spotlight keepalive interval (started when the tour
+    // opened — see openOnboardOverlay).
+    stopHighlightKeepalive();
+    // Invalidate the data-driven view caches that were skipped during
+    // the tour, then re-attempt the prefetch. The tour suppressed
+    // silent refreshes so any view rendered during the tour has stale
+    // data; drop those marks so the next visit re-fetches. Re-running
+    // prefetch on idle warms anything that was deferred.
+    invalidateView('leaderboard');
+    invalidateView('strategies');
+    invalidateView('health');
+    invalidateView('achievements');
+    schedulePrefetchAllViews();
     if (showToast) {
       const toast = document.getElementById('onboard-toast');
       if (toast) {
@@ -4788,8 +4915,10 @@
   // card; keep whatever is currently rendered and only swap on success.
   // Used by silent background refreshes when the view is already
   // populated, so the user never sees a flash + layout shift.
+  // Tour guard — see loadDecodedStrategies for rationale.
   async function renderHealth(opts) {
     const silent = !!(opts && opts.silent);
+    if (silent && tourActive()) return;
     const host = document.getElementById('view-health');
     if (!host) return;
     // Foreground first-paint: show the lightweight loading card. Silent
@@ -5082,8 +5211,12 @@
   // Used by silent background refreshes when the view is already
   // populated. Failures are swallowed in silent mode so a transient
   // blip doesn't blank rendered roadmap data.
+  // Tour guard — see loadDecodedStrategies for rationale. This is the
+  // load-bearing one: Step 8 of the tour highlights an achievement row
+  // and a silent re-render here destroys that row mid-spotlight.
   async function renderAchievements(opts) {
     const silent = !!(opts && opts.silent);
+    if (silent && tourActive()) return;
     const host = document.getElementById('view-achievements');
     if (!host) return;
     if (!silent) {
