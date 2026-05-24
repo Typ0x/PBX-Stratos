@@ -215,6 +215,106 @@ from inside the cloned folder.
 
 ---
 
+## Fast-path mode (one-prompt noob install)
+
+**Detect this from the user's exact phrase.** Fast-path is for users
+who want the dashboard up with zero questions back. They will customize
+later via the dashboard or a follow-up prompt.
+
+**Triggers — any phrase that says "just install it" without asking for
+walkthrough / customization.** Examples that mean fast-path:
+
+- "clone this repo and setup the onboarding according to the readme"
+- "install with defaults"
+- "fastest install"
+- "noob mode"
+- "just install it"
+- "set up PBX Stratos with defaults"
+
+If the trigger phrase contains "walk me through" / "interactive" /
+"customize" / "personality quiz" / "audit first" → DO NOT take
+fast-path. Run the full wizard.
+
+### Fast-path behavior (do all of this without asking the user anything):
+
+1. **Skip Step 0 audit.** The maintainer has already audited; fast-path
+   trades a per-install audit for speed. Acknowledge in one line:
+   *"Fast-path install — using defaults. Skipping the audit; you can
+   run a deeper audit later by saying 'audit the repo'."*
+
+2. **Skip Step 1 quiz.** Write `runtime/lab/user-profile.json` with
+   all defaults:
+
+   ```json
+   {
+     "tech_level":          "comfortable-not-coder",
+     "communication_style": "show-cool-parts",
+     "goal":                "paper-trade-and-learn",
+     "consent_level":       "ask-on-big-stuff",
+     "autonomy_level":      "execute-then-summarize",
+     "personality_id":      "default",
+     "theme_id":            "default",
+     "created_at":          "<UTC ISO 8601 timestamp>",
+     "fast_path_install":   true
+   }
+   ```
+
+3. **Run Step 2 bootstrap** (the slow `scripts/bootstrap.{sh,ps1}` +
+   `install.bat`) in the foreground. No parallel quiz to fill the
+   wait — just run it. Show output briefly so the user sees progress.
+
+4. **Skip Step 6 (Helius / live trading prompt) entirely.** Fast-path
+   defaults to paper mode (no `HELIUS_MAINNET_URL` set → master gate
+   stays closed). The user opts into live trading later from the
+   dashboard or by saying "enable live trading."
+
+5. **Skip Step 7 (wallet generation prompt).** No live wallet; paper
+   trader doesn't need one.
+
+6. **Run Steps 8 + 11 (start pm2 + dashboard).** These are the
+   non-interactive infrastructure steps. Required for the dashboard
+   to come up.
+
+7. **Run Step 12 health check** silently. If any check fails, surface
+   the failure; otherwise stay quiet.
+
+8. **One final message** when `/health` returns 200:
+   *"Done. Dashboard's up at http://localhost:8787. Defaults applied:
+   default personality + default theme + paper mode. Want me to walk
+   you through customizing any of those, or want to dive in?"*
+
+   That message is the ONLY thing fast-path asks. Everything before
+   it runs without questions.
+
+### Fast-path skips a lot — surface this once at the end
+
+After the install completes, in the same final message, list one line
+each for what was deferred so the user knows what's available later:
+
+- "Run the personality quiz any time by saying 'run the personality
+  quiz.'"
+- "Switch theme by saying 'switch PBX Stratos theme to [id]'."
+- "Enable live trading by saying 'enable live trading' (paper mode is
+  on now)."
+- "Audit the install by saying 'audit the repo.'"
+
+Keep that list to ≤5 lines. Don't lecture.
+
+### Why fast-path exists
+
+The full wizard is the right choice for users who want to be hand-held
+through every step. Fast-path is for users who already know what
+they're getting and want to skip the ceremony. Both paths converge on
+the same `runtime/lab/user-profile.json` schema, so switching modes
+later just means editing one file.
+
+---
+
+## Standard path (full wizard, 13 steps)
+
+Use the rest of this document below for any phrase that ISN'T a
+fast-path trigger.
+
 ---
 
 ## Step 0 — Audit the repo (do this BEFORE asking the user anything)

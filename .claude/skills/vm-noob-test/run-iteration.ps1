@@ -316,7 +316,7 @@ Screenshot 'final' | Out-Null
 if (-not $dashUp) {
   Log "FAIL: dashboard didn't respond within ${MaxSec}s (last poll: $lastPollOut)"
   $logsScript = @'
-$base = "C:\PBX-Stratos\runtime\pm2\logs"
+$base = "C:\Users\tester\PBX-Stratos\runtime\pm2\logs"
 if (Test-Path $base) {
   Get-ChildItem $base -Filter "*-error.log" | ForEach-Object {
     Write-Output "=== $($_.Name) ==="
