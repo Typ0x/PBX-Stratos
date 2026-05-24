@@ -272,7 +272,7 @@ function Click-FirstOption {
   # is the option text. Skip the universally-present chrome buttons
   # (Submit, Skip, Cancel, X, mode picker, etc.) by filtering on
   # Name length and excluding known chrome labels.
-  `$skipNames = @('Submit', 'Skip', 'Cancel', 'Close', 'Send', 'Auto', 'Accept edits', 'Ask permissions', 'Plan mode', 'Bypass permissions', 'New session', 'Chat', 'Cowork', 'Code', 'Routines', 'Customize', 'More', '+', '↑', '×')
+  `$skipNames = @('Submit', 'Skip', 'Cancel', 'Close', 'Send', 'Auto', 'Accept edits', 'Ask permissions', 'Plan mode', 'Bypass permissions', 'New session', 'Chat', 'Cowork', 'Code', 'Routines', 'Customize', 'More')
   foreach (`$btn in `$buttons) {
     `$name = `$btn.Current.Name
     if (-not `$name -or `$name.Length -lt 5) { continue }
@@ -293,7 +293,7 @@ for (`$i = 0; `$i -lt 225; `$i++) {
 "@
 
 $drivePath = Join-Path $OutDir 'drive.ps1'
-$driveScript | Out-File -FilePath $drivePath -Encoding utf8 -NoNewline
+$driveScript | Set-Content -Path $drivePath -Encoding ascii -NoNewline
 $cp = VbmGuestCopyTo $drivePath "C:\noobharness-$RunId\drive"
 if ($cp.ExitCode -ne 0) {
   Write-Output "BLOCKER: copyto drive.ps1 failed: $($cp.Output.Trim())"
@@ -330,7 +330,7 @@ Screenshot 'after-drive' | Out-Null
 # hammers "1" every 5s for 15 min to click through all popups.
 Log 'Copying auto-answer script to guest'
 $autoPath = Join-Path $OutDir 'auto.ps1'
-$autoAnswerScript | Out-File -FilePath $autoPath -Encoding utf8 -NoNewline
+$autoAnswerScript | Set-Content -Path $autoPath -Encoding ascii -NoNewline
 $cp = VbmGuestCopyTo $autoPath "C:\noobharness-$RunId\auto"
 if ($cp.ExitCode -ne 0) {
   Log "WARN: copyto auto.ps1 failed: $($cp.Output.Trim()) -- install may stall at quiz"
@@ -364,7 +364,7 @@ try {
 }
 '@
 $pollPath = Join-Path $OutDir 'poll.ps1'
-$pollScript | Out-File -FilePath $pollPath -Encoding utf8 -NoNewline
+$pollScript | Set-Content -Path $pollPath -Encoding ascii -NoNewline
 $cp = VbmGuestCopyTo $pollPath "C:\noobharness-$RunId\poll"
 if ($cp.ExitCode -ne 0) {
   Log "WARN: copyto poll.ps1 failed: $($cp.Output.Trim()) -- will retry"
@@ -404,7 +404,7 @@ if (Test-Path $base) {
 }
 '@
   $logsPath = Join-Path $OutDir 'logs.ps1'
-  $logsScript | Out-File -FilePath $logsPath -Encoding utf8 -NoNewline
+  $logsScript | Set-Content -Path $logsPath -Encoding ascii -NoNewline
   $cp = VbmGuestCopyTo $logsPath "C:\noobharness-$RunId\logs"
   if ($cp.ExitCode -eq 0) {
     $logsRun = VbmGuestRun 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "C:\noobharness-$RunId\logs\logs.ps1") 60
