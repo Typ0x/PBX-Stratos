@@ -26,7 +26,7 @@
 
 [CmdletBinding()]
 param(
-  [string]$Prompt = 'Clone this repo and setup the onboarding according to the readme: https://github.com/Typ0x/PBX-Stratos/tree/noob-loop',
+  [string]$Prompt = 'Clone https://github.com/Typ0x/PBX-Stratos/tree/noob-loop and run the onboarding installer. Proceed with default install -- paper trading only, no live wallet, default personality and theme. Do NOT ask me any AskUserQuestion popups except for the 5-question personality quiz; for everything else (post-audit how-to-proceed, live trading enable, wallet generation choice, personality picker, theme picker) just pick the default / proceed option without asking. Goal: dashboard at http://localhost:8787 up as fast as possible with the quiz being the only thing I click through.',
   [string]$Branch = 'noob-loop',
   [int]$MaxSec = 300,
   [string]$OutDir = ''
@@ -35,23 +35,11 @@ param(
 $ErrorActionPreference = 'Continue'
 $VbmExe = "$env:ProgramFiles\Oracle\VirtualBox\VBoxManage.exe"
 $Vm     = 'PBX-Stratos-test'
-# Snapshot UUID (not name -- arg splat can't quote spaces reliably).
-# "Noob Test Clean Baseline" -- created 2026-05-23. Inherits the
-# Empty-Prompt + Auto-Mode state from its parent but ALSO has:
-#   - no pm2 / node / python processes running (so /health does NOT
-#     respond on snapshot revert -- the install test measures REAL
-#     time-to-dashboard rather than time-to-leftover-process)
-#   - no C:\Users\tester\PBX-Stratos directory (so Claude on the VM
-#     has to clone fresh from scratch -- no partial state to confuse
-#     the install)
-# If this snapshot ever gets contaminated again (pm2 left running,
-# install dir left behind), recreate it by:
-#   1. Revert to current snapshot, boot in headless mode
-#   2. guestcontrol run powershell.exe -- Get-Process node,python | Stop-Process -Force
-#   3. guestcontrol run powershell.exe -- Remove-Item C:\Users\tester\PBX-Stratos -Recurse -Force
-#   4. Verify /health is HEALTH_DOWN + install dir ABSENT
-#   5. VBoxManage snapshot <vm> take "Noob Test Clean Baseline v2"
-$Snap   = '1faf08b6-5977-4020-8ddf-f32e8e8e13c7'
+# Snapshot UUID -- "Claude w/ Git: Empty Prompt Auto On" (user's
+# canonical baseline). Has leftover pm2 + install dir from parent
+# noob-install-verified-d3cb651, which the harness cleans up post-boot
+# (see "Phase 2.5" below) so /health truly measures the new install.
+$Snap   = '526c6d81-a5e9-4fcd-a2e2-01cd048ae092'
 $User   = 'tester'
 $Pass   = 'Test1234!'
 
@@ -186,6 +174,17 @@ Log "Guest Additions ready in ${bootMs}ms"
 
 # Extra settle for Claude Desktop to fully render
 Start-Sleep -Seconds 8
+
+# --- Phase 2.5: cleanup leftovers from parent snapshot ---
+# The "Empty Prompt Auto On" snapshot inherits a running pm2 dashboard
+# + a C:\Users\tester\PBX-Stratos install dir from its parent. Without
+# cleanup, /health responds instantly from the leftover dashboard
+# (false PASS) and Claude's fresh clone fights an existing dir.
+Log 'Cleaning up leftover pm2 + install dir from parent snapshot'
+$cleanCmd = 'Get-Process node,python,pm2 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item C:\Users\tester\PBX-Stratos -Recurse -Force -ErrorAction SilentlyContinue; ''CLEAN_DONE'''
+$clean = VbmRun guestcontrol $Vm --username $User --password $Pass run --exe 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' --wait-stdout '--' '-NoProfile' '-Command' $cleanCmd
+Log "Cleanup result: $($clean.Output.Trim())"
+
 Screenshot 'before-prompt' | Out-Null
 
 # --- Phase 3: focus + clear + Auto mode + prompt + Enter (single guest script) ---
@@ -253,22 +252,43 @@ Write-Output "SUBMITTED"
 # up time, not the semantics of the user's choices).
 $autoAnswerScript = @"
 `$ErrorActionPreference = "SilentlyContinue"
-Add-Type -AssemblyName System.Windows.Forms
-`$shell = New-Object -ComObject WScript.Shell
-# Hammer "1" every 5s for 900s. Covers Q1-Q5 quiz, Step 6 live-trading
-# prompt, Step 7 wallet prompts, Step 9 personality picker, Step 10
-# theme picker, plus any pagination dialogs. Picking "1" everywhere =
-# first option in each AskUserQuestion. The presses that land while no
-# popup is open just type "1" into the chat input (harmless -- nothing
-# submits without Enter).
-for (`$i = 0; `$i -lt 180; `$i++) {
-  Start-Sleep -Seconds 5
-  `$claude = Get-Process Claude -ErrorAction SilentlyContinue | Where-Object { `$_.MainWindowHandle -ne 0 } | Select-Object -First 1
-  if (`$claude) {
-    `$shell.AppActivate(`$claude.Id) | Out-Null
-    Start-Sleep -Milliseconds 150
-    `$shell.SendKeys("1")
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+
+# UIA-based popup option clicker. Loops every 4s for 15 min looking
+# for any Button element in the Claude Desktop window whose Name
+# matches a quiz answer (any of the first option of a 4-option group)
+# and Invokes it. UIA delivers the click into the HTML/Chromium UI
+# directly -- much more reliable than SendKeys (which lands in
+# whatever element has DOM focus, usually the chat input).
+function Click-FirstOption {
+  `$root = [System.Windows.Automation.AutomationElement]::RootElement
+  `$claudeCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Claude")
+  `$claude = `$root.FindFirst([System.Windows.Automation.TreeScope]::Children, `$claudeCond)
+  if (-not `$claude) { return `$false }
+  `$btnCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+  `$buttons = `$claude.FindAll([System.Windows.Automation.TreeScope]::Descendants, `$btnCond)
+  # The quiz / picker options are typically large buttons whose Name
+  # is the option text. Skip the universally-present chrome buttons
+  # (Submit, Skip, Cancel, X, mode picker, etc.) by filtering on
+  # Name length and excluding known chrome labels.
+  `$skipNames = @('Submit', 'Skip', 'Cancel', 'Close', 'Send', 'Auto', 'Accept edits', 'Ask permissions', 'Plan mode', 'Bypass permissions', 'New session', 'Chat', 'Cowork', 'Code', 'Routines', 'Customize', 'More', '+', '↑', '×')
+  foreach (`$btn in `$buttons) {
+    `$name = `$btn.Current.Name
+    if (-not `$name -or `$name.Length -lt 5) { continue }
+    if (`$skipNames -contains `$name) { continue }
+    `$pattern = `$null
+    try { `$pattern = `$btn.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern) } catch { }
+    if (`$pattern) {
+      try { `$pattern.Invoke(); return `$true } catch { }
+    }
   }
+  return `$false
+}
+
+for (`$i = 0; `$i -lt 225; `$i++) {
+  Start-Sleep -Seconds 4
+  try { Click-FirstOption | Out-Null } catch { }
 }
 "@
 
