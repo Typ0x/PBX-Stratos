@@ -78,6 +78,35 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/**
+ * Bug #2 fix: parse JSON tolerantly of a UTF-8 BOM (EF BB BF) at offset 0.
+ *
+ * PowerShell 5.1 Desktop edition (the default on Windows 10/11) writes
+ * UTF-8 *with* BOM by default for `Set-Content -Encoding utf8` and
+ * `Out-File -Encoding utf8`. The agent-driven install writes
+ * runtime/lab/user-profile.json from PowerShell during the quiz, so
+ * the file lands with a BOM, and JSON.parse throws on it. Every
+ * subsequent dashboard poll of /api/ops/achievements then returns
+ * HTTP 500 with a misleading "exists but is unreadable" error.
+ *
+ * Strip the BOM if present, then parse. On parse failure, the
+ * surrounding `Error.message` should mention "BOM" so a future
+ * operator searching for the symptom finds this comment.
+ */
+function parseJsonTolerant(text: string): unknown {
+  // ZWNBSP / UTF-8 BOM (﻿ == EF BB BF) at start.
+  const cleaned = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (text.charCodeAt(0) === 0xfeff) {
+      throw new Error(`JSON parse failed even after stripping UTF-8 BOM: ${msg}`);
+    }
+    throw err;
+  }
+}
+
 /** Loopback check (raw socket address — never req.ip, which honors
  *  X-Forwarded-For when trustProxy is enabled). Covers IPv4 127.0.0.0/8,
  *  IPv6 ::1, IPv4-mapped-IPv6 ::ffff:127.x.x.x, and the literal
@@ -836,7 +865,13 @@ app.get('/health/apps', async () => {
   // app as stalled/down.
   try {
     const labDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
-    const hbPath = join(labDir, 'paper_trade_heartbeat.txt');
+    // Bug #1 fix: paper-trade.py writes `paper-trade-heartbeat` (hyphens,
+    // no extension). The previous filename here was `paper_trade_heartbeat.txt`
+    // (underscores + .txt) which never matched, so /health/apps always
+    // reported `paperTrade: down` even on a healthy bot AND the
+    // STRATOS-MetaWatchdog re-triggered pm2 recovery every 5 min on a
+    // perfectly-running bot. Canonical filename comes from the producer.
+    const hbPath = join(labDir, 'paper-trade-heartbeat');
     if (!existsSync(hbPath)) {
       apps.paperTrade = 'down';
       issues.push('paper-trade-bot heartbeat file missing — bot may not be running');
@@ -2144,11 +2179,12 @@ app.get('/api/ops/achievements', async () => {
   let profile: Record<string, unknown> | null = null;
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       throw new Error(
-        `user-profile.json exists but is unreadable — refusing to write ` +
-        `(would truncate other fields). Repair the file and retry. ` +
+        `user-profile.json contains invalid JSON. Repair the file and retry. ` +
+        `If written from PowerShell, check for a UTF-8 BOM at offset 0 — ` +
+        `parseJsonTolerant strips it automatically but other malformations fail. ` +
         `Underlying error: ${(err as Error).message}`
       );
     }
@@ -2517,11 +2553,11 @@ app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req
   let profile: Record<string, unknown> = {};
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       return reply.code(500).send({
-        error: 'user-profile.json exists but is unreadable; refusing to overwrite. ' +
-          'Repair the file and re-try. Underlying error: ' + (err as Error).message,
+        error: 'user-profile.json contains invalid JSON. Repair the file and re-try. ' +
+          'Underlying error: ' + (err as Error).message,
       });
     }
   }
@@ -2571,10 +2607,10 @@ app.get('/api/profile', async (_req, reply) => {
   const profilePath = join(labDir, 'user-profile.json');
   if (!existsSync(profilePath)) return {};
   try {
-    return JSON.parse(readFileSync(profilePath, 'utf8'));
+    return parseJsonTolerant(readFileSync(profilePath, 'utf8'));
   } catch (err) {
     return reply.code(500).send({
-      error: 'user-profile.json exists but is unreadable. Repair the file first. ' +
+      error: 'user-profile.json contains invalid JSON. Repair the file first. ' +
         'Underlying error: ' + (err as Error).message,
     });
   }
@@ -2648,10 +2684,10 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
   let profile: Record<string, unknown> = {};
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       return reply.code(500).send({
-        error: 'user-profile.json exists but is unreadable; refusing to overwrite. ' +
+        error: 'user-profile.json contains invalid JSON; refusing to overwrite. ' +
           'Repair the file and retry. Underlying error: ' + (err as Error).message,
       });
     }
