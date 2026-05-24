@@ -12,7 +12,7 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260523-17">
+<link rel="stylesheet" href="/dashboard.css?v=20260523-19">
 <!-- Active personality theme. Loaded AFTER dashboard.css so theme
      overrides win. The pbx-set-theme skill copies themes/<id>.css to
      bots/src/server/active-theme.css on switch; the /active-theme.css
@@ -178,9 +178,9 @@
 
     <section id="onboard-body" class="text-[13px] text-zinc-200 leading-relaxed space-y-3 min-h-[120px]"></section>
 
-    <div class="mt-6 flex items-center gap-2">
+    <div class="mt-6 flex items-center gap-3">
       <button id="onboard-prev" type="button" class="border border-zinc-700 text-zinc-300 rounded py-2 px-4 hover:border-zinc-500 transition disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
-      <div class="flex-1"></div>
+      <div id="onboard-gate-slot" class="flex-1 flex items-center justify-center gap-3 min-h-[36px]"></div>
       <button id="onboard-next" type="button" class="bg-emerald-500 text-[#0a0d13] font-medium rounded py-2 px-5 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
     </div>
 
@@ -787,6 +787,6 @@
   </div>
 </div>
 
-<script src="/dashboard.js"></script>
+<script src="/dashboard.js?v=20260523-19"></script>
 </body>
 </html>

@@ -390,6 +390,22 @@ const store = new Store(undefined, HD_MNEMONIC ?? undefined);
 // key that encrypted existing data, refuse to start — re-encrypting under
 // a new key would orphan the funder + every wallet on disk.
 ensureMasterKeyCanary(join(DATA_DIR, 'canary.enc'));
+
+// Auto-derive the funder wallet on boot if we have a mnemonic but no
+// funder yet. Previously the funder card on Live trading showed an
+// empty-state "Create funder wallet" button, forcing a manual click
+// even though the install has already produced BOT_HD_MNEMONIC (the
+// only secret needed to derive the funder). This single trigger point
+// catches both fresh installs (mnemonic + no funder) and existing
+// installs that pre-date the funder concept.
+if (HD_MNEMONIC && !store.hasFunder()) {
+  try {
+    const { pubkey } = store.createFunder();
+    console.log(`[server] auto-derived funder wallet ${pubkey} from existing BOT_HD_MNEMONIC`);
+  } catch (err) {
+    console.error('[server] funder auto-derive failed:', err);
+  }
+}
 // BotOrchestrator is ALWAYS constructed: a PAPER bot runs RPC-free
 // (quotes via Jupiter's public HTTP API, hydrates from its simulated
 // ledger) and never touches `RPC_URL`, so the orchestrator is usable in

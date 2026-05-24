@@ -1139,6 +1139,30 @@
 
   // ============ orchestrate ============
   let lastState = null;
+  // Fingerprint cache — JSON.stringify of the data slice each renderer
+  // depends on, stored after a successful render. If the next refresh's
+  // slice stringifies to the same value, we skip the renderer entirely.
+  // This eliminates the per-15s flicker on Paper / Live views where the
+  // bot cards, signals, trades, chart, etc. would get wiped + redrawn
+  // even when nothing changed.
+  const renderFingerprints = {
+    welcomeHero: '',
+    topBar: '',
+    funder: '',
+    bots: '',
+    signals: '',
+    trades: '',
+    chart: '',
+    logTabs: '',
+    backtest: '',
+  };
+  // Build a deterministic-ish fingerprint for a value. JSON.stringify is
+  // sufficient for our shapes (no cycles, no functions, no Maps). We
+  // wrap so that any throw degrades to "always re-render" rather than
+  // crashing refreshAll.
+  function fp(value) {
+    try { return JSON.stringify(value); } catch { return String(Math.random()); }
+  }
   async function refreshAll() {
     try {
       const s = await api('/dashboard/state');
@@ -1164,16 +1188,98 @@
         for (const b of s.bots || []) if (!b.mode) b.mode = 'paper';
       }
       lastState = s;
+      // Side-effectful gates always run — they read state without
+      // touching the visible DOM (or are too cheap to bother gating).
       applyBackupGate(s);
-      renderWelcomeHero(s);
-      renderTopBar(s);
-      renderFunder(s);
-      renderBotCards(s);
-      renderSignals(s);
-      renderTrades(s);
-      renderChart(s);
-      renderLogTabs(s);
-      renderBacktest(s);
+      // Each renderer below is gated on its data-slice fingerprint.
+      // The fingerprint includes only the fields the renderer actually
+      // reads, so unrelated state changes don't trip a re-render.
+      const heroFp = fp({
+        bots: (s.bots || []).length,
+        funder: s.funder && s.funder.exists,
+        heroEngaged,
+      });
+      if (heroFp !== renderFingerprints.welcomeHero) {
+        renderWelcomeHero(s);
+        renderFingerprints.welcomeHero = heroFp;
+      }
+      // TopBar fingerprint: the KPI values it actually displays. Uptime
+      // is bucketed to seconds (15s poll cadence means a fresh value
+      // every refresh) so the renderer effectively runs on each refresh
+      // — that's correct, the KPIs are live numbers the user wants
+      // current. The fingerprint still guards against the (rare) case
+      // where nothing changed at all (e.g. dashboard idle, no swaps).
+      const topBarFp = fp({
+        cap: s.totalCapital, nav: s.totalNav,
+        vol: s.totalVolumeUsd, sw: s.totalSwaps,
+        lt: s.lastTickMs,
+        up: Math.floor((s.serverUptimeMs || 0) / 1000),
+        bt: s.botsTotal, br: s.botsRunning,
+      });
+      if (topBarFp !== renderFingerprints.topBar) {
+        renderTopBar(s);
+        renderFingerprints.topBar = topBarFp;
+      }
+      const funderFp = fp(s.funder || {});
+      if (funderFp !== renderFingerprints.funder) {
+        renderFunder(s);
+        renderFingerprints.funder = funderFp;
+      }
+      const botsFp = fp((s.bots || []).map((b) => ({
+        n: b.name, r: b.running, m: b.mode, p: b.lifetimePnlUsd,
+        op: b.openPosition ? { r: b.openPosition.region, t: b.openPosition.ts } : null,
+        lt: b.lastTickMs, c: (b.closedTrades || []).length,
+      })));
+      if (botsFp !== renderFingerprints.bots) {
+        renderBotCards(s);
+        renderFingerprints.bots = botsFp;
+      }
+      const signalsFp = fp({
+        ts: s.signalsUpdatedMs,
+        sigs: (s.signals || []).map((sig) => ({
+          r: sig.region, p: sig.pm25, z: sig.z, pc: sig.pctile,
+        })),
+        held: (s.bots || []).map((b) => b.openPosition ? b.openPosition.region : null),
+      });
+      if (signalsFp !== renderFingerprints.signals) {
+        renderSignals(s);
+        renderFingerprints.signals = signalsFp;
+      }
+      const tradesFp = fp((s.trades || []).map((t) => ({
+        b: t.bot, r: t.region, s: t.status,
+        pe: t.entry && t.entry.ts, ex: t.exit && t.exit.ts,
+        pu: t.unrealizedPnlUsd, rp: t.realizedPnlUsd,
+        cp: t.currentPrice,
+      })));
+      if (tradesFp !== renderFingerprints.trades) {
+        renderTrades(s);
+        renderFingerprints.trades = tradesFp;
+      }
+      // chartMode / chartRange aren't included — they're set by direct
+      // user clicks (toolbar buttons) that call renderChart themselves,
+      // so a refresh after a toggle would otherwise trigger one wasted
+      // re-render.
+      const chartFp = fp({
+        navHist: s.navHist ? s.navHist.length : 0,
+        navHead: s.navHist && s.navHist.length ? s.navHist[s.navHist.length - 1] : null,
+      });
+      if (chartFp !== renderFingerprints.chart) {
+        renderChart(s);
+        renderFingerprints.chart = chartFp;
+      }
+      const logTabsFp = fp((s.bots || []).map((b) => b.name));
+      if (logTabsFp !== renderFingerprints.logTabs) {
+        renderLogTabs(s);
+        renderFingerprints.logTabs = logTabsFp;
+      }
+      const backtestFp = fp({
+        run: s.backtestRunId,
+        bt: s.backtestSummary || null,
+      });
+      if (backtestFp !== renderFingerprints.backtest) {
+        renderBacktest(s);
+        renderFingerprints.backtest = backtestFp;
+      }
       await refreshLog();
     } catch (err) {
       console.warn('refresh failed:', err.message);
@@ -1288,9 +1394,94 @@
     achievements: 'view-achievements',
   };
 
-  // Switch to a view by name (discover|leaderboard|paper|live). Hides
-  // the other three, marks the matching nav button active, and persists
-  // the choice. Unknown names fall back to 'discover'.
+  // ===== View cache + freshness tracking (perf polish) ===============
+  //
+  // Switching views felt slow because each renderer:
+  //   1. Wiped the view's container with a "Loading…" card (instant
+  //      layout collapse).
+  //   2. Awaited an API call (~100-500ms).
+  //   3. Replaced the loading card with the full render (layout
+  //      expansion, often a different height than the loading card).
+  // Result: every nav click triggered two layout shifts AND a re-fetch
+  // even when the user was just bouncing between views second-to-second.
+  //
+  // Fix: keep already-rendered views in place and only re-render when
+  // the data is genuinely stale. For first-time visits we still show a
+  // skeleton (the HTML default "Loading…" card), but on revisits the
+  // existing content stays put while a background fetch silently
+  // refreshes it. Each view tracks the last successful render
+  // timestamp; if a click arrives within VIEW_FRESH_MS we skip the work
+  // entirely.
+  const VIEW_FRESH_MS = 20 * 1000;
+  const viewCache = {
+    leaderboard:  { renderedAt: 0, fetching: false, everRendered: false },
+    strategies:   { renderedAt: 0, fetching: false, everRendered: false },
+    health:       { renderedAt: 0, fetching: false, everRendered: false },
+    achievements: { renderedAt: 0, fetching: false, everRendered: false },
+  };
+  function viewIsFresh(name) {
+    const c = viewCache[name];
+    return c ? (Date.now() - c.renderedAt) < VIEW_FRESH_MS : false;
+  }
+  function markViewRendered(name) {
+    const c = viewCache[name];
+    if (!c) return;
+    c.renderedAt = Date.now();
+    c.fetching = false;
+    c.everRendered = true;
+  }
+  // Forcefully drop a view's freshness — call this after a user action
+  // that changes the underlying data (mark task done, decode finished,
+  // bot deployed) so the next visit fetches fresh. `everRendered` stays
+  // true so the next render uses silent mode (no loading-card flash).
+  function invalidateView(name) {
+    const c = viewCache[name];
+    if (c) c.renderedAt = 0;
+  }
+  // Expose to other closures (workflow run, achievement mark, etc).
+  window.__pbxInvalidateView = invalidateView;
+
+  // Silent prefetch of every data-driven nav target. Only fires for
+  // views that haven't been rendered yet (everRendered=false) — once a
+  // view is rendered, the cache's freshness window + invalidateView
+  // calls govern its refresh schedule, no need for a separate prefetch.
+  // Wrapped in try/catch so a single failing endpoint doesn't tank the
+  // rest of the prefetch batch.
+  function prefetchAllViews() {
+    try {
+      if (!viewCache.leaderboard.fetching && !viewCache.leaderboard.everRendered) {
+        if (!lbState.traders) fetchMarketLeaderboard(false);
+      }
+    } catch {}
+    try {
+      if (!viewCache.strategies.fetching && !viewCache.strategies.everRendered) {
+        loadDecodedStrategies({ silent: true });
+      }
+    } catch {}
+    try {
+      if (!viewCache.health.fetching && !viewCache.health.everRendered) {
+        renderHealth({ silent: true });
+      }
+    } catch {}
+    try {
+      if (!viewCache.achievements.fetching && !viewCache.achievements.everRendered) {
+        renderAchievements({ silent: true });
+      }
+    } catch {}
+  }
+  function schedulePrefetchAllViews() {
+    const run = () => prefetchAllViews();
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(run, { timeout: 3000 });
+    } else {
+      setTimeout(run, 2500);
+    }
+  }
+
+  // Switch to a view by name. Hides the others, marks the matching nav
+  // button active, persists the choice. For data-driven views, decide
+  // whether to fetch foreground (first paint), silent background
+  // (stale revisit), or no-op (fresh).
   function showView(name) {
     if (!VIEW_IDS[name]) name = 'discover';
     for (const [view, id] of Object.entries(VIEW_IDS)) {
@@ -1299,29 +1490,45 @@
     document.querySelectorAll('#sidebar [data-view]').forEach((btn) => {
       btn.setAttribute('aria-current', btn.dataset.view === name ? 'true' : 'false');
     });
-    // Entering the Leaderboard: fetch the live market table on first
-    // open, otherwise just re-render so freshly-decoded wallets get
-    // marked without a round-trip.
+    // Entering the Leaderboard: fetch on first open, otherwise re-render
+    // from cached lbState (so freshly-decoded wallets are marked without
+    // a round-trip). Skip even the re-render if we did one recently.
     if (name === 'leaderboard') {
-      if (!lbState.traders && !lbState.loading) fetchMarketLeaderboard(false);
-      else renderMarketLeaderboard();
+      const c = viewCache.leaderboard;
+      if (!lbState.traders && !lbState.loading) {
+        fetchMarketLeaderboard(false);
+      } else if (!viewIsFresh('leaderboard') && !c.fetching) {
+        // Have data but stale — re-render the cached rows (decoded-marks
+        // may have changed) and bump the freshness timer.
+        renderMarketLeaderboard();
+        markViewRendered('leaderboard');
+      }
     }
-    // Strategies view: show the empty-state until a decode run has
-    // populated #workflow-status, and (re)load the persisted decodes
-    // each time the view becomes visible.
+    // Strategies view: render decoded strategies. Skip if fresh; do a
+    // silent refresh if stale and previously rendered (so revisits after
+    // an invalidation don't flash a loading card).
     if (name === 'strategies') {
-      loadDecodedStrategies();
+      const c = viewCache.strategies;
+      if (!viewIsFresh('strategies') && !c.fetching) {
+        loadDecodedStrategies({ silent: c.everRendered });
+      }
     }
-    // Health view: re-fetch the 7-check ops snapshot on every visit.
-    // Cheap (a couple of fs.stat + one schtasks / pm2 jlist call) so a
-    // fresh read per visit is preferable to stale-on-tab-switch.
+    // Health view: same pattern. The 7-check fetch is cheap, but the
+    // double-wipe on every click was the layout-shift culprit.
     if (name === 'health') {
-      renderHealth();
+      const c = viewCache.health;
+      if (!viewIsFresh('health') && !c.fetching) {
+        renderHealth({ silent: c.everRendered });
+      }
     }
-    // Achievements view: re-fetch roadmap progress + user profile +
-    // event-driven unlocks. Once per visit; no polling.
+    // Achievements view: roadmap + profile + event unlocks. The mark-
+    // done flow uses applyDoneToRow (optimistic in-place update) so the
+    // user-visible state stays in sync even with a 20s cache window.
     if (name === 'achievements') {
-      renderAchievements();
+      const c = viewCache.achievements;
+      if (!viewIsFresh('achievements') && !c.fetching) {
+        renderAchievements({ silent: c.everRendered });
+      }
     }
     try { localStorage.setItem(NAV_VIEW_KEY, name); } catch {}
   }
@@ -1386,11 +1593,15 @@
 
   // Fetch the ranked traders for the selected window. `force` re-fetches
   // even when the same window is already cached (the Refresh button).
+  // Marks viewCache.leaderboard on success so showView can skip the
+  // re-render path on a fresh revisit (avoids the "Loading top traders…"
+  // skeleton flashing every time the user clicks Leaderboard).
   async function fetchMarketLeaderboard(force) {
     const days = lbDays();
     if (!force && lbState.traders && lbState.loadedDays === days) return;
     lbState.loading = true;
     lbState.error = null;
+    if (viewCache.leaderboard) viewCache.leaderboard.fetching = true;
     renderMarketLeaderboard();
     try {
       const r = await api('/api/workflow/discover?days=' + days + '&limit=50');
@@ -1404,6 +1615,8 @@
     }
     lbState.loading = false;
     renderMarketLeaderboard();
+    if (!lbState.error) markViewRendered('leaderboard');
+    else if (viewCache.leaderboard) viewCache.leaderboard.fetching = false;
   }
 
   // One column header. `key` null = non-sortable; otherwise clicking it
@@ -1661,6 +1874,13 @@
     // settle on first load (avoids racing the initial refreshAll).
     setTimeout(pollAchievementsForToasts, 4000);
     setInterval(pollAchievementsForToasts, 30000);
+    // Idle-time prefetch: silently warm every nav-target view so the
+    // user's first click on Leaderboard/Strategies/Health/Achievements
+    // shows fully-rendered content instead of a "Loading…" card. Uses
+    // requestIdleCallback so it never competes with the initial paint;
+    // falls back to a 2.5s setTimeout when the browser doesn't support
+    // idle callbacks (older Safari).
+    schedulePrefetchAllViews();
   });
 
   // ============ workflow (Strategy Discovery) ============
@@ -2853,6 +3073,10 @@
         wfTickProgress();
         rec.result = wfBuildResult(rec.pubkey, rec);
         wfReflow(rec.result && rec.result.test ? rec.pubkey : undefined);
+        // A wallet just got decoded — the persisted Strategies list is
+        // now stale. Drop the cache so the next visit (or background
+        // refresh) pulls the newly-persisted row.
+        invalidateView('strategies');
       }
     });
     es.addEventListener('error', (ev) => {
@@ -2920,10 +3144,17 @@
   // Load persisted decoded strategies into #decoded-list and own the
   // empty-state. The empty card hides as soon as there is at least one
   // persisted decode OR a live decode run is in progress.
-  async function loadDecodedStrategies() {
+  // opts.silent — when true, keep the existing rendered rows in place
+  // while the fetch is in flight; only swap on success. Failures are
+  // swallowed silently so a transient blip doesn't blank rendered data.
+  // viewCache.strategies tracks the last successful render so showView
+  // can decide between "first paint", "silent refresh", and "no-op".
+  async function loadDecodedStrategies(opts) {
+    const silent = !!(opts && opts.silent);
     const list = document.getElementById('decoded-list');
     const empty = document.getElementById('strategies-empty');
     if (!list) return;
+    if (viewCache.strategies) viewCache.strategies.fetching = true;
     try {
       const data = await api('/api/workflow/decodes');
       const decodes = (data && Array.isArray(data.decodes)) ? data.decodes : [];
@@ -2933,9 +3164,16 @@
         const liveRun = status ? !status.classList.contains('hidden') : false;
         empty.classList.toggle('hidden', decodes.length > 0 || liveRun);
       }
+      markViewRendered('strategies');
     } catch (err) {
-      replace(list, el('div', { class: 'text-[12px] muted' },
-        'Could not load decoded strategies — ' + (err && err.message ? err.message : String(err))));
+      if (viewCache.strategies) viewCache.strategies.fetching = false;
+      // Silent refresh failure: leave the existing rows alone. A first-
+      // paint failure (list empty) does swap in the error message so
+      // the user has a Retry path.
+      if (!silent || list.children.length === 0) {
+        replace(list, el('div', { class: 'text-[12px] muted' },
+          'Could not load decoded strategies — ' + (err && err.message ? err.message : String(err))));
+      }
     }
   }
 
@@ -3082,10 +3320,11 @@
   //   9. Decode a wallet directly     (view=discover, gate=fallback button)
   //  10. You're ready                 (Finish button — sets done flag)
   //
-  // Each gated step also offers a "Just continue →" escape link so a
-  // user who can't find the target never gets stuck. Cleanup functions
-  // returned by gate.listen() are run when the step changes or the tour
-  // is dismissed, so click handlers don't leak.
+  // Each gated step also offers an "or just continue" escape link
+  // (in the consolidated footer slot next to the Waiting-for pill) so
+  // a user who can't find the target never gets stuck. Cleanup
+  // functions returned by gate.listen() are run when the step changes
+  // or the tour is dismissed, so click handlers don't leak.
   //
   // State key (unchanged — the screenshot script reads this name):
   //   localStorage.pbx_onboarding_v1_done = '1'  → never show again.
@@ -3125,20 +3364,11 @@
       class: 'mt-3 text-emerald-300 font-semibold text-[13px] leading-snug',
     }, text);
   }
-  // Modal-internal CTA button — used on steps where the "action" is
-  // a click inside the tour modal itself (Begin Tour, Continue to
-  // Leaderboard, Show me a sample, Got it, etc.) rather than on the
-  // dashboard behind it. Styled to match the existing emerald-500
-  // CTA convention; theme files repaint .bg-emerald-500 to their
-  // accent so the button changes color per theme automatically.
-  function onboardModalButton(label, onClick) {
-    const btn = el('button', {
-      type: 'button',
-      class: 'mt-1 bg-emerald-500 text-[#0a0d13] font-medium rounded px-4 py-1.5 text-[12px] hover:bg-emerald-400 transition shadow-sm shadow-emerald-500/20',
-    }, label);
-    btn.addEventListener('click', onClick);
-    return btn;
-  }
+  // (onboardModalButton helper was removed when the tour controls
+  // consolidated to a single action area in the modal footer. Steps
+  // that need a custom Next-button label / action use step.nextLabel
+  // + step.nextAction instead — see buildOnboardSteps + the Next click
+  // handler in initOnboarding.)
 
   // ── Seed-phrase reveal modal (step 6 of new tour) ──────────────────
   //
@@ -3277,7 +3507,7 @@
       }, 'Sample decoded strategy');
       const subtitle = el('p', {
         class: 'text-[12px] text-zinc-400',
-      }, "This is what a real wallet's decoded strategy looks like after the decoder finishes. (Don't worry — this is just an example.)");
+      }, "This is what a real wallet's decoded strategy looks like after the decoder finishes.");
 
       // Realistic-looking fake strategy. The DSL syntax + region label
       // matches what a real agentic-decode.py output would look like.
@@ -3369,9 +3599,9 @@
           "Claude has installed dependencies, generated your wallet, started both the dashboard and the paper-trade bot, and registered six background watchdogs. Everything required to begin is now in place."),
         el('p', { class: 'muted text-[12px]' },
           'This short tour covers the dashboard\'s main views. Most steps are a single click; you can exit at any time and replay the tour later from the "?" icon in the sidebar.'),
-        onboardActionLine('Click Begin Tour to start.'),
-        onboardModalButton('Begin Tour', () => advanceOnboard()),
+        onboardActionLine('Click Begin Tour below to start.'),
       ],
+      nextLabel: 'Begin Tour',
       onEnter: () => onboardConfetti(),
     });
 
@@ -3427,9 +3657,9 @@
       body: () => [
         el('p', null,
           "Claude is now reverse-engineering the trading rules used by the ten wallets Discover identified. Each row updates as its decode completes; you do not need to wait here. The tour will continue while the decoder runs."),
-        onboardActionLine('Click Continue to advance to the Leaderboard.'),
-        onboardModalButton('Continue to the Leaderboard →', () => advanceOnboard()),
+        onboardActionLine('Click Continue below to advance to the Leaderboard.'),
       ],
+      nextLabel: 'Continue to the Leaderboard →',
     });
 
     // 4 — Leaderboard: click any wallet's Decode button
@@ -3444,7 +3674,7 @@
         el('p', null,
           "The Leaderboard lists every wallet Discover has identified, ranked by trading volume. Selecting a wallet and clicking Decode begins the reverse-engineering process for that wallet's strategy."),
         el('p', { class: 'muted text-[12px]' },
-          "If the table is still loading, use Just continue below to advance."),
+          'If the table is still loading, use "or just continue" below to advance.'),
         onboardActionLine('Click Decode on any wallet row above to begin.'),
       ],
       gate: {
@@ -3483,13 +3713,14 @@
         el('p', null,
           "Decoded strategies appear on this page. Each strategy includes its extracted entry and exit rules and can be backtested, deployed as a paper bot, or promoted to live trading."),
         onboardActionLine('Click below to preview what a real decoded strategy looks like.'),
-        onboardModalButton('Show me a sample strategy →', async () => {
-          // openSampleStrategyPanel returns when the user clicks "Got it".
-          // Advance immediately after.
-          await openSampleStrategyPanel();
-          advanceOnboard();
-        }),
       ],
+      nextLabel: 'Show me a sample strategy →',
+      // openSampleStrategyPanel returns when the user clicks "Got it".
+      // Advance immediately after.
+      nextAction: async () => {
+        await openSampleStrategyPanel();
+        advanceOnboard();
+      },
     });
 
     // 6 — Paper trading + injected sample data
@@ -3507,11 +3738,13 @@
       // disappear mid-tour. The sample section is prepended above
       // bot-cards in view-paper and is safe from that wipe.
       highlight: '#onboard-paper-sample',
-      // Inject the sample paper bots with a Deploy button on the first
-      // (profitable) one. Clicking Deploy runs a fake "deploying →
-      // deployed" pulse, then advances the tour via the onDeploy
-      // callback.
-      onEnter: () => injectSamplePaperBots({ onDeploy: () => advanceOnboard() }),
+      // Inject the sample paper bots; the first (profitable) one
+      // renders a Deploy button. The gate listener below watches for
+      // that click. We still pass withDeploy via a no-op onDeploy so
+      // the button renders + plays its "Deploying → DEPLOYED" pulse;
+      // the gate's standard 600ms delay + gate.delay override lets
+      // the animation finish before the tour advances.
+      onEnter: () => injectSamplePaperBots({ onDeploy: () => {} }),
       onLeave: () => removeSampleNodes(),
       body: () => [
         el('p', null,
@@ -3522,6 +3755,30 @@
         el('p', { class: 'text-[11px] text-zinc-500 italic mt-1' },
           "(don't worry — this is just an example)"),
       ],
+      gate: {
+        description: 'Waiting for: click Deploy on any wallet',
+        // Match the gated-step pattern used by steps 2/4/8 — listen at
+        // the document level for clicks scoped to the sample section,
+        // accept either the initial "Deploy" label or the in-flight
+        // "Deploying..." / "DEPLOYED" states (in case a fast double
+        // click registers on the post-click text).
+        listen: (advance) => {
+          const handler = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const container = document.getElementById('onboard-paper-sample');
+            if (!container || !container.contains(btn)) return;
+            const txt = (btn.textContent || '').trim().toLowerCase();
+            if (txt === 'deploy' || txt === 'deploying...' || txt === 'deployed') advance();
+          };
+          document.addEventListener('click', handler, true);
+          return () => document.removeEventListener('click', handler, true);
+        },
+        // Override the default 600ms gate delay so the user sees the
+        // full Deploying → DEPLOYED animation (~1150ms total) play out
+        // before the tour advances.
+        delay: 1400,
+      },
     });
 
     // 6 — Live trading + Wallet (COMBINED).
@@ -3550,14 +3807,15 @@
           ", generated automatically during install."),
         el('p', null,
           "Before live trading can begin, you need to save the funder wallet's 24-word recovery phrase to paper. This phrase is the only thing that reconstructs the wallet if anything happens to this machine."),
-        onboardActionLine('Click to view your recovery phrase, then write it down on paper.'),
-        onboardModalButton('Show me my seed phrase →', async () => {
-          const result = await openSeedPhraseModal();
-          // "saved" advances; "cancel" leaves the user on this step
-          // so they can retry — no silent advancement on cancel.
-          if (result === 'saved') advanceOnboard();
-        }),
+        onboardActionLine('Click below to view your recovery phrase, then write it down on paper.'),
       ],
+      nextLabel: 'Show me my seed phrase →',
+      nextAction: async () => {
+        const result = await openSeedPhraseModal();
+        // "saved" advances; "cancel" leaves the user on this step
+        // so they can retry — no silent advancement on cancel.
+        if (result === 'saved') advanceOnboard();
+      },
     });
 
     // (Step 8 from the old tour — "Where loot lands" / second Strategies
@@ -4316,18 +4574,21 @@
     onboardHighlight(step.highlight || null);
     updateOnboardControls();
 
-    // Wire the gate AFTER controls are rendered (so the "Just continue"
-    // link exists to receive its click handler). Auto-advance fires
-    // after a 600ms delay so the user sees their action register.
+    // Wire the gate AFTER controls are rendered (so the "or just
+    // continue" link exists to receive its click handler). Auto-advance
+    // fires after a small delay so the user sees their action register.
+    // Default 600ms; step.gate.delay can override (e.g. the Paper
+    // trading step uses ~1400ms to let its Deploy animation complete).
     if (step.gate && typeof step.gate.listen === 'function') {
+      const gateDelay = typeof step.gate.delay === 'number' ? step.gate.delay : 600;
       const advanceWithDelay = () => {
         clearGateCleanup();
         setTimeout(() => {
           // Re-check we're still on the same step before advancing —
-          // a manual click on "Just continue" may have already moved
+          // a manual click on "or just continue" may have already moved
           // us forward.
           if (onboardSteps[onboardCurrent] === step) advanceOnboard();
-        }, 600);
+        }, gateDelay);
       };
       onboardGateCleanup = step.gate.listen(advanceWithDelay);
     }
@@ -4337,17 +4598,23 @@
     const step = onboardSteps[onboardCurrent];
     const prev = document.getElementById('onboard-prev');
     const next = document.getElementById('onboard-next');
-    const body = document.getElementById('onboard-body');
+    const slot = document.getElementById('onboard-gate-slot');
     if (prev) prev.disabled = onboardCurrent === 0;
-    if (!next || !body) return;
+    if (!next || !slot) return;
+
+    // Clear the consolidated action slot before each render — both the
+    // gate pill + skip link AND the Next button live in the SAME footer
+    // row now, so the slot needs to start empty each time.
+    while (slot.firstChild) slot.removeChild(slot.firstChild);
 
     if (step.gate) {
-      // Gated step — replace the Next button with a "Waiting for…" pill
-      // plus an escape link, and surface a confirm button if the gate
-      // provides one (steps 8 + 9 where no real DOM target exists).
+      // Gated step — hide the Next button entirely, populate the
+      // consolidated slot with the "Waiting for…" pill + "or just
+      // continue" escape link (renamed from the older "Just continue →"
+      // copy per user request — fits better as a tertiary action next
+      // to the pill).
       next.classList.add('hidden');
-      const gateWrap = el('div', { class: 'mt-3 flex items-center gap-3 flex-wrap' });
-      gateWrap.append(el('span', { class: 'onboard-waiting' }, step.gate.description));
+      slot.append(el('span', { class: 'onboard-waiting' }, step.gate.description));
       if (step.gate.confirmLabel) {
         const confirmBtn = el('button', {
           type: 'button',
@@ -4357,23 +4624,26 @@
           clearGateCleanup();
           advanceOnboard();
         });
-        gateWrap.append(confirmBtn);
+        slot.append(confirmBtn);
       }
       const skipLink = el('button', {
         type: 'button', class: 'onboard-skip-gate',
-      }, 'Just continue →');
+      }, 'or just continue');
       skipLink.addEventListener('click', () => {
         clearGateCleanup();
         advanceOnboard();
       });
-      gateWrap.append(skipLink);
-      body.append(gateWrap);
+      slot.append(skipLink);
     } else {
+      // Non-gated step — Next button visible, may carry a per-step
+      // custom label (e.g. "Begin Tour", "Show me a sample strategy →").
+      // The click handler reads step.nextAction at fire time to decide
+      // whether to run the custom action or fall through to the
+      // standard advance.
       next.classList.remove('hidden');
       next.disabled = false;
-      next.textContent = onboardCurrent === onboardSteps.length - 1
-        ? 'Finish'
-        : 'Next';
+      next.textContent = step.nextLabel
+        || (onboardCurrent === onboardSteps.length - 1 ? 'Finish' : 'Next');
     }
   }
 
@@ -4431,6 +4701,14 @@
     document.getElementById('onboard-next').addEventListener('click', () => {
       // Gated steps hide this button entirely, so this branch only
       // fires for non-gated steps (and the final Finish).
+      const step = onboardSteps && onboardSteps[onboardCurrent];
+      // Per-step custom action (e.g. open seed-phrase modal, open
+      // sample-strategy preview) — when present, the action takes full
+      // ownership of whether to advance and we DO NOT auto-advance.
+      if (step && typeof step.nextAction === 'function') {
+        try { step.nextAction(); } catch { /* action errors are non-fatal */ }
+        return;
+      }
       if (onboardCurrent < onboardSteps.length - 1) {
         onboardCurrent++;
         renderOnboardStep();
@@ -4506,19 +4784,31 @@
     return el('span', { class: 'inline-block w-2 h-2 rounded-full ' + bg + pulse });
   }
 
-  async function renderHealth() {
+  // opts.silent — when true, don't wipe the host with a "Loading…"
+  // card; keep whatever is currently rendered and only swap on success.
+  // Used by silent background refreshes when the view is already
+  // populated, so the user never sees a flash + layout shift.
+  async function renderHealth(opts) {
+    const silent = !!(opts && opts.silent);
     const host = document.getElementById('view-health');
     if (!host) return;
-    // While fetching, leave a slim loading state in place. On error,
-    // show a one-line rose message + a Retry button.
-    replace(host,
-      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-        el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
-    );
+    // Foreground first-paint: show the lightweight loading card. Silent
+    // refresh: leave the existing content alone while we fetch.
+    if (!silent) {
+      replace(host,
+        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+          el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
+      );
+    }
+    if (viewCache.health) viewCache.health.fetching = true;
     let data;
     try {
       data = await api('/api/ops/health');
     } catch (err) {
+      if (viewCache.health) viewCache.health.fetching = false;
+      // Silent refresh failure: keep the stale-but-rendered content in
+      // place rather than blanking the page on a transient blip.
+      if (silent) return;
       const retryBtn = el('button', {
         class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
           + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
@@ -4738,6 +5028,7 @@
       alertsHeader, alertsBody);
 
     replace(host, topRow, checksCard, pm2Card, tasksCard, alertsCard);
+    markViewRendered('health');
   }
 
   // ============ Achievements view (roadmap progress) ============
@@ -4786,17 +5077,31 @@
     }
   }
 
-  async function renderAchievements() {
+  // opts.silent — when true, don't wipe the host with a "Loading…"
+  // card; keep whatever is currently rendered and only swap on success.
+  // Used by silent background refreshes when the view is already
+  // populated. Failures are swallowed in silent mode so a transient
+  // blip doesn't blank rendered roadmap data.
+  async function renderAchievements(opts) {
+    const silent = !!(opts && opts.silent);
     const host = document.getElementById('view-achievements');
     if (!host) return;
-    replace(host,
-      el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-        el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
-    );
+    if (!silent) {
+      replace(host,
+        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
+          el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
+      );
+    }
+    if (viewCache.achievements) viewCache.achievements.fetching = true;
     let data;
     try {
       data = await api('/api/ops/achievements');
     } catch (err) {
+      if (viewCache.achievements) viewCache.achievements.fetching = false;
+      // Silent refresh failure: keep stale-but-rendered content. The
+      // Refresh-detection button + retry button still let the user
+      // force a foreground load if they hit something weird.
+      if (silent) return;
       const retryBtn = el('button', {
         class: 'border border-zinc-700 rounded px-3 py-1 text-[11px] mono '
           + 'hover:border-zinc-500 text-zinc-300 transition mt-3',
@@ -4977,6 +5282,11 @@
               manualBtn.textContent = 'saving…';
               try {
                 await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+                // Server-side state changed; drop the achievements cache
+                // so the next visit pulls fresh (the optimistic update
+                // below keeps the immediate UI right, but the cache
+                // would otherwise hold the pre-mark snapshot for 20s).
+                invalidateView('achievements');
                 // Optimistic in-place update — no full re-render. Flip
                 // the checkbox icon + colors, replace the button with
                 // the "manual ✓" indicator, mark the row done.
@@ -5026,6 +5336,9 @@
             markBtn.textContent = 'saving…';
             try {
               await apiPost('/api/ops/achievements/mark', { taskId: task.id });
+              // Mirror of the manual-button flow — keep the cache in
+              // sync with the server-side state change.
+              invalidateView('achievements');
               applyDoneToRow(rowEl, task);
               const seenSet = loadToastedUnlocks();
               seenSet.add(task.id);
@@ -5151,6 +5464,7 @@
       refreshBtn, justUnlockedNote);
 
     replace(host, controlBar, profileCard, ...sectionCards, eventCard);
+    markViewRendered('achievements');
   }
 
   // ============ dynamic header-height tracking ============
