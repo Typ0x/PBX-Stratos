@@ -714,7 +714,7 @@ app.get<{ Params: { id: string } }>('/achievements/img/:id', async (_req, reply)
 // per task ID (s1.t1 … s7.t21 — 130 icons total). Each symbol uses
 // stroke="currentColor" so the icon recolors with the consuming
 // element's CSS color, picking up the active theme automatically.
-// The dashboard client embeds `<svg><use href="/achievements-sprite.svg?v=1#ach-<id>"/></svg>`
+// The dashboard client embeds `<svg><use href="/achievements-sprite.svg?v=20260523-19#ach-<id>"/></svg>`
 // for every achievement row + toast. One HTTP fetch covers all icons
 // across the entire dashboard session.
 // Resolve sprite path against the same anchor as readDashboardAsset:

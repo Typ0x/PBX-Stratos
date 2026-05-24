@@ -4322,7 +4322,7 @@
     img.className = 'pbx-achievement-toast-img';
     const spriteId = unlock.taskId ? ('ach-' + unlock.taskId) : 'ach-fallback';
     img.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">'
-      + '<use href="/achievements-sprite.svg?v=1#' + spriteId + '"/></svg>';
+      + '<use href="/achievements-sprite.svg?v=20260523-19#' + spriteId + '"/></svg>';
 
     const body = document.createElement('div');
     body.className = 'pbx-achievement-toast-body';
@@ -5226,12 +5226,18 @@
 
         // Per-achievement Lucide-style line-art icon, served from a
         // single sprite at /achievements-sprite.svg (one HTTP fetch
-        // for all 130 icons; subsequent <use href> refs hit the
+        // for all 131 icons; subsequent <use href> refs hit the
         // browser's SVG cache instantly). stroke="currentColor"
         // inside each <symbol> lets the icon pick up the active
         // theme color via the parent element's `color`. We force a
         // visible default color here so unthemed installs still
         // render a readable stroke; theme CSS can override.
+        //
+        // IMPORTANT: bump the ?v=… query param on BOTH this line and
+        // the toast use-ref above whenever achievements-sprite.svg
+        // changes — browsers cache aggressively and a stale sprite
+        // means newly-added icons (e.g. s1.t15 in commit d5a39ab) show
+        // as blanks for anyone who loaded the page before the change.
         const badge = el('div', {
           class: 'pbx-achievement-row-badge shrink-0 w-12 h-12 flex items-center justify-center text-emerald-300',
         });
@@ -5242,7 +5248,7 @@
         svgEl.setAttribute('height', '40');
         svgEl.setAttribute('aria-hidden', 'true');
         const useEl = document.createElementNS(NS, 'use');
-        useEl.setAttribute('href', '/achievements-sprite.svg?v=1#ach-' + task.id);
+        useEl.setAttribute('href', '/achievements-sprite.svg?v=20260523-19#ach-' + task.id);
         svgEl.appendChild(useEl);
         badge.appendChild(svgEl);
 
