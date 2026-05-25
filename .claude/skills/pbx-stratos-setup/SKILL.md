@@ -355,6 +355,42 @@ Or simpler, just spawn it and don't wait:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/prereqs.ps1 > runtime/lab/prereqs-bg.log 2>&1 &
 ```
 
+### Q0: Walkthrough or defaults? (gate before the 5-question quiz)
+
+Before launching into Q1-Q5, give the user the option to skip. Many
+users want the dashboard up NOW and don't care about personality
+right now — they can recalibrate later via `"run the personality quiz"`.
+
+Fire ONE `AskUserQuestion` first:
+
+| Option | What it does |
+|--------|--------|
+| **Use defaults — just get me to the dashboard** | Skip Q1-Q5 + skip personality + skip theme. POST the defaults block below to `/api/profile/recalibrate` and jump straight to Step 2. Total user-click time: 0 popups after this gate. |
+| **Walk me through the 5 questions (30-60s)** | Continue to Q1-Q5 as documented. |
+
+If user picks **defaults**, immediately POST this body to
+`/api/profile/recalibrate` (single call, no further popups required):
+
+```json
+{
+  "tech_level":          "casual-coder",
+  "communication_style": "balanced",
+  "goal":                "paper",
+  "consent_level":       "balanced",
+  "autonomy_level":      "show-cool-parts",
+  "personality_id":      "default",
+  "theme_id":            "default"
+}
+```
+
+Then announce: *"Defaults applied. Dashboard's coming up in a sec.
+You can change any of this later — just say 'run the personality
+quiz' or 'switch personality to X'."* Skip to Step 2.
+
+If user picks **walkthrough**, proceed to Q1 below.
+
+### About the walkthrough (Q1-Q5)
+
 **Why first (after safety):** before you can talk to the user well, you
 need to know how to talk to them. The quiz takes 30s-1min and
 calibrates everything else.
@@ -363,6 +399,12 @@ calibrates everything else.
 question. Each question has ≤4 options, so each one fits in a single
 AUQ call directly. After all 5, POST the answers to the profile API
 endpoint (see "After all 5 questions" below).
+
+**Pre-answer skip:** if the user already declared their goal in the
+opening prompt (e.g. "set up paper trading"), set `goal` from that
+declaration and SKIP Q3 entirely — renumber the user-facing labels
+("Q3 of 4: How much do you want me to check in...") so the user
+sees a consistent count, not "Q2, Q4, Q5 of 5".
 
 ### ⚠ The options-overflow rule (applies later this skill at Steps 9 + 10)
 
@@ -389,50 +431,57 @@ want" — that breaks the click-only UX. **Never** truncate the option
 list — that hides choices from the user. Always use the rotation
 pattern above.
 
-### Q1: How techy are you?
+**⚠ API value mapping:** each Q-option below has a HUMAN LABEL the
+user sees AND a CANONICAL API VALUE the `/api/profile/recalibrate`
+endpoint accepts. The endpoint's allow-list lives at
+`bots/src/server/index.ts` in the `ALLOWED` map (around line ~2643).
+Pass the CANONICAL value in the JSON body, not the human label —
+sending `goal:"paper-trade"` instead of `goal:"paper"` gets a 400.
 
-| Option | Effect |
-|--------|--------|
-| Not technical at all | Avoid jargon. Explain every technical term. |
-| Comfortable with computers, not a coder | Brief explanations when terms come up. |
-| I've coded before, casually | Skip basics. Explain specialized stuff. |
-| I'm a developer | Lean technical. Reference functions + files directly. |
+### Q1: How techy are you?  (`tech_level`)
 
-### Q2: How should I (Claude) talk to you?
+| Option | API value | Effect |
+|--------|-----------|--------|
+| Not technical at all | `not-technical` | Avoid jargon. Explain every technical term. |
+| Comfortable with computers, not a coder | `comfortable-not-coder` | Brief explanations when terms come up. |
+| I've coded before, casually | `casual-coder` | Skip basics. Explain specialized stuff. |
+| I'm a developer | `developer` | Lean technical. Reference functions + files directly. |
 
-| Option | Effect |
-|--------|--------|
-| Brief — get to the point | Short answers. Lists. Lead with the answer. |
-| Balanced — answer plus context | Answer first, then a sentence or two of why/how. |
-| Thorough — teach me as we go | Explain reasoning. Mini-tutorial mode. |
-| Match the personality I pick | Whatever vibe my personality has. |
+### Q2: How should I (Claude) talk to you?  (`communication_style`)
 
-### Q3: What do you want to do with this bot?
+| Option | API value | Effect |
+|--------|-----------|--------|
+| Brief — get to the point | `brief` | Short answers. Lists. Lead with the answer. |
+| Balanced — answer plus context | `balanced` | Answer first, then a sentence or two of why/how. |
+| Thorough — teach me as we go | `thorough` | Explain reasoning. Mini-tutorial mode. |
+| Match the personality I pick | `match-personality` | Whatever vibe my personality has. |
 
-| Option | Effect |
-|--------|--------|
-| Just curious — exploring | Skip live-trading setup. Focus on understanding. |
-| Paper trade and learn | Install paper trader, skip live wallet. |
-| Run a small live bot (~$100) | Full install including live wallet + Helius key. |
-| $500-$1000 to deploy multiple bots and multiple strategies | Full install + multi-bot scaffolding + scheduled monitoring. |
+### Q3: What do you want to do with this bot?  (`goal`)
 
-### Q4: How much do you want me to check in before doing things?
+| Option | API value | Effect |
+|--------|-----------|--------|
+| Just curious — exploring | `explore` | Skip live-trading setup. Focus on understanding. |
+| Paper trade and learn | `paper` | Install paper trader, skip live wallet. |
+| Run a small live bot (~$100) | `small-live` | Full install including live wallet + Helius key. |
+| $500-$1000 to deploy multiple bots | `multi-bot` | Full install + multi-bot scaffolding + scheduled monitoring. |
 
-| Option | Effect |
-|--------|--------|
-| Very cautious — check everything | Pause for confirm on every action. |
-| Cautious — check the big stuff | Confirm money moves + bot-behavior changes. Routine stuff is fine. |
-| Balanced — tell me, then do it | Announce, then act. Stop only for major calls. |
-| Hands-off — do the right thing, tell me after | Just handle it. Summarize after. Stop only for real decisions. |
+### Q4: How much do you want me to check in before doing things?  (`consent_level`)
 
-### Q5: How much should I (Claude) do vs. you do?
+| Option | API value | Effect |
+|--------|-----------|--------|
+| Very cautious — check everything | `very-cautious` | Pause for confirm on every action. |
+| Cautious — check the big stuff | `cautious` | Confirm money moves + bot-behavior changes. Routine stuff is fine. |
+| Balanced — tell me, then do it | `balanced` | Announce, then act. Stop only for major calls. |
+| Hands-off — do the right thing, tell me after | `hands-off` | Just handle it. Summarize after. Stop only for real decisions. |
 
-| Option | Effect |
-|--------|--------|
-| You do everything — I'll review | Claude runs every command. User reviews output. |
-| You do most of it — show me the cool parts | Claude handles boring setup; pauses for interesting moments. |
-| We do it together — teach me as we go | Claude explains as it goes. User learns enough to do it later. |
-| I do it, you guide me | User types commands. Claude coaches. |
+### Q5: How much should I (Claude) do vs. you do?  (`autonomy_level`)
+
+| Option | API value | Effect |
+|--------|-----------|--------|
+| You do everything — I'll review | `claude-everything` | Claude runs every command. User reviews output. |
+| You do most of it — show me the cool parts | `show-cool-parts` | Claude handles boring setup; pauses for interesting moments. |
+| We do it together — teach me as we go | `together` | Claude explains as it goes. User learns enough to do it later. |
+| I do it, you guide me | `user-driven` | User types commands. Claude coaches. |
 
 ### After all 5 questions, tell the user:
 
