@@ -531,7 +531,18 @@ const app = Fastify({
     // Only log API/health calls; skip static dashboard assets to keep
     // the file small + relevant.
     if (!url.startsWith('/api/') && !url.startsWith('/health')) return;
-    const ms = req._installLogStart ? (Date.now() - req._installLogStart) : null;
+    // Fastify exposes elapsedTime on the reply; prefer that over our
+    // stash since it's set deeper in the lifecycle and isn't subject
+    // to onRequest hook ordering (which produced -ms values when an
+    // internal hook reset state between the two hooks).
+    let ms: number | null = null;
+    const fastifyElapsed = (reply as any).elapsedTime;
+    if (typeof fastifyElapsed === 'number' && fastifyElapsed >= 0) {
+      ms = Math.round(fastifyElapsed);
+    } else if (req._installLogStart) {
+      const computed = Date.now() - req._installLogStart;
+      ms = computed >= 0 ? computed : null;
+    }
     const line = JSON.stringify({
       ts: new Date().toISOString(),
       method: req.method || '?',
@@ -962,7 +973,7 @@ app.get('/health/apps', async () => {
 // All checks run as short subprocesses (~50ms each) with a 3s timeout.
 // Result is unauthenticated + safe to expose: it reveals only whether
 // known tooling exists, no secrets or file paths.
-app.get('/api/workflow/preflight', async () => {
+app.get('/api/workflow/preflight', async () => cached(preflightRespCache, RESP_CACHE_TTL_MS, async () => {
   type ProbeResult = { ok: boolean; version?: string; error?: string };
   const probe = (cmd: string, args: string[], useShell = false): Promise<ProbeResult> =>
     new Promise((resolveProbe) => {
@@ -1083,7 +1094,7 @@ app.get('/api/workflow/preflight', async () => {
       } : null,
     },
   };
-});
+}));
 
 // Powers the dashboard's market Leaderboard view. Returns the top
 // traders on PBX ranked by USDC volume in the last N days, enriched
@@ -1877,14 +1888,49 @@ const CANONICAL_SCHEDULED_TASKS: Array<{ name: string; schedule: string }> = [
   { name: 'STRATOS-MetaWatchdog',   schedule: 'every 5 min' },
 ];
 
-// Perf: short-lived in-memory cache around the shell snapshots so a
-// single render cycle (which can hit /api/ops/health AND
-// /api/ops/achievements within a few seconds) doesn't pay for two
-// separate pm2/schtasks shell-outs. TTL=5s matches "feels live" while
-// still cutting cost when the user view-switches. Per-key inflight
-// promise prevents thundering-herd if two requests arrive while a
-// snapshot is being computed.
-const SHELL_SNAPSHOT_TTL_MS = 5000;
+// Perf: short-lived in-memory cache around the shell snapshots so the
+// dashboard's 15-second poll loop reuses results between ticks instead
+// of paying for a fresh pm2/schtasks shell-out every time. TTL=12s is
+// just under the 15s poll interval so consecutive polls reliably
+// hit cache (cold tick → fresh data; the next tick reuses it).
+// Per-key inflight promise prevents thundering-herd if two requests
+// arrive while a snapshot is being computed.
+//
+// Was 5s -- too short for the poll cadence so every poll was a miss
+// on the test VM (10-30s per /api/ops/achievements call). Bumped after
+// the e7d99e7 noob-test export showed near-zero cache hit rate.
+const SHELL_SNAPSHOT_TTL_MS = 12000;
+
+// Generic response cache. Wraps any async producer in a TTL'd cache
+// with inflight-promise coalescing. Used to memoize the full response
+// of expensive dashboard endpoints (achievements / health / preflight)
+// across the dashboard's 15s poll cycle. Each endpoint has its own
+// slot so caches don't cross-contaminate. Returns a cached object
+// reference; do NOT mutate after returning.
+type CacheSlot<T> = { data: T | null; at: number; inflight: Promise<T> | null };
+async function cached<T>(
+  slot: CacheSlot<T>,
+  ttlMs: number,
+  producer: () => Promise<T>,
+): Promise<T> {
+  const now = Date.now();
+  if (slot.data !== null && now - slot.at < ttlMs) return slot.data;
+  if (slot.inflight) return slot.inflight;
+  slot.inflight = producer().then((v) => {
+    slot.data = v;
+    slot.at = Date.now();
+    slot.inflight = null;
+    return v;
+  }).catch((err) => {
+    slot.inflight = null;
+    throw err;
+  });
+  return slot.inflight;
+}
+const achievementsRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+const healthRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+const preflightRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+const RESP_CACHE_TTL_MS = 12000;
 let pm2CacheData: Pm2Row[] | null = null;
 let pm2CacheAt = 0;
 let pm2Inflight: Promise<Pm2Row[]> | null = null;
@@ -2039,7 +2085,7 @@ async function snapshotSchtasks(): Promise<SchedRow[]> {
 //
 // Auth: gated by the same bearer-token middleware as the rest of /api/*.
 // No mutation; safe to re-call as often as the dashboard wants.
-app.get('/api/ops/health', async () => {
+app.get('/api/ops/health', async () => cached(healthRespCache, RESP_CACHE_TTL_MS, async () => {
   const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
   const heartbeatPath = join(labDir, 'paper-trade-heartbeat');
   const aqiSnapshotPath = join(labDir, 'aqi-snapshot.json');
@@ -2248,7 +2294,7 @@ app.get('/api/ops/health', async () => {
     scheduledTasks,
     alerts,
   };
-});
+}));
 
 // ─── Ops: achievements (roadmap progress + event-driven unlocks) ──────
 //
@@ -2261,7 +2307,7 @@ app.get('/api/ops/health', async () => {
 //   - event-driven achievements from achievements/definitions.json,
 //     with unlocked state from ~/.pbx-lab/achievements.json and the
 //     first-unlocked-at timestamps from that same file.
-app.get('/api/ops/achievements', async () => {
+app.get('/api/ops/achievements', async () => cached(achievementsRespCache, RESP_CACHE_TTL_MS, async () => {
   const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
   const profilePath = join(labDir, 'user-profile.json');
   const unlockedPath = join(labDir, 'achievements.json');
@@ -2661,7 +2707,7 @@ app.get('/api/ops/achievements', async () => {
     autoDetectedTasks,
     autoUnlockedThisRequest: autoUnlocked,
   };
-});
+}));
 
 // ─── Ops: mark a roadmap task complete ─────────────────────────────────
 //
@@ -2719,6 +2765,10 @@ app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req
   } catch {
     // Non-fatal — the profile update is the source of truth.
   }
+  // Invalidate the achievements response cache so the next GET reflects
+  // this mark immediately instead of serving up-to-12s-stale data.
+  achievementsRespCache.data = null;
+  achievementsRespCache.at = 0;
   return { ok: true, taskId, achievements_unlocked: existing, last_updated: nowIso };
 });
 
@@ -2901,6 +2951,11 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
     }
   }
 
+  // Invalidate the achievements cache -- personality_id / theme_id
+  // changes affect s1.t9 detector results, so a poll right after
+  // recalibrate should see the fresh state instead of up-to-12s stale.
+  achievementsRespCache.data = null;
+  achievementsRespCache.at = 0;
   return {
     ok: true,
     updated_fields: Object.keys(updates),

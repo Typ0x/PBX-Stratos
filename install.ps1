@@ -250,7 +250,14 @@ $healthOk = $false
 Write-Host "       polling /health (will print progress every 10s)..." -ForegroundColor Gray
 while ($elapsed -lt $maxWait) {
   try {
-    $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
+    # IPv4 literal, not "localhost". On Windows 11, "localhost" resolves
+    # to ::1 (IPv6) FIRST, and Fastify binds to 127.0.0.1 only. The
+    # IPv6 connection fails and Invoke-WebRequest hangs until timeout
+    # instead of falling back to IPv4 -- which makes EVERY 180s install
+    # report FAIL even when the server is up and answering perfectly
+    # from any other client. Hard-coding 127.0.0.1 skips name resolution
+    # entirely.
+    $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/health' -UseBasicParsing -TimeoutSec 2
     if ($r.StatusCode -eq 200) { $healthOk = $true; break }
   } catch {
     # Server still booting -- keep waiting.
@@ -273,7 +280,9 @@ while ($elapsed -lt $maxWait) {
 $bothOnline = $false
 if ($healthOk) {
   try {
-    $a = Invoke-WebRequest -Uri 'http://localhost:8787/health/apps' -UseBasicParsing -TimeoutSec 5
+    # Same IPv4 literal as the /health poll above -- "localhost" on
+    # Win11 resolves to ::1 first and Fastify is IPv4-only.
+    $a = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/health/apps' -UseBasicParsing -TimeoutSec 5
     if ($a.StatusCode -eq 200) {
       $apps = ($a.Content | ConvertFrom-Json).apps
       if ($apps.server -eq 'online' -and $apps.paperTrade -eq 'online') {
