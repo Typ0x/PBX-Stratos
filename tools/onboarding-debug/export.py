@@ -5,7 +5,7 @@
 # Usage:
 #   python tools/onboarding-debug/export.py
 #
-# Writes to runtime/lab/onboarding-export-YYYYMMDD-HHMMSS.md and
+# Writes to runtime/lab/logs/onboarding-export-YYYYMMDD-HHMMSS.md and
 # prints the absolute path to stdout (single line, easy to grep).
 
 import argparse
@@ -26,7 +26,8 @@ from redact import Redactor  # noqa: E402
 
 REPO = HERE.parent.parent  # tools/onboarding-debug/.. = repo root
 RUNTIME_LAB = REPO / "runtime" / "lab"
-EXPORT_DIR = RUNTIME_LAB
+LOGS_DIR = REPO / "runtime" / "lab" / "logs"
+EXPORT_DIR = LOGS_DIR
 
 
 def now_stamp() -> str:
@@ -215,7 +216,8 @@ def pm2_logs() -> str:
 def install_stdout(redactor: Redactor) -> str:
     """Tail of install.ps1 / install.bat stdout."""
     candidates = [
-        RUNTIME_LAB / "install-stdout.log",
+        LOGS_DIR / "install-stdout.log",
+        RUNTIME_LAB / "install-stdout.log",  # legacy path (pre-logs-folder layout)
         RUNTIME_LAB / "install.log",
         REPO / "install-stdout.log",
     ]
@@ -338,8 +340,16 @@ def git_state() -> str:
 def build_report() -> str:
     redactor = Redactor()
 
-    session = parse_jsonl(safe_read(RUNTIME_LAB / "install-session.jsonl"))
-    http = parse_jsonl(safe_read(RUNTIME_LAB / "install-http.jsonl"))
+    # Prefer the new logs/ folder layout; fall back to runtime/lab/ for
+    # legacy state from a pre-cleanup install.
+    session_path = LOGS_DIR / "install-session.jsonl"
+    if not session_path.exists():
+        session_path = RUNTIME_LAB / "install-session.jsonl"
+    http_path = LOGS_DIR / "install-http.jsonl"
+    if not http_path.exists():
+        http_path = RUNTIME_LAB / "install-http.jsonl"
+    session = parse_jsonl(safe_read(session_path))
+    http = parse_jsonl(safe_read(http_path))
 
     out = []
     out.append(f"# PBX Stratos -- Onboarding Export\n")
@@ -370,7 +380,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--out",
-        help="Output file path. Default: runtime/lab/onboarding-export-<ts>.md",
+        help="Output file path. Default: runtime/lab/logs/onboarding-export-<ts>.md",
     )
     args = parser.parse_args()
 

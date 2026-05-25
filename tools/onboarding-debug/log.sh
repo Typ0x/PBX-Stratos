@@ -12,7 +12,7 @@
 set -e
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-LOG_DIR="$REPO/runtime/lab"
+LOG_DIR="$REPO/runtime/lab/logs"
 LOG_FILE="$LOG_DIR/install-session.jsonl"
 
 mkdir -p "$LOG_DIR"

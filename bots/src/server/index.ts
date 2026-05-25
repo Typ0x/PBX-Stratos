@@ -510,11 +510,11 @@ const app = Fastify({
   // STRATOS_REPO_ROOT from pm2 config first, fallback to ~/PBX-Stratos.
   const noobLoopRepoRoot = process.env.STRATOS_REPO_ROOT
     ?? join(homedir(), 'PBX-Stratos');
-  const installHttpLogPath = join(noobLoopRepoRoot, 'runtime', 'lab', 'install-http.jsonl');
+  const installHttpLogPath = join(noobLoopRepoRoot, 'runtime', 'lab', 'logs', 'install-http.jsonl');
   let httpLogDisabled = false;
   // Ensure parent dir exists once at startup.
   try {
-    mkdirSync(join(noobLoopRepoRoot, 'runtime', 'lab'), { recursive: true });
+    mkdirSync(join(noobLoopRepoRoot, 'runtime', 'lab', 'logs'), { recursive: true });
   } catch {
     httpLogDisabled = true;
   }

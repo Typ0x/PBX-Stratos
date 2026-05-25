@@ -18,9 +18,9 @@ labeled `// noob-loop only --`.
 
 | File | What it does |
 |---|---|
-| `log.sh` / `log.ps1` | One-line logger Claude calls at each step checkpoint. Appends a JSON line to `runtime/lab/install-session.jsonl`. |
+| `log.sh` / `log.ps1` | One-line logger Claude calls at each step checkpoint. Appends a JSON line to `runtime/lab/logs/install-session.jsonl`. |
 | `export.sh` / `export.ps1` | Wrappers that call `export.py` with the right Python interpreter. |
-| `export.py` | Reads the per-step log + server HTTP log + install stdout + pm2 logs + final state. Redacts secrets. Writes one markdown file at `runtime/lab/onboarding-export-YYYYMMDD-HHMMSS.md`. |
+| `export.py` | Reads the per-step log + server HTTP log + install stdout + pm2 logs + final state. Redacts secrets. Writes one markdown file at `runtime/lab/logs/onboarding-export-YYYYMMDD-HHMMSS.md`. |
 | `redact.py` | Shared redaction helpers (HELIUS keys, wallet mnemonics, .env values). Imported by `export.py`. |
 
 ## What gets captured

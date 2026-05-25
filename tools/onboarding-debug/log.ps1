@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$LogDir = Join-Path $Repo "runtime\lab"
+$LogDir = Join-Path $Repo "runtime\lab\logs"
 $LogFile = Join-Path $LogDir "install-session.jsonl"
 
 if (-not (Test-Path $LogDir)) {

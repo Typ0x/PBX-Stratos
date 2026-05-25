@@ -29,14 +29,14 @@
 $ErrorActionPreference = 'Stop'
 $RepoRoot = $PSScriptRoot
 
-# noob-loop only -- mirror all install output to runtime/lab/install-stdout.log
+# noob-loop only -- mirror all install output to runtime/lab/logs/install-stdout.log
 # so tools/onboarding-debug/export.py can include it in the dev handoff file.
 # Wrapped in try/catch because Start-Transcript can fail if a previous
 # install left a transcript hanging; we want install to proceed regardless.
 try {
-  $LabDir = Join-Path $RepoRoot 'runtime\lab'
-  if (-not (Test-Path $LabDir)) { New-Item -ItemType Directory -Force -Path $LabDir | Out-Null }
-  $TranscriptPath = Join-Path $LabDir 'install-stdout.log'
+  $LogsDir = Join-Path $RepoRoot 'runtime\lab\logs'
+  if (-not (Test-Path $LogsDir)) { New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null }
+  $TranscriptPath = Join-Path $LogsDir 'install-stdout.log'
   Start-Transcript -Path $TranscriptPath -Force | Out-Null
 } catch {
   Write-Host "(transcript capture failed: $_  -- continuing)" -ForegroundColor DarkGray

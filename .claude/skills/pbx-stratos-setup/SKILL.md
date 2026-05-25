@@ -155,7 +155,7 @@ bash tools/onboarding-debug/export.sh
 That command bundles the per-step log + server HTTP log + install
 stdout + pm2 tails + final state (ready.json, user-profile.json
 with secrets REDACTED) into one timestamped file at
-`runtime/lab/onboarding-export-YYYYMMDD-HHMMSS.md` and prints the
+`runtime/lab/logs/onboarding-export-YYYYMMDD-HHMMSS.md` and prints the
 absolute path. Tell the user: "if anything went wrong, paste the
 contents of `<that path>` to the dev team in Discord/Slack."
 
@@ -732,7 +732,7 @@ Surface known issues:
   framework treats it as risk-accepted. Tell the user this exists so
   they can make their own call.
 
-**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `cmd /c install.bat` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
+**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `cmd /c install.bat` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/logs/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
 
 ---
 
