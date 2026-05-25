@@ -327,30 +327,19 @@ This is a clean handoff, not a failure mode.
 
 ---
 
-## Step 1 — Start install.bat in background + start the personality quiz
+## Step 1 — Q0 gate + personality quiz (collect answers, don't POST yet)
 
-**Why this order:** the quiz takes the user 30s-1min. install.bat
-takes another 3-5 min to download Node/Python (if missing), npm
-install, pm2 start, etc. Run them in PARALLEL — the quiz fills the
-install wait so the user never sees idle time.
+**What Step 1 does:** collects the user's quiz answers (or defaults
+choice) IN MEMORY. The actual POST to `/api/profile/recalibrate`
+happens AFTER Step 3 finishes the install -- the server isn't running
+yet, so a POST here would 500 / connection-refused. Hold the answers
+until the server is verified up.
 
-**Action: launch install.bat in the background BEFORE asking Q0/Q1.**
-install.bat / install.ps1 / scripts/bootstrap.ps1 handle Node + Python
-detection + download internally. No need to pre-install prereqs
-separately — and avoid running any custom `.ps1` script with the
-`-ExecutionPolicy Bypass` flag from this skill: that keyword pattern
-is exactly what Claude Desktop's Auto mode flags as a security-bypass
-attempt and the install gets blocked. The `cmd /c install.bat` form
-below is the safe invocation.
-
-```bash
-# Background launch. install.bat sets PBX_NONINTERACTIVE itself when
-# this env var is set, so the .bat skips its final keypress prompt.
-PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat" &
-```
-
-Then immediately move on to Q0 / quiz below. The install will be
-chugging in parallel.
+**Do NOT background install.bat here.** Step 3 launches install.bat
+in the foreground. Step 1 is the user-interaction half — you talk
+to the user, collect their answers, hold them in memory. Step 2 is
+a fast env probe. Step 3 is the install. The POST happens at the
+end of Step 3 once the server is up.
 
 ### Q0: Walkthrough or defaults? (gate before the 5-question quiz)
 
@@ -362,11 +351,12 @@ Fire ONE `AskUserQuestion` first:
 
 | Option | What it does |
 |--------|--------|
-| **Use defaults — just get me to the dashboard** | Skip Q1-Q5 + skip personality + skip theme. POST the defaults block below to `/api/profile/recalibrate` and jump straight to Step 2. Total user-click time: 0 popups after this gate. |
+| **Use defaults — just get me to the dashboard** | Skip Q1-Q5 + skip personality + skip theme. Record the defaults block in memory and jump straight to Step 2. Total user-click time: 0 popups after this gate. |
 | **Walk me through the 5 questions (30-60s)** | Continue to Q1-Q5 as documented. |
 
-If user picks **defaults**, immediately POST this body to
-`/api/profile/recalibrate` (single call, no further popups required):
+If user picks **defaults**, hold this body in memory to POST AFTER
+the Step 3 install completes (server not up yet — POSTing now will
+fail with ECONNREFUSED):
 
 ```json
 {
@@ -380,7 +370,7 @@ If user picks **defaults**, immediately POST this body to
 }
 ```
 
-Then announce: *"Defaults applied. Dashboard's coming up in a sec.
+Then announce: *"Defaults locked in. Spinning up the dashboard now.
 You can change any of this later — just say 'run the personality
 quiz' or 'switch personality to X'."* Skip to Step 2.
 
@@ -394,8 +384,9 @@ calibrates everything else.
 
 **How:** use `AskUserQuestion` 5 times, in order — one popup per
 question. Each question has ≤4 options, so each one fits in a single
-AUQ call directly. After all 5, POST the answers to the profile API
-endpoint (see "After all 5 questions" below).
+AUQ call directly. After all 5, HOLD the answers in memory — the
+POST happens at the end of Step 3, once install.bat brings the
+server up.
 
 **Pre-answer skip:** if the user already declared their goal in the
 opening prompt (e.g. "set up paper trading"), set `goal` from that
@@ -488,9 +479,13 @@ sending `goal:"paper-trade"` instead of `goal:"paper"` gets a 400.
 > `runtime/lab/user-profile.json` (each field has 3-4 valid values —
 > see `.claude/UNIVERSAL-CORE.md` for the schema)."
 
-Then save via the **profile API endpoint** — NOT a direct file write.
+**Hold these answers in memory.** Do NOT POST yet. The server isn't
+running until Step 3 finishes the install. Once Step 3 reports
+`/health` green, THEN POST via the **profile API endpoint** — NOT a
+direct file write.
 
 ```bash
+# RUN AFTER STEP 3 COMPLETES (not during Step 1).
 curl -X POST http://localhost:8787/api/profile/recalibrate \
   -H "Content-Type: application/json" \
   -d '{
@@ -512,14 +507,14 @@ ever lands on disk) AND validates each field against an allow-list
 (so a typo like `tech_level: "newb"` gets rejected upfront, not
 discovered later via a broken dashboard).
 
-If the server isn't up yet (Step 1 of the install fires before Step 8
-starts pm2), defer this POST to right after `pm2 start` completes.
-
 `personality_id` + `theme_id` get updated in Steps 9-10 via the same
 endpoint. From here on, all your responses should reflect the Q1-Q5
 calibration.
 
-**Verify Step 1:** `curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If you don't see `PROFILE_OK`, the recalibrate POST didn't land — re-POST with the missing fields; if still failing, halt per Terminal State 2.
+**Verify Step 1:** the quiz answers (or defaults block) are held in
+memory. No external state to verify yet — the actual POST + curl
+verification happens at the end of Step 3 (after install brings the
+server up).
 
 ---
 
@@ -579,15 +574,22 @@ step so you can narrate progress to the user as it runs.
 
 When Claude runs it, the recommended pattern is:
 
-1. Launch it as a **background Bash call** (`run_in_background: true`)
-   while you ask the user the 5 personality-quiz questions
-   (Step 1). The install + the quiz run in parallel.
-2. The harness notifies you when the install completes. Confirm
-   in voice: "install finished while we were talking — pm2 fleet
-   up, 6 scheduled tasks registered, dashboard live."
-3. If `install.ps1` exits non-zero, examine the captured output to
+1. Run install.bat **in the foreground** as a single Bash call (no
+   `run_in_background` flag). install.bat blocks until pm2 is up,
+   the 6 scheduled tasks are registered, and `/health` returns 200.
+   This avoids racing the deferred profile POST against an
+   unstarted server.
+2. If `install.ps1` exits 0: continue to "POST the deferred Step 1
+   profile NOW" below.
+3. If `install.ps1` exits non-zero: examine the captured output to
    identify the failing step and either re-run that step manually
    (see Step 3-fallback below) or surface the failure to the user.
+
+(Earlier versions of this skill ran install.bat in background
+during the quiz. That introduces a race where the Q0-defaults POST
+fires before pm2 starts. Foreground execution is the safe pattern;
+the speed savings from backgrounding were small once install.bat
+got its own bundled-Node download caching.)
 
 ### Fallback — manual step-by-step if `install.ps1` errors out
 
@@ -620,6 +622,22 @@ Surface known issues:
   they can make their own call.
 
 **Verify Step 3:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `install.ps1`/`install.sh` once; if still failing, capture the install script's exit code + last 20 lines of output and halt per Terminal State 2.
+
+### POST the deferred Step 1 profile NOW
+
+install.bat just finished; pm2 is up; the server is listening on
+`:8787`. POST the profile you collected (or the defaults block, if
+user picked the Q0 defaults path) to `/api/profile/recalibrate`. See
+Step 1's body template — fields come from Q1-Q5 answers or the
+defaults JSON.
+
+```bash
+curl -X POST http://localhost:8787/api/profile/recalibrate \
+  -H "Content-Type: application/json" \
+  -d '{ ...the in-memory profile from Step 1... }'
+```
+
+Then verify: `curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If `PROFILE_OK` missing, re-POST; if still failing, halt per Terminal State 2.
 
 ---
 
