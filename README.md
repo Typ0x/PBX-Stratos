@@ -653,7 +653,7 @@ installer did:
 
 | Platform | Run this |
 |---|---|
-| **Windows** | Double-click [`uninstall.bat`](uninstall.bat), or `powershell -ExecutionPolicy Bypass -File uninstall.ps1` |
+| **Windows** | Double-click [`uninstall.bat`](uninstall.bat), or from a cmd shell: `cmd /c uninstall.bat` |
 | **macOS / Linux** | `bash uninstall.sh` |
 
 What it does (interactive — asks before each step):

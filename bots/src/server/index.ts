@@ -1896,10 +1896,14 @@ const CANONICAL_SCHEDULED_TASKS: Array<{ name: string; schedule: string }> = [
 // Per-key inflight promise prevents thundering-herd if two requests
 // arrive while a snapshot is being computed.
 //
-// Was 5s -- too short for the poll cadence so every poll was a miss
-// on the test VM (10-30s per /api/ops/achievements call). Bumped after
-// the e7d99e7 noob-test export showed near-zero cache hit rate.
-const SHELL_SNAPSHOT_TTL_MS = 12000;
+// Was 5s -> 12s -> 60s. The 12s was still too short: the noob-test
+// VM polls /api/ops/achievements every 18-29s (not the nominal 15s,
+// because each call takes 3-10s and shifts the next poll), so 12s
+// always expired between calls. 60s reliably covers consecutive polls
+// while still surfacing pm2-status changes within a minute -- which
+// is the right cadence given the test VM isn't going through realtime
+// process churn anyway.
+const SHELL_SNAPSHOT_TTL_MS = 60000;
 
 // Generic response cache. Wraps any async producer in a TTL'd cache
 // with inflight-promise coalescing. Used to memoize the full response
@@ -1930,7 +1934,11 @@ async function cached<T>(
 const achievementsRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
 const healthRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
 const preflightRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
-const RESP_CACHE_TTL_MS = 12000;
+// 30s -- comfortably longer than the actual observed poll spacing
+// (18-29s on the test VM) so consecutive polls hit cache. Stale-for-
+// 30s is fine for these endpoints; user-mutating writes (mark,
+// recalibrate) invalidate the achievements slot immediately.
+const RESP_CACHE_TTL_MS = 30000;
 let pm2CacheData: Pm2Row[] | null = null;
 let pm2CacheAt = 0;
 let pm2Inflight: Promise<Pm2Row[]> | null = null;

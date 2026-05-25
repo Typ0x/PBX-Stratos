@@ -29,6 +29,17 @@ RUNTIME_LAB = REPO / "runtime" / "lab"
 LOGS_DIR = REPO / "runtime" / "lab" / "logs"
 EXPORT_DIR = LOGS_DIR
 
+# Prepend the bundled .tooling/node dir to PATH so subprocess lookups
+# for node/npm/pm2 find the bundled binaries even when the user
+# invoked the exporter from a shell that wasn't sourced for them
+# (the pbx.cmd wrapper does this for normal Claude CLI use, but
+# the dev exporter is called directly via bash). Without this,
+# `pm2 jlist` reports "not_found" in the export even when pm2 IS
+# installed under .tooling/node/.
+_bundled_node = REPO / ".tooling" / "node"
+if _bundled_node.is_dir():
+    os.environ["PATH"] = str(_bundled_node) + os.pathsep + os.environ.get("PATH", "")
+
 
 def now_stamp() -> str:
     return dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -60,8 +71,14 @@ def safe_read(path: Path, max_bytes: int = 1_000_000) -> Optional[str]:
         return f"[error reading {path}: {e}]"
 
 
-def run_cmd(cmd: List[str], timeout: int = 10) -> Dict[str, Any]:
-    """Run a command, return {cmd, stdout, stderr, returncode, error}."""
+def run_cmd(cmd: List[str], timeout: int = 10, cwd: Optional[Path] = None) -> Dict[str, Any]:
+    """Run a command, return {cmd, stdout, stderr, returncode, error}.
+
+    cwd defaults to REPO so git invocations and pm2 lookups always
+    resolve against the repo root regardless of where the user
+    invoked the exporter from. (Without this, running export.sh
+    from anywhere other than the repo root produced `branch: ?`
+    output because git rev-parse failed silently.)"""
     try:
         result = subprocess.run(
             cmd,
@@ -70,6 +87,7 @@ def run_cmd(cmd: List[str], timeout: int = 10) -> Dict[str, Any]:
             timeout=timeout,
             check=False,
             shell=False,
+            cwd=str(cwd) if cwd else str(REPO),
         )
         return {
             "cmd": " ".join(cmd),
@@ -193,9 +211,20 @@ def env_summary(redactor: Redactor) -> str:
 
 
 def pm2_logs() -> str:
-    """Last 200 lines of pm2 logs for both apps."""
+    """Last 200 lines of pm2 logs for both apps.
+
+    pm2.config.cjs writes logs to repo-relative paths (out_file +
+    error_file overrides) -- bots/_server_log.txt and
+    bear-scout/runners/_paper_trade_log.txt -- NOT to the default
+    ~/.pm2/logs/<name>-out.log. Check both locations; the relative
+    one is correct for this repo, the home one is the fallback for
+    any pm2 process that didn't override its log path."""
     home = Path(os.path.expanduser("~"))
     candidates = [
+        # pm2.config.cjs canonical paths
+        REPO / "bots" / "_server_log.txt",
+        REPO / "bear-scout" / "runners" / "_paper_trade_log.txt",
+        # Fallback to pm2 defaults in case the config gets reverted
         home / ".pm2" / "logs" / "bear-watch-server-stratos-out.log",
         home / ".pm2" / "logs" / "bear-watch-server-stratos-error.log",
         home / ".pm2" / "logs" / "paper-trade-bot-stratos-out.log",
