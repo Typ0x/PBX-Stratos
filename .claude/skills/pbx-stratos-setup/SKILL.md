@@ -965,9 +965,13 @@ If all pass:
 > "Installation complete. Both apps are online, all 7 health checks
 > pass, and your dashboard is live at http://localhost:8787.
 >
-> **Quick CLI:** you can also run `./pbx status` from the repo for a
-> CLI snapshot, or `./pbx --help` for the full list of commands
-> (`./pbx wallet new`, `./pbx achievements`, `./pbx refresh`, etc).
+> **Quick CLI:** you can also run `./pbx status` (Unix) or
+> `pbx.cmd status` (Windows) from the repo for a CLI snapshot, or
+> `./pbx --help` for the full list (`pbx wallet new`,
+> `pbx achievements`, `pbx refresh`, etc). The Windows wrapper also
+> exposes pm2 with the bundled Node on PATH — run `pbx.cmd pm2 list`
+> from anywhere, or `pbx.cmd shell` to drop into a cmd window with
+> pm2/node/npm available.
 >
 > You're at **Roadmap Level 1: Online**. Here's the path ahead:
 >

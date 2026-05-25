@@ -2691,15 +2691,52 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
     'hacker':          'matrix',
   };
 
+  // Levenshtein distance for "did you mean" hints. Tiny implementation
+  // — only used on the 400 path so perf doesn't matter. Returns
+  // edit-distance between two strings (lowercase comparison).
+  function levenshtein(a: string, b: string): number {
+    const x = a.toLowerCase(), y = b.toLowerCase();
+    const m = x.length, n = y.length;
+    if (m === 0) return n; if (n === 0) return m;
+    const d: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) d[i]![0] = i;
+    for (let j = 0; j <= n; j++) d[0]![j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = x[i - 1] === y[j - 1] ? 0 : 1;
+        d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
+      }
+    }
+    return d[m]![n]!;
+  }
+  function nearestAllowed(value: string, allowed: string[]): string | null {
+    let best: { val: string; dist: number } | null = null;
+    for (const a of allowed) {
+      const dist = levenshtein(value, a);
+      if (best === null || dist < best.dist) best = { val: a, dist };
+    }
+    // Only suggest if the distance is reasonable (≤ ~50% of value length)
+    if (best && best.dist <= Math.max(2, Math.floor(value.length / 2))) return best.val;
+    return null;
+  }
+
   // Collect + validate.
   const updates: Record<string, string> = {};
   for (const field of Object.keys(ALLOWED)) {
     const raw = body[field];
     if (raw == null) continue;  // field omitted → don't change it
     if (typeof raw !== 'string' || !ALLOWED[field]!.includes(raw)) {
+      // Item 15: include a "did you mean" hint so AI clients can
+      // self-correct on first retry instead of guessing again.
+      const suggestion = typeof raw === 'string' ? nearestAllowed(raw, ALLOWED[field]!) : null;
+      const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
       return reply.code(400).send({
-        error: `invalid value for ${field}: ${JSON.stringify(raw)}. ` +
+        error: `invalid value for ${field}: ${JSON.stringify(raw)}.${hint} ` +
           `Allowed: ${ALLOWED[field]!.join(', ')}.`,
+        field,
+        provided: raw,
+        allowed: ALLOWED[field]!,
+        suggestion,
       });
     }
     updates[field] = raw;
