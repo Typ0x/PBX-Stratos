@@ -291,7 +291,11 @@ Ok "/health returned 200 after ${elapsed}s"
 
 # Open /dashboard, not the bare root -- the server doesn't mount "/"
 # (though we now redirect, this avoids any 302 round-trip).
-Start-Process 'http://localhost:8787/dashboard'
+# /dashboard/fresh (vs /dashboard) clears localStorage and force-fires
+# the 10-step onboarding overlay even if a previous browser session set
+# the "tour-done" flag. Critical for first-install UX where the user
+# needs the tour to show.
+Start-Process 'http://localhost:8787/dashboard/fresh'
 
 # ----------------------------------------------------------------
 Write-Host ""

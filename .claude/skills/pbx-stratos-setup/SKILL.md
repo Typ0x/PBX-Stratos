@@ -88,7 +88,7 @@ Aim to land all of these before telling the user the install is done:
 - Both `bear-watch-server-stratos` AND `paper-trade-bot-stratos` show as online in `pm2 list` (verified via `/health/apps` returning `apps.server === "online" && apps.paperTrade === "online"`)
 - `curl http://localhost:8787/health` returns `{"ok":true}`
 - `runtime/lab/user-profile.json` exists with the 5 quiz fields + `personality_id` + `theme_id` set to user's picks
-- Browser opened to `http://localhost:8787/dashboard` (best-effort — don't block on this if `/health` is green but `Start-Process` couldn't launch the browser)
+- Browser opened to `http://localhost:8787/dashboard/fresh` — **install.ps1 / install.sh handles this automatically** (do NOT call `Start-Process` / `xdg-open` yourself, or the user gets two tabs). Just confirm the URL in your final message.
 - A short roadmap handoff verbalized in the chosen personality voice
 
 If those land cleanly, return control with a brief summary of what
@@ -507,12 +507,18 @@ venv, pm2 install + start, scheduled task registration, and the
 ready-marker write — all in a single command. Call it via:
 
 ```bash
-# Windows (Claude runs this as a single Bash call):
-# install.bat wraps install.ps1 with the right execution-policy flags
-# internally, so Claude never needs to type the -ExecutionPolicy phrase
-# (which can trip auto-mode classifiers as "bypassing a security control").
-# Set PBX_NONINTERACTIVE=1 so install.bat skips its final keypress prompt.
-PBX_NONINTERACTIVE=1 cmd /c install.bat
+# Windows -- use PowerShell with the FULL repo path. `cmd /c install.bat`
+# called from a bash shell (Git Bash) does NOT inherit bash's CWD into
+# the cmd subprocess, so cmd can't find install.bat to begin with --
+# the script's internal `cd /D %~dp0` fires too late. Going through
+# PowerShell with an absolute path sidesteps the whole class of CWD
+# propagation bugs and works identically from any shell flavor on
+# Windows (cmd, bash, pwsh, PowerShell 5.1).
+#
+# Replace <repo> with the actual checkout path -- usually the current
+# working directory you cloned into (e.g. C:\Users\<you>\PBX-Stratos
+# or $env:USERPROFILE\PBX-Stratos).
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:PBX_NONINTERACTIVE='1'; & '<repo>\install.bat'"
 
 # macOS / Linux:
 bash install.sh
