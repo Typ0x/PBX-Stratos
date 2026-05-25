@@ -4481,10 +4481,43 @@
     }, 220);
   }
 
-  // Render one toast in the bottom-right stack. Auto-dismisses after
-  // ~6s. Stack supports multiple toasts when several unlocks land in
-  // a single poll — they cascade up the right edge.
+  // Toast queue + stagger.
+  //
+  // Multiple unlocks in one poll cycle (e.g. user just hit a milestone
+  // that auto-detects 5 chained achievements) USED to fire 5 toasts
+  // simultaneously — overwhelming. Now they cascade through a queue
+  // with a 500ms gap between each, and each toast stays visible for
+  // 8000ms. Single-toast unlocks (manual mark, single auto-detect)
+  // hit the head of the queue and render immediately — the stagger
+  // only kicks in when the queue has more than one item.
+  //
+  // The queue lives in module-scope state so successive
+  // showAchievementToast() calls from different render passes still
+  // share one staggered cascade.
+  const TOAST_STAGGER_MS = 500;
+  const TOAST_DURATION_MS = 8000;
+  const toastQueue = [];
+  let toastDrainTimer = null;
+
   function showAchievementToast(unlock) {
+    toastQueue.push(unlock);
+    if (!toastDrainTimer) drainToastQueue();
+  }
+
+  function drainToastQueue() {
+    if (toastQueue.length === 0) {
+      toastDrainTimer = null;
+      return;
+    }
+    const next = toastQueue.shift();
+    renderAchievementToastNow(next);
+    toastDrainTimer = setTimeout(drainToastQueue, TOAST_STAGGER_MS);
+  }
+
+  // Render one toast in the bottom-right stack. Auto-dismisses after
+  // TOAST_DURATION_MS. Stack supports multiple toasts — they cascade
+  // up the right edge via flex-col-reverse on the parent.
+  function renderAchievementToastNow(unlock) {
     const stack = document.getElementById('achievement-toast-stack');
     if (!stack) return;
     const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
@@ -4549,8 +4582,8 @@
     toast.style.cursor = 'pointer';
     toast.title = 'Click to jump to this achievement in the list';
 
-    // Auto-dismiss after 6s.
-    setTimeout(() => dismissToast(toast), 6000);
+    // Auto-dismiss after TOAST_DURATION_MS (8s).
+    setTimeout(() => dismissToast(toast), TOAST_DURATION_MS);
   }
 
   // Flip a row from "not done" to "done" without re-rendering the

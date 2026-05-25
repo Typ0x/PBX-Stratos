@@ -1877,7 +1877,22 @@ const CANONICAL_SCHEDULED_TASKS: Array<{ name: string; schedule: string }> = [
   { name: 'STRATOS-MetaWatchdog',   schedule: 'every 5 min' },
 ];
 
-async function snapshotPm2(): Promise<Pm2Row[]> {
+// Perf: short-lived in-memory cache around the shell snapshots so a
+// single render cycle (which can hit /api/ops/health AND
+// /api/ops/achievements within a few seconds) doesn't pay for two
+// separate pm2/schtasks shell-outs. TTL=5s matches "feels live" while
+// still cutting cost when the user view-switches. Per-key inflight
+// promise prevents thundering-herd if two requests arrive while a
+// snapshot is being computed.
+const SHELL_SNAPSHOT_TTL_MS = 5000;
+let pm2CacheData: Pm2Row[] | null = null;
+let pm2CacheAt = 0;
+let pm2Inflight: Promise<Pm2Row[]> | null = null;
+let schedCacheData: SchedRow[] | null = null;
+let schedCacheAt = 0;
+let schedInflight: Promise<SchedRow[]> | null = null;
+
+async function snapshotPm2Raw(): Promise<Pm2Row[]> {
   try {
     const { execSync } = await import('node:child_process');
     const raw = execSync('pm2 jlist', {
@@ -1913,62 +1928,98 @@ async function snapshotPm2(): Promise<Pm2Row[]> {
   }
 }
 
-async function snapshotSchtasks(): Promise<SchedRow[]> {
-  const out: SchedRow[] = [];
+async function snapshotPm2(): Promise<Pm2Row[]> {
+  const now = Date.now();
+  if (pm2CacheData && now - pm2CacheAt < SHELL_SNAPSHOT_TTL_MS) {
+    return pm2CacheData;
+  }
+  if (pm2Inflight) return pm2Inflight;
+  pm2Inflight = snapshotPm2Raw().then((rows) => {
+    pm2CacheData = rows;
+    pm2CacheAt = Date.now();
+    pm2Inflight = null;
+    return rows;
+  }).catch((err) => {
+    pm2Inflight = null;
+    throw err;
+  });
+  return pm2Inflight;
+}
+
+async function snapshotSchtasksRaw(): Promise<SchedRow[]> {
   if (process.platform !== 'win32') {
     return CANONICAL_SCHEDULED_TASKS.map((t) => ({
       name: t.name, schedule: t.schedule,
       lastRunIso: null, lastResult: 'platform not Windows', nextRunIso: null,
     }));
   }
+  const parseIso = (s: string | null): string | null => {
+    if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  // Parallel-fire the 6 per-task queries. Previously these ran
+  // sequentially (~200ms each on a healthy box, 500-1000ms each on a
+  // VM with antivirus) which gated EVERY achievements + health
+  // render on a 1.2-6s shell wait. Promise.all + execFile (no shell)
+  // collapses that to one cluster of concurrent process spawns -- on
+  // a 2-core VM the wall time drops to roughly one schtasks call's
+  // worth of latency.
   try {
-    const { execSync } = await import('node:child_process');
-    // Probe — if even the first task is unreachable, fall back to canonical.
-    execSync('schtasks /query /fo csv /v /tn STRATOS-HealthCheck', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      shell: 'cmd.exe',
-    });
-    const parseIso = (s: string | null): string | null => {
-      if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
-      const d = new Date(s);
-      return Number.isNaN(d.getTime()) ? null : d.toISOString();
-    };
-    for (const t of CANONICAL_SCHEDULED_TASKS) {
-      try {
-        const listRaw = execSync(`schtasks /query /tn ${t.name} /fo list /v`, {
-          encoding: 'utf8',
-          timeout: 5000,
-          stdio: ['ignore', 'pipe', 'ignore'],
-          windowsHide: true,
-          shell: 'cmd.exe',
-        });
-        const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        const nextRun = /Next Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        const lastResult = /Last Result:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        out.push({
-          name: t.name,
-          schedule: t.schedule,
-          lastRunIso: parseIso(lastRun),
-          lastResult,
-          nextRunIso: parseIso(nextRun),
-        });
-      } catch {
-        out.push({
-          name: t.name, schedule: t.schedule,
-          lastRunIso: null, lastResult: 'not registered', nextRunIso: null,
-        });
-      }
-    }
-    return out;
+    const cp = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(cp.execFile);
+    const results = await Promise.all(
+      CANONICAL_SCHEDULED_TASKS.map(async (t): Promise<SchedRow> => {
+        try {
+          const { stdout } = await execFileAsync(
+            'schtasks',
+            ['/query', '/tn', t.name, '/fo', 'list', '/v'],
+            { encoding: 'utf8', timeout: 5000, windowsHide: true, shell: false },
+          );
+          const lastRun = /Last Run Time:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          const nextRun = /Next Run Time:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          const lastResult = /Last Result:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          return {
+            name: t.name,
+            schedule: t.schedule,
+            lastRunIso: parseIso(lastRun),
+            lastResult,
+            nextRunIso: parseIso(nextRun),
+          };
+        } catch {
+          return {
+            name: t.name, schedule: t.schedule,
+            lastRunIso: null, lastResult: 'not registered', nextRunIso: null,
+          };
+        }
+      }),
+    );
+    return results;
   } catch {
     return CANONICAL_SCHEDULED_TASKS.map((t) => ({
       name: t.name, schedule: t.schedule,
       lastRunIso: null, lastResult: null, nextRunIso: null,
     }));
   }
+}
+
+async function snapshotSchtasks(): Promise<SchedRow[]> {
+  const now = Date.now();
+  if (schedCacheData && now - schedCacheAt < SHELL_SNAPSHOT_TTL_MS) {
+    return schedCacheData;
+  }
+  if (schedInflight) return schedInflight;
+  schedInflight = snapshotSchtasksRaw().then((rows) => {
+    schedCacheData = rows;
+    schedCacheAt = Date.now();
+    schedInflight = null;
+    return rows;
+  }).catch((err) => {
+    schedInflight = null;
+    throw err;
+  });
+  return schedInflight;
 }
 
 // ─── Ops: health (7-check mirror) ──────────────────────────────────────
