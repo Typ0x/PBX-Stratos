@@ -190,9 +190,56 @@ function ensureClaudeCli() {
   }).catch(() => {});
 }
 
+/**
+ * Kick off `npm install -g pm2` in the background BEFORE the
+ * workspace npm install. The two npm processes run concurrently --
+ * by the time the workspace install finishes (~5-6 min on cold VM),
+ * pm2 is also installed. install.ps1 Step 3 then becomes a no-op
+ * because Get-Command pm2 returns the path. Net saving: ~1-2 min
+ * off cold install wall time.
+ *
+ * No-op if pm2 is already on PATH (detected via `pm2 --version`).
+ */
+function ensurePm2InBackground() {
+  const probe = spawnSync('pm2', ['--version'], {
+    encoding: 'utf8', shell: process.platform === 'win32',
+  });
+  if (probe.status === 0 && /\d+\.\d+/.test(probe.stdout || '')) {
+    console.log(`[setup] pm2 already present: ${probe.stdout.trim()}`);
+    return;
+  }
+  console.log('[setup] launching parallel background install of pm2 (concurrent with workspace install)...');
+  // Same pattern as ensureClaudeCli: detached spawn + marker log so
+  // install.ps1 can detect bg install is in flight.
+  import('node:child_process').then(({ spawn }) => {
+    try {
+      const labDir = process.env.STRATOS_LAB_HOME
+        || join(repoRoot, 'runtime', 'lab', 'logs');
+      mkdirSync(labDir, { recursive: true });
+      const bgLog = join(labDir, 'pm2-bg.log');
+      writeFileSync(bgLog, `${new Date().toISOString()} -- starting parallel npm install -g pm2\n`);
+      const out = openSync(bgLog, 'a');
+      const child = spawn('npm', ['install', '-g', 'pm2',
+        '--no-audit', '--no-fund', '--loglevel=error'], {
+        cwd: repoRoot,
+        detached: true,
+        stdio: ['ignore', out, out],
+        shell: process.platform === 'win32',
+      });
+      child.unref();
+    } catch (e) {
+      console.warn(`[setup] WARN: could not launch parallel pm2 install: ${e.message}`);
+    }
+  }).catch(() => {});
+}
+
 async function main() {
   mkdirSync(toolingDir, { recursive: true });
   const python = await ensurePython();
+  // Kick off pm2 install in BACKGROUND so it runs in parallel with
+  // the workspace npm install below. install.ps1 Step 3 becomes a
+  // no-op when pm2 is already on PATH by then.
+  ensurePm2InBackground();
   npmInstall();
   ensureClaudeCli();
   // Record both the python AND node paths the bootstrap chose so that

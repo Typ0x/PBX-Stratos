@@ -201,12 +201,33 @@ try {
 Step 3 "Installing pm2 (global, if missing)"
 $pm2Cmd = Get-Command pm2 -ErrorAction SilentlyContinue
 if (-not $pm2Cmd) {
-  & npm install -g pm2
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "npm install -g pm2 failed (exit $LASTEXITCODE)."
-    exit 1
+  # setup.mjs kicks off `npm install -g pm2` in the background at the
+  # start of Step 1, running it in parallel with the slow workspace
+  # install. By the time we reach Step 3, pm2 is usually already
+  # installed. If not (slow npm registry, etc.), wait up to 60s for
+  # the bg install to land before falling back to a sequential install.
+  $pm2BgLog = Join-Path $RepoRoot 'runtime\lab\logs\pm2-bg.log'
+  if (Test-Path $pm2BgLog) {
+    Write-Host "       (parallel pm2 install was kicked off in Step 1; waiting up to 60s for it to finish)..." -ForegroundColor Gray
+    $waited = 0
+    while ($waited -lt 60 -and -not (Get-Command pm2 -ErrorAction SilentlyContinue)) {
+      Start-Sleep -Seconds 2
+      $waited += 2
+    }
+    $pm2Cmd = Get-Command pm2 -ErrorAction SilentlyContinue
+    if ($pm2Cmd) {
+      Ok "pm2 installed by parallel bg install (waited ${waited}s)"
+    }
   }
-  Ok "pm2 installed globally"
+  if (-not $pm2Cmd) {
+    Write-Host "       (bg install didn't complete in time; falling back to sequential install)" -ForegroundColor Gray
+    & npm install -g pm2
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "npm install -g pm2 failed (exit $LASTEXITCODE)."
+      exit 1
+    }
+    Ok "pm2 installed globally (sequential fallback)"
+  }
 } else {
   Ok "pm2 already present at $($pm2Cmd.Source)"
 }
