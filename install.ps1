@@ -29,6 +29,19 @@
 $ErrorActionPreference = 'Stop'
 $RepoRoot = $PSScriptRoot
 
+# noob-loop only -- mirror all install output to runtime/lab/install-stdout.log
+# so tools/onboarding-debug/export.py can include it in the dev handoff file.
+# Wrapped in try/catch because Start-Transcript can fail if a previous
+# install left a transcript hanging; we want install to proceed regardless.
+try {
+  $LabDir = Join-Path $RepoRoot 'runtime\lab'
+  if (-not (Test-Path $LabDir)) { New-Item -ItemType Directory -Force -Path $LabDir | Out-Null }
+  $TranscriptPath = Join-Path $LabDir 'install-stdout.log'
+  Start-Transcript -Path $TranscriptPath -Force | Out-Null
+} catch {
+  Write-Host "(transcript capture failed: $_  -- continuing)" -ForegroundColor DarkGray
+}
+
 function Step {
   param([int]$N, [string]$Title)
   Write-Host ""
@@ -301,6 +314,8 @@ if (-not $healthOk) {
   Write-Host "   pm2 logs paper-trade-bot-stratos    --lines 100 --nostream" -ForegroundColor Gray
   Write-Host ""
   Write-Host " NOT opening the browser since the install didn't complete." -ForegroundColor Yellow
+  # noob-loop only -- flush the transcript so failure mode is captured.
+  try { Stop-Transcript | Out-Null } catch { }
   exit 1
 }
 
@@ -332,4 +347,8 @@ Write-Host ""
 Write-Host " Personality + theme picks (interactive):" -ForegroundColor Gray
 Write-Host "   Tell Claude  ""set up PBX Stratos""  or  ""run the personality quiz""" -ForegroundColor Gray
 Write-Host ""
+
+# noob-loop only -- stop the transcript so the file is flushed and closed.
+try { Stop-Transcript | Out-Null } catch { }
+
 exit 0

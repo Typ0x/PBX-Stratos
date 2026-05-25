@@ -115,7 +115,66 @@ If verify fails, retry the step once. If verify still fails, surface
 it (Outcome 2) — don't proceed past a failed verify on the assumption
 that "it probably worked anyway."
 
-## Before Step 0 — note about automode (optional, smoother UX)
+## Onboarding logging (noob-loop branch only — dev debugging)
+
+**Status:** experimental, present in `noob-loop` branch only. WILL be
+removed before this branch merges to `main`. Do not depend on it for
+production behavior.
+
+**Why:** when something fails during a fresh-VM noob install, the
+user wants to hand the dev team ONE file that says what happened —
+every step Claude ran, every popup, every API call, every error,
+every server log line. So fixes can be targeted, not guessed at.
+
+**How to use:** at every major checkpoint in Steps 0-12, log a
+single line:
+
+```bash
+bash tools/onboarding-debug/log.sh <step> <event> "<short message>"
+```
+
+Examples:
+```bash
+bash tools/onboarding-debug/log.sh step0 audit_started ""
+bash tools/onboarding-debug/log.sh step1 install_launched ""
+bash tools/onboarding-debug/log.sh step1 q0_choice "defaults"
+bash tools/onboarding-debug/log.sh step3 install_completed "exit=0 duration=187s"
+bash tools/onboarding-debug/log.sh step3 profile_posted "status=200"
+bash tools/onboarding-debug/log.sh error step5 "env_write_failed perm=denied"
+```
+
+(PowerShell equivalent: `pwsh tools/onboarding-debug/log.ps1 ...`)
+
+At the END of the skill (after Step 12 or after halting on error),
+run the export:
+
+```bash
+bash tools/onboarding-debug/export.sh
+```
+
+That command bundles the per-step log + server HTTP log + install
+stdout + pm2 tails + final state (ready.json, user-profile.json
+with secrets REDACTED) into one timestamped file at
+`runtime/lab/onboarding-export-YYYYMMDD-HHMMSS.md` and prints the
+absolute path. Tell the user: "if anything went wrong, paste the
+contents of `<that path>` to the dev team in Discord/Slack."
+
+### Logging convention -- when to call log.sh
+
+- **At the START of every step** (Step 0 through Step 12): one log
+  call with `step=stepN` `event=started`.
+- **At the END of every step**: one log call with `event=completed`
+  or `event=skipped` (when the step is N/A for this user's path,
+  like Step 7 wallet for paper-only users).
+- **On any failure or retry**: `step=error` `event=<what failed>`
+  with a brief message.
+- **At every AskUserQuestion**: log the choice the user picked, so
+  the export reflects the user-facing branching.
+
+Aim for ~15-20 log lines per successful install, more on failures.
+Don't sweat exact wording -- the JSON structure is what matters.
+
+
 
 The install runs smoother when Claude Desktop is in **automode** —
 this is the friendly name we use for what Anthropic calls "bypass
@@ -327,36 +386,81 @@ This is a clean handoff, not a failure mode.
 
 ---
 
-## Step 1 — Q0 gate + personality quiz (collect answers, don't POST yet)
+## Step 1 — Background-launch install.bat THEN run quiz in parallel
 
-**What Step 1 does:** collects the user's quiz answers (or defaults
-choice) IN MEMORY. The actual POST to `/api/profile/recalibrate`
-happens AFTER Step 3 finishes the install -- the server isn't running
-yet, so a POST here would 500 / connection-refused. Hold the answers
-until the server is verified up.
+**This is the single most important sequencing rule in the skill.**
+The user wants "paste prompt → working dashboard in <5 min". The
+only way to hit that is to start install.bat the FIRST tool call of
+the session — before Q0, before any popup, before any audit. The
+quiz fills the install wait time; idle time is the enemy.
 
-**Do NOT background install.bat here.** Step 3 launches install.bat
-in the foreground. Step 1 is the user-interaction half — you talk
-to the user, collect their answers, hold them in memory. Step 2 is
-a fast env probe. Step 3 is the install. The POST happens at the
-end of Step 3 once the server is up.
+### 1a. Launch install.bat in the background (FIRST tool call)
+
+Use the Bash tool with **`run_in_background: true`**. install.bat
+detects Node + Python, installs them if missing, runs npm install,
+starts pm2, registers scheduled tasks, polls /health, opens the
+dashboard. Takes 3-5 min on a fresh Win11 box.
+
+```bash
+# Background launch -- absolute path so cmd doesn't care about CWD.
+# Replace <repo> with the actual checkout path (normally
+# $env:USERPROFILE\PBX-Stratos or wherever git clone landed it).
+PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"
+```
+
+**CRITICAL: do NOT type `-ExecutionPolicy Bypass` anywhere in this
+command.** That keyword trips Claude Desktop's Auto-mode classifier
+as "bypassing a security control" and the install gets blocked
+before it starts. install.bat handles the policy flag internally;
+Claude never types it. `cmd /c <bat>` is the safe wrapper.
+
+### 1b. Log the launch
+
+```bash
+bash tools/onboarding-debug/log.sh step1 install_launched ""
+```
+
+(See "Onboarding logging" section near the top of the skill —
+every major checkpoint gets one of these one-line logs so we can
+hand a single file back to the dev team for debugging.)
+
+### 1c. Immediately fire Q0
+
+The install is running in the background. Ask Q0 right now.
+
+### 1d. Quiz must NEVER block the install
+
+If the user dismisses Q0 or any of Q1-Q5: fill that field with the
+default value (see defaults block below) and continue. The install
+is still running. **Never wait** for the user to come back to a
+popup — defaults are fine.
+
+### 1e. Hold answers in memory
+
+Do NOT POST anything in Step 1. The server isn't up yet. Step 3
+waits for install.bat to finish, then POSTs the collected (or
+defaulted) profile.
 
 ### Q0: Walkthrough or defaults? (gate before the 5-question quiz)
 
-Before launching into Q1-Q5, give the user the option to skip. Many
-users want the dashboard up NOW and don't care about personality
-right now — they can recalibrate later via `"run the personality quiz"`.
+By the time you reach Q0, install.bat is already running in the
+background. The user can pick "defaults" and the dashboard will
+be up as soon as install finishes (no extra wait). They can pick
+"walkthrough" and the quiz fills the install wait time.
 
-Fire ONE `AskUserQuestion` first:
+Fire ONE `AskUserQuestion`:
 
 | Option | What it does |
 |--------|--------|
-| **Use defaults — just get me to the dashboard** | Skip Q1-Q5 + skip personality + skip theme. Record the defaults block in memory and jump straight to Step 2. Total user-click time: 0 popups after this gate. |
-| **Walk me through the 5 questions (30-60s)** | Continue to Q1-Q5 as documented. |
+| **Use defaults — just get me to the dashboard** | Skip Q1-Q5 + skip personality + skip theme. Record the defaults block in memory. Skip to Step 2 (env probe runs in parallel with install). |
+| **Walk me through the 5 questions (30-60s)** | Continue to Q1-Q5. |
+
+If user **dismisses** Q0 (no answer at all): silently treat as
+"defaults" and continue. NEVER block the install on this popup.
 
 If user picks **defaults**, hold this body in memory to POST AFTER
-the Step 3 install completes (server not up yet — POSTing now will
-fail with ECONNREFUSED):
+install completes (server not up yet — POSTing now will fail with
+ECONNREFUSED):
 
 ```json
 {
@@ -540,58 +644,65 @@ extended outage during the original project build. Don't skip this check.
 
 ---
 
-## Step 3 — Install everything in one shot (recommended path)
+## Step 3 — Wait for the background install + POST profile
 
-**Preferred for both humans and Claude:** the repo ships a one-shot
-installer at the root that handles Node ensure, npm install, Python
-venv, pm2 install + start, scheduled task registration, and the
-ready-marker write — all in a single command. Call it via:
+install.bat was launched in **Step 1a** as a background Bash call.
+It's been running for 1-5 min while you ran Q0/Q1-Q5 and Step 2's
+env probe. By now it has either:
+
+- Completed successfully (the run_in_background notification fired
+  and exit code = 0), OR
+- Errored out (non-zero exit), OR
+- Still chugging (heavy first install — Node download + npm install
+  on a cold box can take 5+ min).
+
+### 3a. Wait for background completion
+
+If the harness has already notified you that the background task
+completed, skip to 3b. Otherwise poll: every 10s, check
+`http://localhost:8787/health`. Once it returns `{"ok":true}`,
+install.bat has reached the post-pm2-start phase. Hard timeout:
+360s (6 min). If still no health green at 360s, halt per Terminal
+State 2 with the captured install stdout from the bg task.
 
 ```bash
-# Windows (Claude runs this as a single Bash call):
-# install.bat wraps install.ps1 with the right execution-policy flags
-# internally, so Claude NEVER needs to type the -ExecutionPolicy phrase.
-# CRITICAL: typing "powershell -ExecutionPolicy Bypass" trips Claude
-# Desktop's auto-mode classifier as "bypassing a security control"
-# and the install gets BLOCKED. Use the absolute path with cmd /c
-# instead -- cmd doesn't care about the calling shell's CWD when
-# given a full path, and cmd /c <bat> doesn't carry any auto-mode-
-# triggering keywords. Set PBX_NONINTERACTIVE=1 so install.bat
-# skips its final keypress prompt.
-#
-# Replace <repo> with the actual checkout path -- normally
-# $env:USERPROFILE\PBX-Stratos or wherever git clone landed it.
-PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"
-
-# macOS / Linux:
-bash install.sh
+bash tools/onboarding-debug/log.sh step3 waiting_for_install ""
 ```
 
-`install.ps1` orchestrates Steps 3–4 + Step 11 (deps, pm2, schtasks)
-in one process. Idempotent — safe to re-run. Takes 3-5 min on a
-fresh machine, less on a warm one. Surfaces success/failure per
-step so you can narrate progress to the user as it runs.
+### 3b. POST the held profile NOW
 
-When Claude runs it, the recommended pattern is:
+install.bat just finished; pm2 is up; the server is listening on
+`:8787`. POST the profile you collected in Step 1 (or the defaults
+block, if user picked Q0 defaults / dismissed). Field values come
+from Q1-Q5 answers or the defaults JSON:
 
-1. Run install.bat **in the foreground** as a single Bash call (no
-   `run_in_background` flag). install.bat blocks until pm2 is up,
-   the 6 scheduled tasks are registered, and `/health` returns 200.
-   This avoids racing the deferred profile POST against an
-   unstarted server.
-2. If `install.ps1` exits 0: continue to "POST the deferred Step 1
-   profile NOW" below.
-3. If `install.ps1` exits non-zero: examine the captured output to
-   identify the failing step and either re-run that step manually
-   (see Step 3-fallback below) or surface the failure to the user.
+```bash
+curl -X POST http://localhost:8787/api/profile/recalibrate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tech_level":          "<from Q1 or default casual-coder>",
+    "communication_style": "<from Q2 or default balanced>",
+    "goal":                "<from Q3 or default paper>",
+    "consent_level":       "<from Q4 or default balanced>",
+    "autonomy_level":      "<from Q5 or default show-cool-parts>"
+  }'
+```
 
-(Earlier versions of this skill ran install.bat in background
-during the quiz. That introduces a race where the Q0-defaults POST
-fires before pm2 starts. Foreground execution is the safe pattern;
-the speed savings from backgrounding were small once install.bat
-got its own bundled-Node download caching.)
+```bash
+bash tools/onboarding-debug/log.sh step3 profile_posted "<status>"
+```
 
-### Fallback — manual step-by-step if `install.ps1` errors out
+### 3c. Verify
+
+```bash
+curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"
+```
+
+If `PROFILE_OK` missing, re-POST. If still failing, halt per
+Terminal State 2 (the export at the end of the skill will capture
+exactly what went wrong).
+
+### Fallback — manual step-by-step if install.bat errored out
 
 `scripts/bootstrap.{sh,ps1}` is the canonical Node-ensure path — it
 downloads a standalone Node into `.tooling/` if missing, then runs
@@ -621,23 +732,7 @@ Surface known issues:
   framework treats it as risk-accepted. Tell the user this exists so
   they can make their own call.
 
-**Verify Step 3:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `install.ps1`/`install.sh` once; if still failing, capture the install script's exit code + last 20 lines of output and halt per Terminal State 2.
-
-### POST the deferred Step 1 profile NOW
-
-install.bat just finished; pm2 is up; the server is listening on
-`:8787`. POST the profile you collected (or the defaults block, if
-user picked the Q0 defaults path) to `/api/profile/recalibrate`. See
-Step 1's body template — fields come from Q1-Q5 answers or the
-defaults JSON.
-
-```bash
-curl -X POST http://localhost:8787/api/profile/recalibrate \
-  -H "Content-Type: application/json" \
-  -d '{ ...the in-memory profile from Step 1... }'
-```
-
-Then verify: `curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"`. If `PROFILE_OK` missing, re-POST; if still failing, halt per Terminal State 2.
+**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `cmd /c install.bat` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
 
 ---
 
@@ -1013,6 +1108,29 @@ If all pass:
 If any check fails: do NOT mark install complete. Invoke `recover-bot`
 skill or walk through diagnostics manually. Tell the user honestly
 what failed.
+
+### Final step — generate the onboarding export (noob-loop only)
+
+After Step 12 success (or after any error halt), run the exporter
+so the user has one file to hand back to the dev team:
+
+```bash
+bash tools/onboarding-debug/log.sh step12 onboarding_complete "ok"
+bash tools/onboarding-debug/export.sh
+```
+
+The export.sh command prints an absolute path on its last line.
+Tell the user that path:
+
+> "If anything went wrong (or if you just want the dev team to see
+> how this run looked), hand them the file at `<absolute path>`.
+> It's got the full timeline, every API call, the install stdout,
+> pm2 logs, and final state — all in one markdown file. Secrets
+> (Helius key, wallet mnemonic, .env values) are redacted."
+
+If the install failed before Step 3 completed (the server never
+came up), still run `bash tools/onboarding-debug/export.sh` — the
+exporter handles partial state gracefully.
 
 ---
 

@@ -500,6 +500,57 @@ const app = Fastify({
   },
 });
 
+// ─── Install/onboarding HTTP mirror ────────────────────────────────────
+// noob-loop only -- mirror every /api/* + /health/* request to a JSONL
+// file so tools/onboarding-debug/export.py can include server-side
+// HTTP traffic in the dev handoff. Strip this whole block before
+// merging the noob-loop branch to main.
+{
+  // Resolve repo root the same way the rest of the file does it:
+  // STRATOS_REPO_ROOT from pm2 config first, fallback to ~/PBX-Stratos.
+  const noobLoopRepoRoot = process.env.STRATOS_REPO_ROOT
+    ?? join(homedir(), 'PBX-Stratos');
+  const installHttpLogPath = join(noobLoopRepoRoot, 'runtime', 'lab', 'install-http.jsonl');
+  let httpLogDisabled = false;
+  // Ensure parent dir exists once at startup.
+  try {
+    mkdirSync(join(noobLoopRepoRoot, 'runtime', 'lab'), { recursive: true });
+  } catch {
+    httpLogDisabled = true;
+  }
+  // Lazy-load fs.promises.appendFile to avoid an extra top-level import.
+  // (existsSync + writeFileSync are already imported; appendFile lives in
+  // node:fs/promises.)
+  let appendFilePromise: ((p: string, data: string) => Promise<void>) | null = null;
+  app.addHook('onRequest', async (req: any) => {
+    req._installLogStart = Date.now();
+  });
+  app.addHook('onResponse', async (req: any, reply: any) => {
+    if (httpLogDisabled) return;
+    const url: string = req.url || '';
+    // Only log API/health calls; skip static dashboard assets to keep
+    // the file small + relevant.
+    if (!url.startsWith('/api/') && !url.startsWith('/health')) return;
+    const ms = req._installLogStart ? (Date.now() - req._installLogStart) : null;
+    const line = JSON.stringify({
+      ts: new Date().toISOString(),
+      method: req.method || '?',
+      path: url,
+      status: reply.statusCode,
+      ms,
+    });
+    try {
+      if (!appendFilePromise) {
+        const fsp = await import('node:fs/promises');
+        appendFilePromise = (p, data) => fsp.appendFile(p, data, { encoding: 'utf8' });
+      }
+      await appendFilePromise(installHttpLogPath, line + '\n');
+    } catch {
+      // Logging failures are non-fatal -- don't break the request.
+    }
+  });
+}
+
 // ─── Auth ──────────────────────────────────────────────────────────────
 
 const TOKEN_BUF = Buffer.from(BOT_API_TOKEN);
