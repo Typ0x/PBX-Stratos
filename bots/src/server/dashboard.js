@@ -5038,34 +5038,103 @@
     if (silent && tourActive()) return;
     const host = document.getElementById('view-health');
     if (!host) return;
-    // Foreground first-paint: show a SIZED SKELETON matching the
-    // final layout (3 top cards + checks list + tasks card). This
-    // paints synchronously the moment the tab is clicked so the user
-    // never sees a layout shift when the data lands -- the page
-    // looks "ready" instantly even if /api/ops/health takes a sec.
+    // Foreground first-paint: render the FULL page structure with
+    // REAL static labels (top status names, the 7 check names, the
+    // 2 pm2 processes, the 6 scheduled tasks). Status pills + detail
+    // text show "checking..." until the API call lands and patches
+    // them in. Replaces the previous dull all-gray skeleton -- the
+    // page now looks alive immediately and the user just sees status
+    // pills flip from gray to green/red when data arrives.
     // Silent refresh: leave existing content alone while we fetch.
     if (!silent) {
+      // Known-static labels. These never change between installs.
+      // Source of truth: /api/ops/health response shape + CANONICAL_SCHEDULED_TASKS.
+      const TOP_CARDS = [
+        { key: 'server',     label: 'Dashboard server',  sub: 'Fastify on port 8787' },
+        { key: 'paperTrade', label: 'Paper-trade bot',   sub: 'pm2 + 60s tick loop' },
+        { key: 'rpc',        label: 'Solana RPC',        sub: 'Helius mainnet endpoint' },
+      ];
+      const CHECKS = [
+        { name: 'Server alive',          hint: 'process responding to requests' },
+        { name: 'Dashboard responds',    hint: 'dashboard.html readable' },
+        { name: 'Paper-trade heartbeat', hint: 'heartbeat file < 5 min old' },
+        { name: 'AQI feed fresh',        hint: 'AQI snapshot < 30 min old' },
+        { name: 'Alerts writable',       hint: 'alerts.jsonl appendable' },
+        { name: 'Disk space',            hint: '> 5% free on lab partition' },
+        { name: 'RPC reachable',         hint: 'getSlot returns a slot number' },
+      ];
+      const PM2_PROCS = [
+        { name: 'bear-watch-server-stratos', role: 'Dashboard + live bot runner' },
+        { name: 'paper-trade-bot-stratos',   role: 'Paper strategy ticker' },
+      ];
+      const SCHED_TASKS = [
+        { name: 'STRATOS-HealthCheck',   schedule: 'every 5 min' },
+        { name: 'STRATOS-WeatherPull',   schedule: 'hourly' },
+        { name: 'STRATOS-DailyDigest',   schedule: 'daily 06:00 EDT' },
+        { name: 'STRATOS-StateBackup',   schedule: 'daily 03:00 EDT' },
+        { name: 'STRATOS-CodebaseBackup',schedule: 'weekly Sun 03:30' },
+        { name: 'STRATOS-MetaWatchdog',  schedule: 'every 5 min' },
+      ];
+      const pendingPill = () => el('span', {
+        class: 'inline-flex items-center text-[10px] font-semibold mono tracking-wide '
+          + 'uppercase px-2 py-0.5 rounded border bg-zinc-700/30 text-zinc-400 border-zinc-700/60',
+      }, 'checking...');
       const sk = el('div', { class: 'space-y-6' },
-        // Top status row skeleton: 3 cards in a grid
+        // 3 top status cards with real labels
         el('section', { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
-          ...[0, 1, 2].map(() => el('div', {
+          ...TOP_CARDS.map((c) => el('div', {
             class: 'card rounded-xl p-5 flex items-center gap-4',
           },
-            el('span', { class: 'inline-block w-3 h-3 rounded-full bg-zinc-700/40 pulse-dot' }),
-            el('div', { class: 'flex-1 space-y-2' },
-              el('div', { class: 'h-3 w-20 bg-zinc-700/40 rounded animate-pulse' }),
-              el('div', { class: 'h-4 w-32 bg-zinc-700/30 rounded animate-pulse' }),
-              el('div', { class: 'h-3 w-40 bg-zinc-700/20 rounded animate-pulse' }),
+            el('span', { class: 'inline-block w-3 h-3 rounded-full bg-zinc-600/60 pulse-dot' }),
+            el('div', { class: 'flex-1 space-y-1' },
+              el('div', { class: 'text-xs text-zinc-400 uppercase tracking-wider mono' }, c.label),
+              el('div', { class: 'text-sm text-zinc-200 font-medium' }, c.sub),
+              pendingPill(),
             ),
           )),
         ),
-        // 7-check skeleton card
+        // 7 checks with real names
         el('section', { class: 'card rounded-xl p-5 space-y-3' },
-          el('div', { class: 'h-4 w-32 bg-zinc-700/40 rounded animate-pulse mb-3' }),
-          ...Array.from({ length: 7 }, () =>
+          el('div', { class: 'flex items-baseline justify-between mb-2' },
+            el('div', { class: 'text-sm font-semibold text-zinc-100' }, '7 Health Checks'),
+            el('div', { class: 'text-[10px] mono uppercase tracking-wider text-zinc-500' }, 'running...'),
+          ),
+          ...CHECKS.map((c) =>
             el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
-              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-700/40' }),
-              el('div', { class: 'h-3 w-48 bg-zinc-700/30 rounded animate-pulse' }),
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200' }, c.name),
+                el('div', { class: 'text-xs text-zinc-500' }, c.hint),
+              ),
+              pendingPill(),
+            ),
+          ),
+        ),
+        // pm2 processes
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'text-sm font-semibold text-zinc-100 mb-2' }, 'PM2 Processes'),
+          ...PM2_PROCS.map((p) =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200 mono' }, p.name),
+                el('div', { class: 'text-xs text-zinc-500' }, p.role),
+              ),
+              pendingPill(),
+            ),
+          ),
+        ),
+        // Scheduled tasks
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'text-sm font-semibold text-zinc-100 mb-2' }, 'Windows Scheduled Tasks'),
+          ...SCHED_TASKS.map((t) =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200 mono' }, t.name),
+                el('div', { class: 'text-xs text-zinc-500' }, t.schedule),
+              ),
+              pendingPill(),
             ),
           ),
         ),
@@ -5363,24 +5432,49 @@
     const host = document.getElementById('view-achievements');
     if (!host) return;
     if (!silent) {
-      // Skeleton matching the achievements page layout (header card +
-      // 7 section cards). Same pulse-dot animation as renderHealth.
+      // Skeleton with REAL section names + task counts baked in.
+      // The 7 sections are static -- ROADMAP.md never adds new
+      // sections, just new tasks within existing ones. Source of
+      // truth: CLAUDE.md "The 7-section / 130-task roadmap" table.
+      // The user's progress (count + section bar) loads from API.
+      const SECTIONS = [
+        { id: 1, name: 'Genesis',   total: 14, blurb: 'Install + verify safety + get oriented' },
+        { id: 2, name: 'Pulse',     total: 19, blurb: 'Watch the bot run, learn the rhythm' },
+        { id: 3, name: 'Forge',     total: 22, blurb: 'Tweak strategies + run first wallet decode' },
+        { id: 4, name: 'Architect', total: 22, blurb: 'Build own strategy via agentic-decode loop' },
+        { id: 5, name: 'Mainnet',   total: 28, blurb: 'Go live with real money' },
+        { id: 6, name: 'Vanguard',  total: 12, blurb: 'Claim $100 reward + customize everything' },
+        { id: 7, name: 'Mastery',   total: 14, blurb: 'Beyond the author’s current level' },
+      ];
       const sk = el('div', { class: 'space-y-4' },
-        // Profile header card
+        // Profile header card -- show real labels, just no numbers yet
         el('div', { class: 'card rounded-xl p-5 flex items-center gap-4' },
           el('span', { class: 'inline-block w-10 h-10 rounded-full bg-zinc-700/40 animate-pulse' }),
-          el('div', { class: 'flex-1 space-y-2' },
-            el('div', { class: 'h-3 w-40 bg-zinc-700/30 rounded animate-pulse' }),
-            el('div', { class: 'h-4 w-64 bg-zinc-700/40 rounded animate-pulse' }),
-            el('div', { class: 'h-2 w-full bg-zinc-800/60 rounded' }),
+          el('div', { class: 'flex-1 space-y-1' },
+            el('div', { class: 'text-xs text-zinc-400 uppercase tracking-wider mono' }, 'Your Achievements'),
+            el('div', { class: 'text-sm text-zinc-300' },
+              el('span', { class: 'text-zinc-500' }, 'Loading your progress… '),
+              el('span', { class: 'mono text-zinc-400' }, '— / 130 total tasks across 7 sections'),
+            ),
+            el('div', { class: 'h-2 w-full bg-zinc-800/60 rounded mt-2' }),
           ),
         ),
-        // 7 section cards
-        ...Array.from({ length: 7 }, () =>
+        // 7 section cards with REAL names + total counts
+        ...SECTIONS.map((s) =>
           el('div', { class: 'card rounded-xl p-5 flex items-baseline justify-between gap-3' },
-            el('div', { class: 'h-4 w-48 bg-zinc-700/40 rounded animate-pulse' }),
+            el('div', { class: 'flex-1' },
+              el('div', { class: 'text-sm font-semibold text-zinc-100' },
+                el('span', { class: 'mono text-zinc-500 mr-2' }, 's' + s.id + '.'),
+                s.name,
+              ),
+              el('div', { class: 'text-xs text-zinc-500 mt-0.5' }, s.blurb),
+            ),
             el('div', { class: 'flex items-baseline gap-3' },
-              el('div', { class: 'h-3 w-12 bg-zinc-700/30 rounded animate-pulse' }),
+              el('div', { class: 'text-xs mono text-zinc-400' },
+                el('span', { class: 'text-zinc-600' }, '—'),
+                ' / ',
+                String(s.total),
+              ),
               el('div', { class: 'h-1.5 w-32 bg-zinc-800/60 rounded' }),
             ),
           ),
