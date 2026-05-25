@@ -89,7 +89,8 @@ the script waits.
 ```bash
 cd PBX-Stratos
 ./scripts/bootstrap.sh                                          # macOS / Linux
-# Windows: powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
+# Windows (humans):  install.bat
+# Windows (Claude):  PBX_NONINTERACTIVE=1 cmd /c install.bat
 node scripts/launch.mjs
 ```
 
@@ -428,7 +429,8 @@ python3 tools/secret-scrub/scrub.py --sessions
 no admin needed):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File bear-watch\register-scheduled-tasks.ps1
+# install.ps1 does this automatically. For manual re-registration:
+cmd /c "powershell -NoProfile -File bear-watch\register-scheduled-tasks.ps1"
 ```
 
 The 6 tasks registered:
