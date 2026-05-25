@@ -974,6 +974,50 @@ app.get('/health/apps', async () => {
 // Result is unauthenticated + safe to expose: it reveals only whether
 // known tooling exists, no secrets or file paths.
 app.get('/api/workflow/preflight', async () => cached(preflightRespCache, RESP_CACHE_TTL_MS, async () => {
+  // Fast-path: detect bg-install BEFORE running the slow probes.
+  // During the first ~5 min after install, `pip install -e .[decoder]`
+  // and `npm install -g claude-code` are still completing in the
+  // background. The python/claude/sklearn probes each pay their full
+  // 3s timeout during that window -- producing 9-25s preflight calls
+  // (seen in the 6cebcb2 noob-test export: 25,764ms cold call).
+  // Detecting bg-install from file mtimes lets us return the same
+  // "warming up" response in <5ms instead of waiting for probes
+  // to time out. After the warmup window, slow-probe path runs
+  // normally and gets cached for 90s.
+  const fastPathLabDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
+  function fastPathBgActive(filename: string): boolean {
+    const p = join(fastPathLabDir, filename);
+    if (!existsSync(p)) return false;
+    try {
+      return Date.now() - statSync(p).mtimeMs < 5 * 60 * 1000;
+    } catch { return false; }
+  }
+  const fastPipActive = fastPathBgActive('pip-bg.log');
+  const fastClaudeCliActive = fastPathBgActive('claude-cli-bg.log');
+  if (fastPipActive || fastClaudeCliActive) {
+    return {
+      ready: false,
+      bgInstallInProgress: true,
+      bgInstall: { pip: fastPipActive, claudeCli: fastClaudeCliActive },
+      checks: {
+        python: {
+          ok: false, version: null, minor: null, required: '>= 3.9',
+          error: undefined,
+          note: 'Probe deferred — bg install in progress. Will reprobe automatically.',
+        },
+        claudeCli: {
+          ok: false, version: null, error: undefined,
+          note: 'Claude CLI install in progress in the background — usually ready 1-2 min after install.bat finishes. The decode button will enable automatically.',
+        },
+        sklearn: {
+          ok: false, version: null, error: undefined,
+          note: 'pip install -e .[decoder] in progress in the background — usually ready 2-3 min after install.bat finishes.',
+        },
+      },
+      remediation: { python: null, claudeCli: null },
+    };
+  }
+
   type ProbeResult = { ok: boolean; version?: string; error?: string };
   const probe = (cmd: string, args: string[], useShell = false): Promise<ProbeResult> =>
     new Promise((resolveProbe) => {
