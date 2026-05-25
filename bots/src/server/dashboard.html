@@ -12,7 +12,7 @@
 <!-- Cache-bust CSS + JS on every onboarding-impacting change so the
      browser doesn't serve stale .onboard-* rules. Bump the version
      suffix when shipping new CSS or JS edits the tour depends on. -->
-<link rel="stylesheet" href="/dashboard.css?v=20260524-22">
+<link rel="stylesheet" href="/dashboard.css?v=20260525-23">
 <!-- Active personality theme. Loaded AFTER dashboard.css so theme
      overrides win. The pbx-set-theme skill copies themes/<id>.css to
      bots/src/server/active-theme.css on switch; the /active-theme.css
@@ -733,6 +733,15 @@
   </div><!-- /content area -->
 </div><!-- /app shell -->
 
+<!-- Background-install status indicator. Populated by dashboard.js
+     init via checkBackgroundInstalls(). Visible only when the
+     decoder pip install OR the claude-code CLI install (both
+     deferred to background by install.ps1 / setup.mjs) is still in
+     flight. Auto-hides once both are ready. -->
+<div id="bg-install-indicator" class="hidden fixed bottom-3 right-3 z-50 card rounded-lg px-3 py-2 text-[11px] mono shadow-lg border border-emerald-500/40 text-zinc-200">
+  <span id="bg-install-text">Background installs: checking…</span>
+</div>
+
 <script src="/leaderboard-sort.js"></script>
 <!-- ===== Recalibrate modal =====
      Opened by the header #recalibrate-btn. A 7-step walkthrough:
@@ -787,6 +796,6 @@
   </div>
 </div>
 
-<script src="/dashboard.js?v=20260524-22"></script>
+<script src="/dashboard.js?v=20260525-23"></script>
 </body>
 </html>

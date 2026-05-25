@@ -1896,7 +1896,59 @@
     // falls back to a 2.5s setTimeout when the browser doesn't support
     // idle callbacks (older Safari).
     schedulePrefetchAllViews();
+    // Start polling /api/workflow/preflight every 5s to show a
+    // bottom-right "Background installs: pending / ready" indicator
+    // until both deferred installs (pip-decoder + claude-code CLI)
+    // are done. See checkBackgroundInstalls() below.
+    checkBackgroundInstalls();
   });
+
+  // ============ background-install footer indicator ============
+  // The install.ps1 + setup.mjs flow defers two heavy installs (the
+  // pip decoder deps + the @anthropic-ai/claude-code CLI) to
+  // background so the dashboard comes up sooner. Without UI surface,
+  // a user (or agent) who clicks decode within 2-3 min of dashboard
+  // load hits an opaque "tools missing" error. This poll watches the
+  // preflight endpoint, surfaces a calm "Background installs: 1/2
+  // ready" indicator in the footer, auto-hides once both are green.
+  // If either install fails, surfaces a retry hint.
+  let bgInstallPollHandle = null;
+  async function checkBackgroundInstalls() {
+    const indicator = document.getElementById('bg-install-indicator');
+    const text = document.getElementById('bg-install-text');
+    if (!indicator || !text) return;
+    let data;
+    try { data = await api('/api/workflow/preflight'); }
+    catch { return; /* server hiccup — retry next poll */ }
+    if (!data) return;
+    // ready=true means everything's installed (or was pre-installed
+    // and never needed the deferral). bgInstallInProgress=true means
+    // at least one is still chugging. Otherwise: both done or
+    // permanently failed (we surface the failure rather than hide).
+    if (data.ready) {
+      // Brief "ready" flash then auto-hide
+      indicator.classList.remove('hidden');
+      text.textContent = 'Background installs: ready ✓';
+      setTimeout(() => indicator.classList.add('hidden'), 4000);
+      if (bgInstallPollHandle) { clearTimeout(bgInstallPollHandle); bgInstallPollHandle = null; }
+      return;
+    }
+    if (data.bgInstallInProgress) {
+      indicator.classList.remove('hidden');
+      const bits = [];
+      if (data.bgInstall && data.bgInstall.pip) bits.push('decoder pip');
+      if (data.bgInstall && data.bgInstall.claudeCli) bits.push('claude CLI');
+      text.textContent = bits.length
+        ? `Installing in background: ${bits.join(', ')}…`
+        : 'Background installs: in progress…';
+      bgInstallPollHandle = setTimeout(checkBackgroundInstalls, 5000);
+      return;
+    }
+    // Not in-progress, not ready -> permanent failure or never tried.
+    // Hide silently; the Discover view banner will surface details
+    // when the user gets there.
+    indicator.classList.add('hidden');
+  }
 
   // ============ workflow (Strategy Discovery) ============
   //
@@ -4953,13 +5005,39 @@
     if (silent && tourActive()) return;
     const host = document.getElementById('view-health');
     if (!host) return;
-    // Foreground first-paint: show the lightweight loading card. Silent
-    // refresh: leave the existing content alone while we fetch.
+    // Foreground first-paint: show a SIZED SKELETON matching the
+    // final layout (3 top cards + checks list + tasks card). This
+    // paints synchronously the moment the tab is clicked so the user
+    // never sees a layout shift when the data lands -- the page
+    // looks "ready" instantly even if /api/ops/health takes a sec.
+    // Silent refresh: leave existing content alone while we fetch.
     if (!silent) {
-      replace(host,
-        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-          el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
+      const sk = el('div', { class: 'space-y-6' },
+        // Top status row skeleton: 3 cards in a grid
+        el('section', { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+          ...[0, 1, 2].map(() => el('div', {
+            class: 'card rounded-xl p-5 flex items-center gap-4',
+          },
+            el('span', { class: 'inline-block w-3 h-3 rounded-full bg-zinc-700/40 pulse-dot' }),
+            el('div', { class: 'flex-1 space-y-2' },
+              el('div', { class: 'h-3 w-20 bg-zinc-700/40 rounded animate-pulse' }),
+              el('div', { class: 'h-4 w-32 bg-zinc-700/30 rounded animate-pulse' }),
+              el('div', { class: 'h-3 w-40 bg-zinc-700/20 rounded animate-pulse' }),
+            ),
+          )),
+        ),
+        // 7-check skeleton card
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'h-4 w-32 bg-zinc-700/40 rounded animate-pulse mb-3' }),
+          ...Array.from({ length: 7 }, () =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-700/40' }),
+              el('div', { class: 'h-3 w-48 bg-zinc-700/30 rounded animate-pulse' }),
+            ),
+          ),
+        ),
       );
+      replace(host, sk);
     }
     if (viewCache.health) viewCache.health.fetching = true;
     let data;
@@ -5252,10 +5330,30 @@
     const host = document.getElementById('view-achievements');
     if (!host) return;
     if (!silent) {
-      replace(host,
-        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-          el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
+      // Skeleton matching the achievements page layout (header card +
+      // 7 section cards). Same pulse-dot animation as renderHealth.
+      const sk = el('div', { class: 'space-y-4' },
+        // Profile header card
+        el('div', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+          el('span', { class: 'inline-block w-10 h-10 rounded-full bg-zinc-700/40 animate-pulse' }),
+          el('div', { class: 'flex-1 space-y-2' },
+            el('div', { class: 'h-3 w-40 bg-zinc-700/30 rounded animate-pulse' }),
+            el('div', { class: 'h-4 w-64 bg-zinc-700/40 rounded animate-pulse' }),
+            el('div', { class: 'h-2 w-full bg-zinc-800/60 rounded' }),
+          ),
+        ),
+        // 7 section cards
+        ...Array.from({ length: 7 }, () =>
+          el('div', { class: 'card rounded-xl p-5 flex items-baseline justify-between gap-3' },
+            el('div', { class: 'h-4 w-48 bg-zinc-700/40 rounded animate-pulse' }),
+            el('div', { class: 'flex items-baseline gap-3' },
+              el('div', { class: 'h-3 w-12 bg-zinc-700/30 rounded animate-pulse' }),
+              el('div', { class: 'h-1.5 w-32 bg-zinc-800/60 rounded' }),
+            ),
+          ),
+        ),
       );
+      replace(host, sk);
     }
     if (viewCache.achievements) viewCache.achievements.fetching = true;
     let data;
