@@ -1934,11 +1934,14 @@ async function cached<T>(
 const achievementsRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
 const healthRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
 const preflightRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
-// 30s -- comfortably longer than the actual observed poll spacing
-// (18-29s on the test VM) so consecutive polls hit cache. Stale-for-
-// 30s is fine for these endpoints; user-mutating writes (mark,
-// recalibrate) invalidate the achievements slot immediately.
-const RESP_CACHE_TTL_MS = 30000;
+// 30s -> 90s. The 30s caught most polls but the 6cebcb2 noob-test
+// export showed one cache miss at a 38s gap (preflight: 3174ms vs
+// the cache-hit 4ms). The miss was a single-digit % of calls so the
+// fix is small, but 90s eliminates it entirely. Trade-off: pm2/
+// schtasks status can be stale up to 90s; user-mutating writes still
+// invalidate the achievements slot immediately so user actions
+// remain instant.
+const RESP_CACHE_TTL_MS = 90000;
 let pm2CacheData: Pm2Row[] | null = null;
 let pm2CacheAt = 0;
 let pm2Inflight: Promise<Pm2Row[]> | null = null;
