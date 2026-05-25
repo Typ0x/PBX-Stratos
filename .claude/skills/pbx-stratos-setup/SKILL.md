@@ -965,6 +965,10 @@ If all pass:
 > "Installation complete. Both apps are online, all 7 health checks
 > pass, and your dashboard is live at http://localhost:8787.
 >
+> **Quick CLI:** you can also run `./pbx status` from the repo for a
+> CLI snapshot, or `./pbx --help` for the full list of commands
+> (`./pbx wallet new`, `./pbx achievements`, `./pbx refresh`, etc).
+>
 > You're at **Roadmap Level 1: Online**. Here's the path ahead:
 >
 > - **Level 1 (now)** — Bot installed and ticking

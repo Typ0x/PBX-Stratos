@@ -27,8 +27,14 @@ function probePython(cand) {
   // The `py` launcher needs `-3` to prefer Python 3 over a default 2 install.
   const args = (cand === 'py') ? ['-3', '--version'] : ['--version'];
   try {
-    const r = spawnSync(cand, args, { encoding: 'utf8' });
-    if (r.status === 0 && isUsablePython((r.stdout || r.stderr).trim())) {
+    // stdio: ['ignore', 'pipe', 'pipe'] -- capture both streams but
+    // SUPPRESS the Microsoft Store Python launcher stub's scary
+    // "Python was not found; run without arguments to install from
+    // the Microsoft Store..." stderr message from leaking to the
+    // user's console. We still inspect the captured stderr for the
+    // real Python version line below; we just don't pass it through.
+    const r = spawnSync(cand, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    if (r.status === 0 && isUsablePython((r.stdout || r.stderr || '').trim())) {
       // For `py -3` return the launcher with the -3 flag baked into the
       // returned identifier so callers know to invoke it with -3.
       return (cand === 'py') ? 'py -3' : cand;

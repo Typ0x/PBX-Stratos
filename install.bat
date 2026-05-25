@@ -43,7 +43,9 @@ REM the final pause looks like a hang to the harness. Set
 REM PBX_NONINTERACTIVE=1 in the environment to skip the keypress wait.
 REM Double-click users get the normal pause; agents skip it.
 if defined PBX_NONINTERACTIVE (
-  echo (PBX_NONINTERACTIVE set — skipping interactive pause^)
+  REM Non-interactive caller (Claude / CI / scripted) -- exit silently,
+  REM no debug-y "PBX_NONINTERACTIVE set" line in the user-facing log.
+  REM The dashboard URL was already printed in the success banner above.
 ) else (
   echo Press any key to close this window...
   pause >nul

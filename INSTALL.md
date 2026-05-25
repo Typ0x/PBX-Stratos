@@ -58,6 +58,30 @@ When it finishes, the dashboard is live. Tell Claude *"run the
 personality quiz"* to do the personality + theme picks interactively
 (or just click through the onboarding tour solo).
 
+### If your install times out
+
+On a slow VM or under heavy Windows Defender scanning, the install
+can exceed the default 180s `/health` poll window and show
+*"Install FAILED — /health never reached 200 within 180s"* even
+though the install actually succeeded. Override the timeout:
+
+```bash
+# Windows (cmd)
+set STRATOS_INSTALL_HEALTH_WAIT=300
+install.bat
+
+# Windows (PowerShell)
+$env:STRATOS_INSTALL_HEALTH_WAIT=300
+.\install.bat
+
+# macOS / Linux
+STRATOS_INSTALL_HEALTH_WAIT=300 bash install.sh
+```
+
+Bump to 300s, 600s, etc. as needed. Once /health returns 200 the
+install completes immediately — the timeout only governs how long
+the script waits.
+
 ---
 
 ## Fast path — boss's `scripts/bootstrap.sh`

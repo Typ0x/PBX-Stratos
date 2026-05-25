@@ -68,6 +68,19 @@ Write-Host "================================================================" -F
 Write-Host " PBX Stratos installer" -ForegroundColor Cyan
 Write-Host " repo: $RepoRoot" -ForegroundColor Gray
 Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " Here's what I'm about to do (in order, 3-6 min total):" -ForegroundColor White
+Write-Host "   1. Ensure Node.js >=18 (download bundled Node ~30MB if missing)" -ForegroundColor Gray
+Write-Host "   2. Ensure Python 3.10+ (download bundled Python ~25MB if missing)" -ForegroundColor Gray
+Write-Host "   3. npm install ~262 workspace packages" -ForegroundColor Gray
+Write-Host "   4. Create Python venv + start pip install -e .[decoder] in background" -ForegroundColor Gray
+Write-Host "   5. Install pm2 globally (if not already)" -ForegroundColor Gray
+Write-Host "   6. pm2 start bear-watch fleet (dashboard + paper-trade bot)" -ForegroundColor Gray
+Write-Host "   7. Register 6 Windows scheduled tasks (STRATOS-*)" -ForegroundColor Gray
+Write-Host "   8. Poll /health, open browser to /dashboard/fresh" -ForegroundColor Gray
+Write-Host ""
+Write-Host " All under this folder, no admin needed. Ctrl+C to abort." -ForegroundColor Gray
+Write-Host ""
 
 # ----------------------------------------------------------------
 Step 1 "Ensuring Node.js + Python + npm deps (via scripts/bootstrap.ps1)"
@@ -221,6 +234,7 @@ Step 6 "Waiting for /health + verifying both pm2 apps online"
 $maxWait = if ($env:STRATOS_INSTALL_HEALTH_WAIT) { [int]$env:STRATOS_INSTALL_HEALTH_WAIT } else { 180 }
 $elapsed = 0
 $healthOk = $false
+Write-Host "       polling /health (will print progress every 10s)..." -ForegroundColor Gray
 while ($elapsed -lt $maxWait) {
   try {
     $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
@@ -230,6 +244,12 @@ while ($elapsed -lt $maxWait) {
   }
   Start-Sleep -Seconds 1
   $elapsed++
+  # Heartbeat output every 10s so the user (or agent) doesn't think
+  # the install hung. /health can take 90-150s on cold Windows boots
+  # while Defender scans 262 fresh npm packages.
+  if ($elapsed -gt 0 -and ($elapsed % 10) -eq 0) {
+    Write-Host ("       [waited {0}s / {1}s]" -f $elapsed, $maxWait) -ForegroundColor Gray
+  }
 }
 
 # Don't just trust /health (which only proves the dashboard server is
