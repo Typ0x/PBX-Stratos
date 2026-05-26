@@ -1,0 +1,7 @@
+{
+  "name": "@pbx-stratos/kernel",
+  "version": "0.3.0-dev",
+  "private": true,
+  "type": "module",
+  "description": "Shared infrastructure: paths, wallet, regions, chain primitives, state, scores. Used by bear-watch + bear-scout. NEVER depends on scope-specific code."
+}

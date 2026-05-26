@@ -1,0 +1,7 @@
+{
+  "name": "@pbx-stratos/scout-code",
+  "version": "0.3.0-dev",
+  "private": true,
+  "type": "module",
+  "description": "Scout-scope production code: live + paper-trade strategies. Imports from @pbx-stratos/kernel."
+}

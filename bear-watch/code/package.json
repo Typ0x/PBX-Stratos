@@ -1,0 +1,33 @@
+{
+  "name": "@pbx-stratos/watch-code",
+  "version": "0.3.0-dev",
+  "private": true,
+  "type": "module",
+  "description": "Watch-scope live trading bot runner + dashboard server. Imports from @pbx-stratos/kernel + @pbx-stratos/scout-code (strategies).",
+  "scripts": {
+    "dry": "tsx src/cli.ts --dry-run",
+    "//server": "Runs the dashboard + bot server with hot reload. SAFETY + behaviour notes copied from the pre-restructure bots/package.json: it watches LOCAL files only, no git pull, no network, no new endpoint, so it adds no attack surface. A restart is safe in operation too: orchestrator.resumeAll() relaunches running bots from their sticky desiredRunning intent (same path that survives a redeploy). Dashboard html/css/js are re-read per request, so UI edits show on a plain browser refresh even between restarts.",
+    "server": "node --import tsx --watch scripts/serve.mjs",
+    "server:start": "node --import tsx src/server/index.ts",
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.1",
+    "@meteora-ag/cp-amm-sdk": "^1.4.2",
+    "@pbx/swap-router": "*",
+    "@pbx-stratos/kernel": "*",
+    "@pbx-stratos/scout-code": "*",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.2",
+    "bip39": "^3.1.0",
+    "ed25519-hd-key": "^1.3.0",
+    "fastify": "^5.2.1",
+    "pg": "^8.13.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2"
+  }
+}
