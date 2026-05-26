@@ -18,15 +18,24 @@ download this repo https://github.com/Typ0x/PBX-Stratos and set it up
 ### Already cloned — Claude drives the install from inside
 
 If you already ran `git clone` yourself, open the cloned folder in
-Claude Desktop, then paste:
+Claude Desktop, then paste any of these short prompts:
+
+```
+Clone this and onboard me
+```
+
+```
+onboard me
+```
 
 ```
 Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
-The `pbx-stratos-setup` skill (post-clone only) takes over and walks
-through the personality quiz, installer, dashboard launch, and
-roadmap handoff.
+All three are recognised triggers — pick whichever feels most
+natural. The `pbx-stratos-setup` skill (post-clone only) takes over
+and walks through the personality quiz, installer, dashboard launch,
+and roadmap handoff.
 
 ### No Claude at all
 

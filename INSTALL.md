@@ -58,6 +58,30 @@ When it finishes, the dashboard is live. Tell Claude *"run the
 personality quiz"* to do the personality + theme picks interactively
 (or just click through the onboarding tour solo).
 
+### If your install times out
+
+On a slow VM or under heavy Windows Defender scanning, the install
+can exceed the default 180s `/health` poll window and show
+*"Install FAILED — /health never reached 200 within 180s"* even
+though the install actually succeeded. Override the timeout:
+
+```bash
+# Windows (cmd)
+set STRATOS_INSTALL_HEALTH_WAIT=300
+install.bat
+
+# Windows (PowerShell)
+$env:STRATOS_INSTALL_HEALTH_WAIT=300
+.\install.bat
+
+# macOS / Linux
+STRATOS_INSTALL_HEALTH_WAIT=300 bash install.sh
+```
+
+Bump to 300s, 600s, etc. as needed. Once /health returns 200 the
+install completes immediately — the timeout only governs how long
+the script waits.
+
 ---
 
 ## Fast path — boss's `scripts/bootstrap.sh`
@@ -65,7 +89,8 @@ personality quiz"* to do the personality + theme picks interactively
 ```bash
 cd PBX-Stratos
 ./scripts/bootstrap.sh                                          # macOS / Linux
-# Windows: powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
+# Windows (humans):  install.bat
+# Windows (Claude):  PBX_NONINTERACTIVE=1 cmd /c install.bat
 node scripts/launch.mjs
 ```
 
@@ -404,7 +429,8 @@ python3 tools/secret-scrub/scrub.py --sessions
 no admin needed):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File bear-watch\register-scheduled-tasks.ps1
+# install.ps1 does this automatically. For manual re-registration:
+cmd /c "powershell -NoProfile -File bear-watch\register-scheduled-tasks.ps1"
 ```
 
 The 6 tasks registered:

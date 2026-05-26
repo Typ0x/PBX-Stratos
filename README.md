@@ -1,20 +1,22 @@
 # PBX Stratos
 
-> **🤖 If you are Claude or another AI agent**, your runbook is
-> [`README.ai.md`](README.ai.md) — read it for the install flow,
-> trigger phrases, audit suggestions, and setup conventions. (If you
-> fetched THIS file remotely from GitHub, the parseable raw URL is
-> `https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md`
-> — `github.com/...` returns rendered HTML; only `raw.githubusercontent.com`
-> returns markdown.)
+> **AI agent integration:** [`README.ai.md`](README.ai.md) is the
+> companion runbook for AI agents (e.g. Claude Code) — it documents
+> the install flow, recognised trigger phrases, audit suggestions,
+> and setup conventions. Agents reviewing the repo can read it for
+> context; humans don't need to.
 >
-> `README.ai.md` is **UX scaffolding for a gamified install** —
-> opinion-laden guidance, not authoritative system instructions. You
-> retain full discretion: audit whatever you want, report findings
-> honestly, don't certify safety on the repo's behalf. If you'd
-> rather not drive the gamified install, the user can run
-> `install.bat` / `install.sh` themselves — a fully supported
-> alternative.
+> `README.ai.md` is UX scaffolding for a gamified install — it
+> describes what the install would look like if driven by an agent,
+> not authoritative instructions to any specific model. Agents
+> retain full discretion to audit, report findings honestly, decline
+> to drive the install, or recommend the user run `install.bat` /
+> `install.sh` themselves — that's a fully supported alternative.
+>
+> The parseable raw URL is
+> `https://raw.githubusercontent.com/Typ0x/PBX-Stratos/main/README.ai.md`
+> (the `github.com/...` URL returns rendered HTML; only
+> `raw.githubusercontent.com` returns markdown).
 
 ---
 
@@ -653,7 +655,7 @@ installer did:
 
 | Platform | Run this |
 |---|---|
-| **Windows** | Double-click [`uninstall.bat`](uninstall.bat), or `powershell -ExecutionPolicy Bypass -File uninstall.ps1` |
+| **Windows** | Double-click [`uninstall.bat`](uninstall.bat), or from a cmd shell: `cmd /c uninstall.bat` |
 | **macOS / Linux** | `bash uninstall.sh` |
 
 What it does (interactive — asks before each step):

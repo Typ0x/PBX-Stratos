@@ -214,7 +214,10 @@ fi
 
 # ---- step 8: auto-open dashboard --------------------------------------
 step 8 "Waiting for /health then opening the dashboard"
-DASHBOARD_URL="http://localhost:8787"
+# /dashboard/fresh (vs /dashboard) clears localStorage and force-fires
+# the 10-step onboarding overlay even if a previous browser session
+# set the "tour-done" flag. Critical for first-install UX.
+DASHBOARD_URL="http://localhost:8787/dashboard/fresh"
 MAX_WAIT=20
 ELAPSED=0
 while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
