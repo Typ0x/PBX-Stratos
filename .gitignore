@@ -6,10 +6,18 @@
 #   Layer 3 (RUNTIME)    → operational data; never committed
 
 # === Layer 2 — per-user adaptive memory (never ships) ===
-_context/
+# Strict mode: ignore everything under _context/ EXCEPT the framework
+# template skeleton at _context/.template/ which DOES ship (so fresh
+# installs have a starting structure to copy).
+_context/*
+!_context/.template/
+!_context/.template/**
 
 # === Layer 3 — operational data (never ships) ===
-runtime/
+# Same strict pattern: ignore real runtime data, ship the template skeleton.
+runtime/*
+!runtime/.template/
+!runtime/.template/**
 
 # Legacy home-dir paths (pre-migration; only included so a stray
 # write to ~/.pbx-lab or ~/.pbx-bots inside the repo can't sneak in)

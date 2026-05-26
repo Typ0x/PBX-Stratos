@@ -1,0 +1,97 @@
+# Subject-matter docs
+
+> **What this is**: cumulative-knowledge index for this install — one doc per topic, grown over time.
+> **How to read**: scan this index, click into whatever's relevant. Each doc is self-contained with cross-links.
+> **How to write**: see "Editing the tree" below.
+
+## Why this folder exists
+
+Journals (`_context/<scope>/journal/<YYYY-MM-DD>.md`) capture what happened **chronologically**.
+This folder captures what we know **by subject**. They complement each other:
+
+| Need | Look at |
+|---|---|
+| "What did we do yesterday" | Today's journal in the active scope |
+| "What did we learn this week" | Recent journal entries across scopes |
+| "What's true RIGHT NOW about X" | The topic doc for X here |
+| "Where did the knowledge about X come from" | The topic doc's `Source history` section |
+
+If a journal entry contains a meaningful piece of state ("X is now true"), the topic doc gets updated.
+If the journal entry is just a step on the way ("tried Y, didn't work"), it stays in the journal only.
+
+## Status legend
+
+Each doc declares its status in its header:
+
+| Status | Meaning |
+|---|---|
+| `active` | Currently true; consult freely; update when state changes. |
+| `experimental` | Hypothesis or in-progress idea. May change or be abandoned. |
+| `deprecated` | Was true; isn't anymore; kept for context. |
+| `reference-only` | Process docs, templates, protocols. Doesn't describe runtime state. |
+
+Inside an otherwise-active doc, speculative claims are flagged inline with `> [SPECULATIVE]` and no-longer-true sections with `> [DEPRECATED]`.
+
+## The tree
+
+(populate this table as you create topic docs)
+
+| Tier | Topic | Status | What it covers |
+|---|---|---|---|
+| 1 | (add your first topic doc here) | active | (one-line description) |
+
+## Editing the tree
+
+**Any chat can create, edit, or promote a doc.** No permission gates.
+
+When you learn something worth capturing as state:
+
+1. Find the relevant topic doc (or create a new one).
+2. Update the `What we know` section, then bump `Last reviewed`.
+3. If you ADD a new doc, list it in the table above and link it from any sibling that references it.
+4. Mention the new/changed doc in your scope's journal for that day so other chats notice it.
+
+### When to promote a section to its own file
+
+A section earns its own file when it starts having **sub-items of its own**, not just when it gets long.
+
+### Template
+
+Copy this when creating a new doc:
+
+```markdown
+# <Topic name>
+
+> **What this is**: 1-sentence definition.
+> **Status**: active / experimental / deprecated / reference-only
+> **Last reviewed**: YYYY-MM-DD
+
+## TL;DR
+
+2-4 sentences for quick scanning.
+
+## Why it matters
+
+Why this topic exists.
+
+## What we know
+
+Cumulative state of knowledge with subsections as needed.
+
+## Open questions / unresolved
+
+Threads to pick up. Delete if N/A.
+
+## Related topics
+
+Cross-links to siblings.
+
+## Source history
+
+- YYYY-MM-DD — where this knowledge came from (journal ref, decoder run, manual investigation, etc.)
+```
+
+## See also
+
+- [`_context/CLAUDE.md`](../CLAUDE.md) — install-specific personal layer
+- [`../CLAUDE.md`](../../CLAUDE.md) — framework rules

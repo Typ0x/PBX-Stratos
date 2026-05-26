@@ -1,0 +1,178 @@
+# <Project> — Personal / Strategic Context (this install)
+
+**This file is the PERSONAL layer.** It complements the project-wide framework rules at [`../CLAUDE.md`](../CLAUDE.md), which is auto-loaded first. This file is auto-loaded via `@import` from the root `CLAUDE.md` so it's always in context.
+
+The framework rules live at the project root: session-start protocol, journaling discipline, journal-update footer, reading discipline, efficient reading, scope definitions (with extension pattern), live trading safety framework (the T0-T3 generic rules + tiered consent + framework-default high-risk files), file-reference format conventions, subject-matter docs pattern, sibling-fork isolation pattern (generic), where-context-lives map. Read those there.
+
+**THIS file holds what's specific to THIS install:**
+
+- The IRON RULE (only if you maintain a sibling fork on the same machine)
+- pm2 + scheduled-task + env-var naming conventions for THIS install
+- Per-install canonical paths (port, prefix, pm2 names, runtime dirs)
+- This install's scope set (default 3 + any additions)
+- This install's file-reference prefix
+- Live bot specifics (which bot, what capital, what strategy — if applicable)
+- This install's specific git push policy
+- Discovery history that motivated rules
+- @import of `_context/soul.md` for evolved character
+
+> **HOW TO USE THIS TEMPLATE:** copy `_context/.template/CLAUDE.md.example` to `_context/CLAUDE.md`. Fill in the `<placeholders>`. Delete sections that don't apply to your install (e.g., the IRON RULE if you have no sibling fork).
+
+---
+
+## This install's scope set
+
+This install has **<N> active scopes**:
+
+- 🛡️ **BEAR-WATCH** — ops, monitoring, deployment, uptime (default framework scope)
+- 🐾 **BEAR-SCOUT** — research, strategy design, signal investigation (default framework scope)
+- 🎨 **BEAR-DEN** — UI, dashboard rendering, visual polish (default framework scope)
+- *(optional)* 🔍 **BEAR-SCOUT-2** — secondary research / overflow track parallel to BEAR-SCOUT (read-only on production scopes, runs nothing under pm2 or scheduled tasks)
+
+If you added additional scopes, list them here with the same shape.
+
+---
+
+## This install's file-reference prefix
+
+For THIS install, the project prefix is **`<project-folder-name>/`** (the repo folder name).
+
+Use this prefix in EVERY markdown link and backtick path in chat responses (per the framework's "File references in chat responses" rule):
+
+```
+[bear-den MANIFEST](<project-folder-name>/_context/bear-den/MANIFEST.md)
+Reference to `<project-folder-name>/bear-watch/code/src/server/index.ts:1234`
+```
+
+Why this prefix: all active Claude Code sessions launch with a specific `cwd`. The preview pane resolves paths relative to that cwd. Bare-relative `_context/...` fails silently — needs the prefix to resolve correctly.
+
+---
+
+## 🛑🛑🛑 IRON RULE — *(optional — only if you have a sibling fork)*
+
+**Delete this section if this install has no sibling fork on the same machine.**
+
+A `<this-install>` chat NEVER writes to the `<sibling-install>` repo. `<sibling-install>` lives at `<sibling-path>` locally. It is a completely separate project owned by you and evolved through ITS OWN git workflow in separate chats.
+
+What "never writes" means concretely:
+
+- ❌ Don't create files inside `<sibling-path>` from a `<this-install>` chat
+- ❌ Don't edit files inside `<sibling-path>` from a `<this-install>` chat
+- ❌ Don't delete files inside `<sibling-path>` from a `<this-install>` chat
+- ❌ Don't `git` anything against the `<sibling-install>` repo
+- ❌ Don't `npm install`, `npm run`, or otherwise modify `<sibling-path>` from a `<this-install>` chat
+
+What IS allowed:
+
+- ✅ READ files in `<sibling-path>` for reference
+
+### pm2 app naming convention
+
+pm2 has ONE daemon per user account; app names must be unique across installs. Use a per-install suffix:
+
+- ✅ `bear-watch-server-<install-suffix>`
+- ✅ `paper-trade-bot-<install-suffix>`
+
+### Five-layer isolation between sibling installs
+
+The dual-bot setup needs FIVE independent layers of isolation:
+
+| Layer | Pattern (this install) |
+|-------|------------------------|
+| Repo location | `<this-install-path>` vs `<sibling-path>` |
+| Runtime data | All under `<this-install-path>/runtime/{bots,lab,config,pm2}/` |
+| Env var names | `<INSTALL>_*` prefix on every internal env var |
+| pm2 app names | `<role>-<install-suffix>` |
+| Scheduled task names | `<INSTALL>-*` prefix |
+
+Plus port isolation: `<this install>=<port-A>`, `<sibling>=<port-B>`.
+
+---
+
+## Canonical paths for this install
+
+- **Repo:** `<absolute-path-to-repo>` *(local-only / has-remote — pick one)*
+- **Data dir:** `<repo>/runtime/bots/` (env: `<INSTALL>_BOTS_DATA_DIR`, fallback `~/.<install>-bots/`)
+- **Config dir:** `<repo>/runtime/config/` (env: `<INSTALL>_BOTS_HOME`)
+- **pm2 daemon:** `<repo>/runtime/pm2/` (env: `PM2_HOME`)
+- **Lab dir:** `<repo>/runtime/lab/` (env: `<INSTALL>_LAB_HOME`)
+- **pm2 app names:** `bear-watch-server-<install-suffix>`, `paper-trade-bot-<install-suffix>`
+- **Scheduled tasks:** `<INSTALL>-HealthCheck`, `<INSTALL>-WeatherPull`, etc. (`<INSTALL>-` prefix)
+- **HTTP port:** `<port>`
+- **Env var prefix:** `<INSTALL>_*`
+
+---
+
+## This install's git push policy
+
+*(Pick one — delete the other.)*
+
+**Option A — public fork (Stratos-like):** Default: ask per push. Treat every `git push` as Tier 3 requiring explicit per-push consent typed in chat for THAT specific push. "Restore," "merge," "sync," "ship," etc. do NOT imply push authorization.
+
+**Option B — private local-only (pbxtra-like):** **NEVER push to any remote.** Repo contains confidential trading data; stays on this machine forever. No `git push`, `git pull`, `git fetch`, `git remote add` — ever.
+
+---
+
+## Live bot specifics (this install)
+
+*(Delete if no live bot is configured.)*
+
+The live mainnet bot is **`<bot-name>`** (`<strategy-name>` strategy, ~$<X> starting capital). It runs **INSIDE `bear-watch-server-<install-suffix>`**.
+
+**Configuration:**
+- Wallet: `<wallet-pubkey>`
+- Entry: `<entry-rule>`
+- Exit: `<exit-rule>`
+- Max hold: `<duration>`
+- Pool cap: `$<X>/trade`, `<cooldown>` cooldown
+
+**Implication for safety:** pm2 supervision of `bear-watch-server-<install-suffix>` IS the live bot's restart safety net — pm2 reloads DO affect the live bot. State files at `~/.<install>-bots/state/` persist across reloads. A trade signal arriving during the ~1-2s reload window can be missed. Hence the explicit-consent rule in the framework operational doc at `../CLAUDE.md` ("NEVER stop/restart while open position").
+
+**Current bot-state (holding/flat)** is tracked in `<this-install>/_context/bear-watch/STATUS.md`. Check it before any Tier 1+ edit.
+
+---
+
+## This install's high-risk file list (extends framework default)
+
+Framework default (from `../CLAUDE.md`): `.env`, `pm2.config.cjs`, `bear-scout/code/src/strategies/`, `bear-watch/code/src/runner.ts`, `kernel/ts/src/regions.ts`, `bear-watch/code/src/perf.ts`.
+
+**This install adds:**
+- *(list install-specific files that should require consent — e.g., custom orchestrator, additional strategy paths)*
+
+---
+
+## Forbidden runtime paths
+
+Per framework: never manually Write/Edit files under `runtime/` directories. For THIS install:
+
+- `<this-install>/runtime/bots/` (and the fallback `~/.<install>-bots/`)
+- `<this-install>/runtime/lab/` (and the fallback `~/.<install>-lab/`)
+- `<this-install>/runtime/config/` (and the fallback `~/.<install>-config/`)
+- `<this-install>/runtime/pm2/`
+
+API endpoints that legitimately write to these locations as part of normal operation are fine. The rule blocks YOU from editing those files directly via Write/Edit tools.
+
+---
+
+## Live state quick-check commands (for this install)
+
+```powershell
+# Bot server health
+curl http://localhost:<port>/health
+
+# pm2 process list (expect: bear-watch-server-<install-suffix>, paper-trade-bot-<install-suffix>, pm2-logrotate)
+pm2 list
+
+# Scheduled tasks (expect <INSTALL>-* tasks)
+Get-ScheduledTask -TaskName "<INSTALL>-*" | Get-ScheduledTaskInfo | Select TaskName, LastRunTime, LastTaskResult
+```
+
+---
+
+## Discovery history (this install — for context if rules feel arbitrary)
+
+*(Append entries here over time as your install accumulates wisdom. Each entry: date + what was discovered/decided + why it matters.)*
+
+---
+
+@soul.md

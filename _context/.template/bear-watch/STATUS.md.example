@@ -1,0 +1,52 @@
+# BEARWATCH — Current State
+
+**Last updated:** YYYY-MM-DD HH:MM — (brief one-line summary of latest session's work)
+**Owner of this file:** Any BEARWATCH chat must update this BEFORE declaring a session done.
+
+> Quick refresher on what BEARWATCH does: see `_context/bear-watch/MANIFEST.md`.
+> Sibling chats: see `_context/bear-scout/STATUS.md`, `_context/bear-den/STATUS.md`.
+
+---
+
+## 🟢 Live right now
+
+- **Repo path:** `<absolute-path-to-repo>`
+- **Live mainnet bot:** (none configured / `<bot-name>` — holding `<region>` / flat — NAV `<X>`)
+- **Paper trader:** (running / not running — last heartbeat `<time>`)
+- **pm2 daemon:** (both apps online / X apps online / N apps stopped)
+- **Scheduled tasks:** (N of M `<INSTALL>-*` tasks Ready)
+- **Recent alerts (last 24h):** (none / list)
+- **Active branch:** `<branch-name>`
+- **Recent commits:** (list any from THIS session)
+
+---
+
+## 📋 Recently completed (last N sessions worth)
+
+| Date | What | Commits |
+|------|------|---------|
+| (add entries chronologically; most recent at top) | | |
+
+---
+
+## ❓ Open questions / blockers
+
+1. (list open items — each with enough context for the next session to pick up cold)
+
+---
+
+## 🔗 Cross-references
+
+- **BEARSCOUT:** see `_context/bear-scout/STATUS.md`
+- **BEARDEN:** see `_context/bear-den/STATUS.md`
+- **Audit reports:** see `_context/bear-watch/audit-report-*.md`
+- **Topic docs:** `_context/topics/` (cumulative knowledge by subject)
+
+---
+
+## 🛠 Routine for the next BEARWATCH session
+
+1. Read this STATUS.md first to know what's running and what's pending
+2. Do the requested work
+3. **Before declaring done:** update this file's "Live right now", "Recently completed", and "Open questions" sections
+4. Commit STATUS.md change as part of the session's commits

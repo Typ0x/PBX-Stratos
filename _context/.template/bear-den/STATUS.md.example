@@ -1,0 +1,51 @@
+# BEARDEN — Current State
+
+**Last updated:** YYYY-MM-DD HH:MM — (brief summary of latest UI work)
+**Owner of this file:** Any BEARDEN chat must update this BEFORE declaring a session done.
+
+> Quick refresher on what BEARDEN does: see `_context/bear-den/MANIFEST.md`.
+> Sibling chats: see `_context/bear-watch/STATUS.md`, `_context/bear-scout/STATUS.md`.
+
+---
+
+## 🟢 Live right now
+
+- **Active dashboard:** (path + version)
+- **Recent UI work:** (1-2 line summary)
+- **Outstanding bugs:** (list)
+- **Outstanding feature requests:** (list)
+- **Extensions installed:** (list of `bear-den/dashboards/extensions/<name>/` — say "none" if blank)
+
+---
+
+## 📋 Recently completed (last N sessions worth)
+
+| Date | What | Notes |
+|------|------|-------|
+| (add chronologically) | | |
+
+---
+
+## ❓ Open questions / blockers
+
+1. (UI questions / design decisions pending)
+
+---
+
+## 🔗 Cross-references
+
+- **Style conventions:** `_context/bear-den/MANIFEST.md` §6 (house style)
+- **Audit reports** (UI items): `_context/bear-watch/audit-report-*.md`
+- **Extension author guide:** `docs/EXTENSIONS.md`
+- **Topic docs:** `_context/topics/architecture.md`, `regions.md` (for color tokens)
+
+---
+
+## 🛠 Routine for the next BEARDEN session
+
+1. Manually load context (read 3 MANIFESTs + 3 STATUSes + topic-tree index + latest audit)
+2. Re-read this STATUS for recent state
+3. Verify bot state via `curl http://localhost:<port>/dashboard/state` before any pm2-reload-triggering edit
+4. Do the requested work
+5. **Before declaring done:** update this STATUS's "Live right now" + "Recently completed" + "Open questions"
+6. Append a journal entry + commit

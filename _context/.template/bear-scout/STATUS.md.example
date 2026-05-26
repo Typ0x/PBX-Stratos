@@ -1,0 +1,47 @@
+# BEARSCOUT — Current State
+
+**Last updated:** YYYY-MM-DD HH:MM — (brief summary of latest session's research progress)
+**Owner of this file:** Any BEARSCOUT chat must update this BEFORE declaring a session done.
+
+> Quick refresher on what BEARSCOUT does: see `_context/bear-scout/MANIFEST.md`.
+> Sibling chats: see `_context/bear-watch/STATUS.md`, `_context/bear-den/STATUS.md`.
+
+---
+
+## 🟢 Live right now
+
+- (current investigation in progress / dormant)
+- (current strategy under development)
+- (latest backtest results pending review)
+- (decoded wallets in flight)
+
+---
+
+## 📋 Recently completed (last N sessions worth)
+
+| Date | What | Notes |
+|------|------|-------|
+| (add chronologically) | | |
+
+---
+
+## ❓ Open questions / blockers
+
+1. (research questions / hypotheses to test next)
+
+---
+
+## 🔗 Cross-references
+
+- **Latest strategy synthesis docs:** `_context/bear-scout/strategy/<DATE>-*.md`
+- **Topic docs:** `_context/topics/strategies.md`, `signals.md`, `decoded-wallets.md`, etc.
+- **Ops state (sibling):** see `_context/bear-watch/STATUS.md`
+
+---
+
+## 🛠 Routine for the next BEARSCOUT session
+
+1. Read this STATUS.md first
+2. Read the relevant topic docs in `_context/topics/`
+3. Do the requested research
+4. **Before declaring done:** update this STATUS + relevant topic docs + commit

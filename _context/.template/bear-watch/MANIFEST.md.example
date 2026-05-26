@@ -1,0 +1,100 @@
+# BEARWATCH — Operations Manifest
+
+**Owner:** BEAR-WATCH chat (any Claude session in this scope)
+**Last updated:** YYYY-MM-DD
+**Rule:** This file is the source of truth for what is running, how it is kept alive, and what to do when something dies. For scope ownership rules (what BEAR-WATCH owns vs hands off), defer to `_context/CLAUDE.md` "Scope = domain of work" — that's the install-wide authoritative version.
+
+---
+
+## 1. Process Inventory
+
+### 🟢 ALWAYS-ON — Auto-restarted by pm2
+
+| Process | pm2 name | Entry point | Port |
+|---------|----------|-------------|------|
+| Bot server (dashboard + live bot) | `bear-watch-server-<install-suffix>` | `bear-watch/code/src/server/index.ts` | `<port>` |
+| Log rotation (pm2 module) | `pm2-logrotate` | (pm2 module) | n/a |
+
+**How to check:** `pm2 list`
+**Restart manually:** `pm2 restart bear-watch-server-<install-suffix>`
+**View logs:** `pm2 logs bear-watch-server-<install-suffix>`
+**Dashboard:** `http://localhost:<port>/dashboard`
+
+### 🗓️ SCHEDULED — Windows Task Scheduler (or cron on macOS/Linux)
+
+| Task name | Script | Schedule |
+|-----------|--------|----------|
+| `<INSTALL>-HealthCheck` | `bear-watch/health-check.py` | Every 5 minutes |
+| (add others as registered) | | |
+
+---
+
+## 2. Bot Registry
+
+Bots are stored in `runtime/bots/meta/*.json` (or fallback `~/.<install>-bots/meta/`).
+
+| Bot name | Wallet | Strategy | Trade size | Status |
+|----------|--------|----------|------------|--------|
+| (add bots here) | | | | |
+
+---
+
+## 3. APIs & Keys
+
+| Service | Where the key lives | Used by |
+|---------|---------------------|---------|
+| Helius RPC | `runtime/bots/local.env` as `HELIUS_MAINNET_URL=...` | bot server |
+| PurpleAir | `runtime/bots/local.env` as `PURPLEAIR_API_KEY=...` | weather-pull.py |
+| (add others) | | |
+
+**Hard rule — keys never in committed text.** All keys live in `runtime/bots/local.env` (gitignored) or in external files outside the repo. This MANIFEST documents WHICH env var each service reads from — never the literal key value.
+
+---
+
+## 4. Startup Sequence (after reboot)
+
+Document your install's startup procedure here. Common cases:
+
+- Windows + pm2 doesn't auto-resurrect → manual `pm2 start <config> && pm2 save` from a real PowerShell
+- macOS/Linux with systemd → auto-resurrect via systemd unit
+- Cloud VPS → systemd or supervisor
+
+---
+
+## 5. Health Check Checklist
+
+```bash
+# 1. Bot server
+pm2 list
+
+# 2. Server health
+curl http://localhost:<port>/health
+
+# 3. Scheduled tasks
+Get-ScheduledTask -TaskName "<INSTALL>-*" | Get-ScheduledTaskInfo
+
+# (add install-specific checks)
+```
+
+---
+
+## 6. Recovery Procedures
+
+### bear-watch-server-<install-suffix> crashed and didn't auto-restart
+```bash
+pm2 resurrect
+# or
+pm2 start <config>
+```
+
+### After machine reboot — pm2 not running
+*(document the steps for your platform)*
+
+### Disk corruption / state file lost
+*(document restore procedure from backups)*
+
+---
+
+## 7. Scope ownership
+
+See `_context/CLAUDE.md` "Scope = domain of work (NOT file paths)" for the authoritative version. This MANIFEST does NOT redefine it — defer to CLAUDE.md to avoid drift.
