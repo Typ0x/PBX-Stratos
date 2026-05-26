@@ -1168,40 +1168,51 @@
   // /active-theme.css once at page load. When the noob install fires
   // POST /api/profile/recalibrate with a new theme_id, the server
   // copies themes/<id>.css over active-theme.css, but the browser
-  // still has the OLD css cached in its stylesheet object. Without a
-  // mechanism to re-fetch, the user sees the default theme even after
-  // their pick has been saved. The recalibrate MODAL handles this by
-  // calling location.reload() after Save, but the noob-install flow
-  // POSTs directly from Claude in the chat -- no reload.
+  // still has the OLD css cached in its stylesheet object (default
+  // theme if this was a fresh install, or the previous theme if a
+  // recalibrate). The recalibrate MODAL handles this by calling
+  // location.reload() after Save, but the noob-install flow POSTs
+  // directly from Claude in the chat -- no reload.
   //
-  // Fix: track theme_id across /api/profile polls. When it changes,
-  // hot-swap the <link>'s href with a cache-bust suffix. Browser
-  // re-fetches the CSS and applies it without a full page reload --
-  // tour state, view caches, etc. all preserved.
-  let loadedThemeId = null;
+  // Fix: poll /api/profile, hot-swap the <link>'s href on any
+  // detected theme_id change OR on first observation of a real
+  // theme_id (handles the fresh-install case where the page loaded
+  // before any theme was picked).
+  //
+  // Poll cadence: aggressive (2s) for the first 90s after page load
+  // to catch the noob-install recalibrate quickly, then drops to the
+  // regular 15s refreshAll cadence. The endpoint is cached server-
+  // side, so polls cost ~1ms each.
+  let knownThemeId = null;
+  let pageLoadAt = Date.now();
   async function checkThemeChange() {
     try {
       const profile = await api('/api/profile');
       const themeId = profile && profile.theme_id;
-      if (!themeId) return;
-      if (loadedThemeId === null) {
-        loadedThemeId = themeId;
-        return;
-      }
-      if (themeId !== loadedThemeId) {
+      if (!themeId) return; // no theme set yet, nothing to apply
+      if (knownThemeId !== themeId) {
+        // Either first time we see a real theme (page loaded with
+        // empty/default active-theme.css), or theme changed since
+        // last check. Either way, hot-swap so the browser picks up
+        // the right CSS.
         const link = document.getElementById('active-theme-link');
         if (link) {
-          // Cache-bust query string forces browser to re-fetch CSS.
-          // The /active-theme.css route serves Cache-Control: no-cache
-          // anyway, but the in-memory CSSStyleSheet doesn't refresh
-          // without changing href -- so the query suffix is what
-          // actually triggers the swap.
           link.href = '/active-theme.css?t=' + Date.now();
         }
-        loadedThemeId = themeId;
+        knownThemeId = themeId;
       }
     } catch { /* non-fatal, will retry next cycle */ }
   }
+  // Fast warmup polling: every 2s for the first 90s. Catches the
+  // noob-install flow's recalibrate POST within seconds instead of
+  // waiting for the next 15s refreshAll cycle.
+  let warmupInterval = setInterval(() => {
+    if (Date.now() - pageLoadAt > 90_000) {
+      clearInterval(warmupInterval);
+      return;
+    }
+    checkThemeChange();
+  }, 2000);
 
   async function refreshAll() {
     // Fire-and-forget: detect a theme-id change since page load and
