@@ -24,6 +24,13 @@ runtime/*
 .pbx-bots/
 .pbx-lab/
 
+# === Per-machine Claude Code overrides (never ship) ===
+# Hook override rules (permissions.allow) and other per-machine
+# Claude Code settings live here. Gitignored so each install can
+# override framework-default hooks locally without polluting the
+# committed .claude/settings.json.
+.claude/settings.local.json
+
 # === Secrets — NEVER commit these ===
 .env
 .env.*

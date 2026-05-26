@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "_comment_top": "PBX Stratos framework hooks — ships with the framework. Universal safety rails: git push consent (Tier 3), git remote-changing commands (Tier 3), git add -A/git add . (always wrong per CLAUDE.md COMMIT DISCIPLINE), live bot pm2 stop/delete (Tier 2+ requires explicit consent per CLAUDE.md Live trading safety). To override any hook for a specific case, add a permissions.allow rule in .claude/settings.local.json (per-machine, gitignored). Do NOT remove hooks from this file — they're framework defaults shipped to every install.",
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "echo '🛑 BLOCKED: git push is Tier 3 — requires explicit per-push consent typed in chat for THIS specific push. See CLAUDE.md COMMIT DISCIPLINE. To override for one push: add a permissions.allow rule in .claude/settings.local.json.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git push --force*)",
+            "command": "echo '🛑 BLOCKED: --force is never allowed without explicit user direction. If the user truly wants --force, they will request it directly.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git pull*)",
+            "command": "echo '🛑 BLOCKED: git pull is Tier 3 — user manages remote sync; chats only commit locally. To override: add permissions.allow rule in .claude/settings.local.json or run pull manually.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git fetch*)",
+            "command": "echo '🛑 BLOCKED: git fetch is Tier 3 — same reason as git pull. User manages remote sync.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git remote add*)",
+            "command": "echo '🛑 BLOCKED: never introduce remotes from a chat. User configures remotes manually.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git remote set-url*)",
+            "command": "echo '🛑 BLOCKED: never change remotes from a chat. User configures remotes manually.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git add -A*)",
+            "command": "echo '🛑 BLOCKED: never use git add -A — sweeps other chats pending work. Always git add <specific paths>. See CLAUDE.md COMMIT DISCIPLINE.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git add --all*)",
+            "command": "echo '🛑 BLOCKED: never use git add --all — sweeps other chats pending work. Always git add <specific paths>. See CLAUDE.md COMMIT DISCIPLINE.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(pm2 stop bear-watch-server-*)",
+            "command": "echo '🛑 BLOCKED: stopping the live bot server requires explicit user written consent per CLAUDE.md Live trading safety. Check live position state first via curl http://localhost:<port>/health. If bot is FLAT, override via permissions.allow in .claude/settings.local.json.' >&2 && exit 1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(pm2 delete bear-watch-server-*)",
+            "command": "echo '🛑 BLOCKED: deleting the live bot server requires explicit user written consent. Use pm2 restart if you need to reload (which is safer + automatic).' >&2 && exit 1",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
