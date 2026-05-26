@@ -1,0 +1,40 @@
+/* example extension styling — uses dashboard design tokens (var(--*)) */
+/* Scoped under .ext-example-panel so styles don't leak to other panels */
+
+.ext-example-panel {
+  padding: 12px 16px;
+  background: var(--bg-panel, #1a1a1f);
+  border: 1px solid var(--border-subtle, #2a2a30);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ext-example-label {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ext-example-count {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: "tnum" 1;
+  color: var(--text-primary, #eaeaea);
+  line-height: 1;
+}
+
+.ext-example-foot {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  margin-top: 4px;
+}
+
+/* Empty state */
+.ext-example-count[data-empty="true"] {
+  color: var(--text-muted, #888);
+  font-size: 18px;
+}

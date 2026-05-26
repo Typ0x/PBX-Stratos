@@ -1,0 +1,37 @@
+{
+  "name": "example",
+  "version": "0.1.0",
+  "author": "PBX Stratos framework",
+  "title": "Example: Alert Count",
+  "description": "Minimal working extension. Shows a live count of recent alerts from /api/alerts.",
+
+  "view": "health",
+  "section": "main",
+  "size": "small",
+  "position": 100,
+
+  "refresh_interval_sec": 60,
+  "api_endpoints": [
+    "/api/alerts"
+  ],
+
+  "permissions": {
+    "read_portfolio": false,
+    "read_market": false,
+    "read_alerts": true,
+    "read_signals": false,
+    "read_health": false,
+    "read_strategy_state": false,
+    "read_reports": false
+  },
+
+  "sandbox": {
+    "no_wallet_access": true,
+    "no_secrets_access": true,
+    "no_dom_outside_panel": true,
+    "no_external_network": true
+  },
+
+  "depends_on_extensions": [],
+  "min_pbxtra_version": "v0.3.0-dev"
+}
