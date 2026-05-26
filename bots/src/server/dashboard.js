@@ -1163,7 +1163,51 @@
   function fp(value) {
     try { return JSON.stringify(value); } catch { return String(Math.random()); }
   }
+
+  // Theme hot-swap. The dashboard's <link id="active-theme-link"> loads
+  // /active-theme.css once at page load. When the noob install fires
+  // POST /api/profile/recalibrate with a new theme_id, the server
+  // copies themes/<id>.css over active-theme.css, but the browser
+  // still has the OLD css cached in its stylesheet object. Without a
+  // mechanism to re-fetch, the user sees the default theme even after
+  // their pick has been saved. The recalibrate MODAL handles this by
+  // calling location.reload() after Save, but the noob-install flow
+  // POSTs directly from Claude in the chat -- no reload.
+  //
+  // Fix: track theme_id across /api/profile polls. When it changes,
+  // hot-swap the <link>'s href with a cache-bust suffix. Browser
+  // re-fetches the CSS and applies it without a full page reload --
+  // tour state, view caches, etc. all preserved.
+  let loadedThemeId = null;
+  async function checkThemeChange() {
+    try {
+      const profile = await api('/api/profile');
+      const themeId = profile && profile.theme_id;
+      if (!themeId) return;
+      if (loadedThemeId === null) {
+        loadedThemeId = themeId;
+        return;
+      }
+      if (themeId !== loadedThemeId) {
+        const link = document.getElementById('active-theme-link');
+        if (link) {
+          // Cache-bust query string forces browser to re-fetch CSS.
+          // The /active-theme.css route serves Cache-Control: no-cache
+          // anyway, but the in-memory CSSStyleSheet doesn't refresh
+          // without changing href -- so the query suffix is what
+          // actually triggers the swap.
+          link.href = '/active-theme.css?t=' + Date.now();
+        }
+        loadedThemeId = themeId;
+      }
+    } catch { /* non-fatal, will retry next cycle */ }
+  }
+
   async function refreshAll() {
+    // Fire-and-forget: detect a theme-id change since page load and
+    // hot-swap the active-theme.css link if needed. Doesn't block the
+    // rest of refreshAll.
+    checkThemeChange();
     try {
       const s = await api('/dashboard/state');
       // `/dashboard/state` doesn't carry per-bot run mode / decoded rule
