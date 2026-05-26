@@ -226,6 +226,12 @@ run had only 3 log lines and was hard to diagnose.
 | Audit complete | `bash tools/onboarding-debug/log.sh step0 audit_complete "<count> checks, <issues found>"` | |
 | Every AskUserQuestion fired | `bash tools/onboarding-debug/log.sh auq fired "<question short title>"` | |
 | Every user answer | `bash tools/onboarding-debug/log.sh auq answered "<choice>"` | |
+| Before each POST in Step 1b / 9 / 10 | `bash tools/onboarding-debug/log.sh step1 post_start "<field>=<value>"` | One per AskUserQuestion → POST pair |
+| After each POST returns | `bash tools/onboarding-debug/log.sh step1 post_complete "<field>=<value> status=<code>"` | Status=200 expected |
+| Each /health poll in Step 3a | `bash tools/onboarding-debug/log.sh step3 health_polling "iteration <N>"` | One per curl /health |
+| /health returns 200 | `bash tools/onboarding-debug/log.sh step3 install_complete "/health 200"` | The completion announcement trigger |
+| Verify-saved start (Step 12a) | `bash tools/onboarding-debug/log.sh step12 verify_start ""` | |
+| Verify-saved complete | `bash tools/onboarding-debug/log.sh step12 verify_complete "fields_ok=<N> re_posted=<N>"` | |
 | Each install step complete | `bash tools/onboarding-debug/log.sh step<N> completed "<duration / detail>"` | |
 | Any failure or retry | `bash tools/onboarding-debug/log.sh error step<N> "<what failed>"` | |
 | Onboarding complete | `bash tools/onboarding-debug/log.sh step12 onboarding_complete "ok"` | |
@@ -358,6 +364,39 @@ The setup wizard has several slow operations the user would otherwise
 stare at for minutes. **Never make the user wait for a sequential
 operation when a concurrent one is possible.** Use this pattern:
 
+### Active-flow principle — every step has a defined next tool call
+
+Every step in this skill has a defined next tool call. You never end
+a turn waiting passively for an external trigger to wake you back up.
+Three applications you'll use throughout this skill:
+
+1. **Customization answers POST as you collect them.** The moment an
+   `AskUserQuestion` returns, the next tool call is the POST for that
+   single answer. If the server isn't up yet (early questions during
+   install), wrap the POST in a retry loop that keeps trying every 2s
+   until it succeeds (up to ~45 attempts ≈ 90s). Step 1b walks through
+   this pattern in detail.
+
+2. **The install-wait is an active polling loop.** After your last
+   customization POST and after audit completes, if `/health` isn't
+   yet returning 200, your next tool call is `curl /health`. If 200,
+   install is done — announce it, log it, proceed. If not 200, sleep
+   10s via a PowerShell `Start-Sleep` tool call, then `curl /health`
+   again. Each iteration is a tool call. Step 3 walks through this
+   pattern in detail.
+
+3. **`/health` is the only completion signal that matters.** The
+   bg-task completion notification can be slow or unreliable on
+   Windows (see `_context/bear-watch/noob-loop-lessons.md` line 28-31).
+   Trust `/health` returning 200 AND `.tooling/ready.json` existing
+   over the bg notification.
+
+If you ever find yourself with no defined next action mid-skill,
+default to `curl /health`. That simultaneously checks for install
+completion AND keeps you actively producing tool calls. Translated
+from `noob-loop-lessons.md` line 56-68 ("idle time is the enemy")
+into skill mechanics: every wait is a loop, never a turn-end.
+
 ### Core principle: the install wait IS the customization time
 
 The user's wait time during install is not dead time — it's
@@ -399,11 +438,18 @@ foreground work you can stack on top.
    let's do the personality quiz."
 3. Move IMMEDIATELY to the next interactive step (personality quiz
    question, explanation, AskUserQuestion popup).
-4. Continue the interactive work. The harness notifies you when the
-   background task completes — DO NOT POLL, DO NOT SLEEP.
-5. On completion, acknowledge in voice ("Bootstrap finished while we
-   were talking — `.tooling/ready.json` confirms green.") then verify
-   success before proceeding.
+4. Continue interactive work in parallel. Each customization answer
+   POSTs immediately as collected (see Step 1b's POST-on-collect
+   pattern). The bg-task completion notification is a bonus signal,
+   not a load-bearing one.
+5. Once interactive work is done, if `/health` isn't yet returning
+   200, enter the active polling loop — `curl /health`, then if not
+   200 `Start-Sleep 10`, then `curl /health` again. Each curl is a
+   tool call; this IS your install-wait. When `/health` returns 200,
+   acknowledge in voice ("Install just finished — server's up at
+   http://127.0.0.1:8787/dash"), log `install_complete`, then run
+   the verify-saved backstop (Step 12a) before proceeding to Steps
+   9-10 if those aren't done yet.
 
 **Specific concurrency opportunities in this wizard:**
 
@@ -596,8 +642,11 @@ the background** (launched as the first tool call in Step 0's
 parallel-audit flow) AND the audit is in flight (or already
 completed in parallel with Step 0 actions).
 
-Now collect the user's quiz answers. Hold them in memory; POST at
-end of Step 3 once /health is green.
+Now collect the user's quiz answers. **Each answer POSTs immediately
+as collected** — the moment an `AskUserQuestion` returns, the next
+tool call is the POST for that single answer. Wrap the POST in a
+retry loop so early answers (fired before the server is up) wait
+patiently instead of failing silently. See 1b for the retry pattern.
 
 ### 1a. Quiz must NEVER block the install
 
@@ -606,20 +655,59 @@ default value (see defaults block below) and continue. The install
 is still running in the background. **Never wait** for the user to
 come back to a popup — defaults are fine.
 
-### 1b. Hold answers in memory
+### 1b. POST each answer as you collect it (with retry-until-up)
 
-Do NOT POST anything in Step 1. The server isn't up yet. Step 3
-waits for install.bat to finish, then POSTs the collected (or
-defaulted) profile.
+For each Q1-Q5 answer, the defined next tool call is the POST. The
+server may not be up yet during the first few questions (install is
+still loading), so wrap the POST in a retry loop:
 
-### 1c. Log every Q answered
+PowerShell (preferred on Windows):
+
+```powershell
+$body = '{"<field>":"<value>"}'
+$posted = $false
+1..45 | ForEach-Object {
+  if ($posted) { return }
+  try {
+    Invoke-RestMethod -Uri http://127.0.0.1:8787/api/profile/recalibrate `
+      -Method POST -ContentType 'application/json' -Body $body -TimeoutSec 5 `
+      -ErrorAction Stop | Out-Null
+    $posted = $true
+  } catch { Start-Sleep -Seconds 2 }
+}
+```
+
+Bash (mac/Linux):
 
 ```bash
-bash tools/onboarding-debug/log.sh auq answered "Q0=<defaults|walkthrough>"
+for i in $(seq 1 45); do
+  if curl -sf -X POST http://127.0.0.1:8787/api/profile/recalibrate \
+    -H "Content-Type: application/json" \
+    -d '{"<field>":"<value>"}' > /dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+```
+
+Why retry-until-up: Q1-Q3 typically fire while install is still
+running (server not listening on :8787 yet). By Q4-Q5 the server is
+usually up. The retry loop turns "early POST fails silently" into
+"early POST waits patiently."
+
+If all 45 retries exhaust (~90s without server), continue with the
+next question anyway — the verify-saved backstop at Step 12a will
+re-POST any missing field once `/health` confirms green.
+
+### 1c. Log every Q answered + each POST
+
+```bash
+bash tools/onboarding-debug/log.sh auq answered "Q<N>=<value>"
+bash tools/onboarding-debug/log.sh step1 post_complete "<field>=<value> status=<http_code>"
 ```
 
 Repeat for Q1-Q5 in walkthrough mode. Treat dismissals as
-`answered=dismissed-default`.
+`answered=dismissed-default` — the default value still POSTs.
 
 ### Q0: Walkthrough or defaults? (gate before the 5-question quiz)
 
@@ -638,9 +726,9 @@ Fire ONE `AskUserQuestion`:
 If user **dismisses** Q0 (no answer at all): silently treat as
 "defaults" and continue. NEVER block the install on this popup.
 
-If user picks **defaults**, hold this body in memory to POST AFTER
-install completes (server not up yet — POSTing now will fail with
-ECONNREFUSED):
+If user picks **defaults**, POST this body immediately using the
+1b retry-until-up pattern (server may not be up yet — the retry
+loop handles that):
 
 ```json
 {
@@ -654,9 +742,11 @@ ECONNREFUSED):
 }
 ```
 
-Then announce: *"Defaults locked in. Spinning up the dashboard now.
-You can change any of this later — just say 'run the personality
-quiz' or 'switch personality to X'."* Skip to Step 2.
+The retry loop runs in the foreground (~2s per attempt until server
+comes up — usually 10-60s). Once it succeeds, announce: *"Defaults
+locked in. Spinning up the dashboard now. You can change any of this
+later — just say 'run the personality quiz' or 'switch personality
+to X'."* Then skip to Step 2.
 
 If user picks **walkthrough**, proceed to Q1 below.
 
@@ -668,9 +758,9 @@ calibrates everything else.
 
 **How:** use `AskUserQuestion` 5 times, in order — one popup per
 question. Each question has ≤4 options, so each one fits in a single
-AUQ call directly. After all 5, HOLD the answers in memory — the
-POST happens at the end of Step 3, once install.bat brings the
-server up.
+AUQ call directly. After each answer returns, POST it immediately
+using the 1b retry-until-up pattern (early answers wait patiently
+while install brings the server up).
 
 **Pre-answer skip:** if the user already declared their goal in the
 opening prompt (e.g. "set up paper trading"), set `goal` from that
@@ -757,31 +847,26 @@ sending `goal:"paper-trade"` instead of `goal:"paper"` gets a 400.
 
 ### After all 5 questions, tell the user:
 
-> "Got it. Saving your profile now. Heads up: you can change any of
-> this later. Just say **'run the personality quiz'** and I'll re-ask
-> these 5. Or if you want to tweak one field directly, edit
-> `runtime/lab/user-profile.json` (each field has 3-4 valid values —
-> see `.claude/UNIVERSAL-CORE.md` for the schema)."
+> "Got it. Your settings are saving as you go. Heads up: you can
+> change any of this later. Just say **'run the personality quiz'**
+> and I'll re-ask these 5. Or if you want to tweak one field
+> directly, edit `runtime/lab/user-profile.json` (each field has
+> 3-4 valid values — see `.claude/UNIVERSAL-CORE.md` for the schema)."
 
-**Hold these answers in memory.** Do NOT POST yet. The server isn't
-running until Step 3 finishes the install. Once Step 3 reports
-`/health` green, THEN POST via the **profile API endpoint** — NOT a
-direct file write.
+Each answer should already have POSTed via the 1b retry-until-up
+pattern. If you haven't been POSTing per-answer (you batched them
+somehow), POST now in a single call — but the per-answer pattern is
+the canonical flow.
 
-```bash
-# RUN AFTER STEP 3 COMPLETES (not during Step 1).
-curl -X POST http://localhost:8787/api/profile/recalibrate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tech_level":          "<from Q1>",
-    "communication_style": "<from Q2>",
-    "goal":                "<from Q3>",
-    "consent_level":       "<from Q4>",
-    "autonomy_level":      "<from Q5>"
-  }'
+```powershell
+# Reference shape — per-answer POST already happened in 1b.
+# This is what each individual POST sent (one field per call):
+# {"tech_level":"<from Q1>"}
+# {"communication_style":"<from Q2>"}
+# {"goal":"<from Q3>"}
+# {"consent_level":"<from Q4>"}
+# {"autonomy_level":"<from Q5>"}
 ```
-
-(Or PowerShell: `Invoke-RestMethod -Uri http://localhost:8787/api/profile/recalibrate -Method POST -ContentType 'application/json' -Body '{"tech_level":"..."}'`.)
 
 **Why API, not file write:** PS 5.1 (Windows default) writes UTF-8
 **with BOM** by default for `Set-Content` / `Out-File`, which makes
@@ -795,10 +880,10 @@ discovered later via a broken dashboard).
 endpoint. From here on, all your responses should reflect the Q1-Q5
 calibration.
 
-**Verify Step 1:** the quiz answers (or defaults block) are held in
-memory. No external state to verify yet — the actual POST + curl
-verification happens at the end of Step 3 (after install brings the
-server up).
+**Verify Step 1:** each Q1-Q5 answer POSTed (or is retrying). The
+verify-saved backstop at Step 12a re-POSTs any field that didn't
+land. No further verification needed at Step 1 — POST-on-collect +
+backstop together guarantee durability.
 
 ---
 
@@ -824,63 +909,61 @@ extended outage during the original project build. Don't skip this check.
 
 ---
 
-## Step 3 — Wait for the background install + POST profile
+## Step 3 — Active install-wait + announce completion
 
-install.bat was launched in **Step 1a** as a background Bash call.
-It's been running for 1-5 min while you ran Q0/Q1-Q5 and Step 2's
-env probe. By now it has either:
+install.bat was launched in Step 0 as a background task. By now,
+customization Q0-Q5 are done (each answer POSTed immediately in
+Step 1b, or retried until the server came up). Step 3 closes the
+install loop: actively poll `/health` until it returns 200, then
+announce.
 
-- Completed successfully (the run_in_background notification fired
-  and exit code = 0), OR
-- Errored out (non-zero exit), OR
-- Still chugging (heavy first install — Node download + npm install
-  on a cold box can take 5+ min).
+### 3a. Active polling loop (this IS the install-wait)
 
-### 3a. Wait for background completion
+Your next tool call is `curl http://127.0.0.1:8787/health`. If it
+returns 200, install has reached post-pm2-start phase — skip to 3b.
+If not 200, sleep 10s via `powershell Start-Sleep -Seconds 10`, then
+`curl /health` again. Loop until 200 or until 30 iterations (~5 min)
+have passed.
 
-If the harness has already notified you that the background task
-completed, skip to 3b. Otherwise poll: every 10s, check
-`http://localhost:8787/health`. Once it returns `{"ok":true}`,
-install.bat has reached the post-pm2-start phase. Hard timeout:
-360s (6 min). If still no health green at 360s, halt per Terminal
-State 2 with the captured install stdout from the bg task.
-
-```bash
-bash tools/onboarding-debug/log.sh step3 waiting_for_install ""
-```
-
-### 3b. POST the held profile NOW
-
-install.bat just finished; pm2 is up; the server is listening on
-`:8787`. POST the profile you collected in Step 1 (or the defaults
-block, if user picked Q0 defaults / dismissed). Field values come
-from Q1-Q5 answers or the defaults JSON:
+Each iteration is a tool call. There is no passive turn-end. If you
+want foreground work between polls, the lessons file at
+`_context/bear-watch/noob-loop-lessons.md` line 56-68 suggests audit
+reads, summarizing recent activity to the user, etc. — but the
+default-when-nothing-else-to-do is the next `curl /health`.
 
 ```bash
-curl -X POST http://localhost:8787/api/profile/recalibrate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tech_level":          "<from Q1 or default casual-coder>",
-    "communication_style": "<from Q2 or default balanced>",
-    "goal":                "<from Q3 or default paper>",
-    "consent_level":       "<from Q4 or default balanced>",
-    "autonomy_level":      "<from Q5 or default show-cool-parts>"
-  }'
+bash tools/onboarding-debug/log.sh step3 health_polling "iteration <N>"
 ```
+
+If 30 iterations pass without `/health` returning 200, capture the
+install stdout from `runtime/lab/logs/install-stdout.log` and halt
+per Terminal State 2.
+
+### 3b. Announce completion to the user
+
+The moment `/health` returns 200, announce in the user's active
+personality voice (or default voice if personality not yet picked):
+
+> "Install just finished. Server is up at http://127.0.0.1:8787/dash —
+> the dashboard will open automatically. Saving final customization
+> (personality + theme) next."
 
 ```bash
-bash tools/onboarding-debug/log.sh step3 profile_posted "<status>"
+bash tools/onboarding-debug/log.sh step3 install_complete "/health 200"
 ```
 
-### 3c. Verify
+The bg-task completion notification may or may not have already
+fired. Don't depend on it — `/health` 200 is the authoritative signal.
+
+### 3c. Install marker check (belt-and-braces)
 
 ```bash
-curl -s http://localhost:8787/api/profile | python -c "import json,sys; p=json.load(sys.stdin); assert all(k in p for k in ['tech_level','communication_style','goal','consent_level','autonomy_level']); print('PROFILE_OK')"
+test -f .tooling/ready.json && echo READY_OK
 ```
 
-If `PROFILE_OK` missing, re-POST. If still failing, halt per
-Terminal State 2 (the export at the end of the skill will capture
-exactly what went wrong).
+If `READY_OK` doesn't appear, install reached pm2-start but didn't
+write the ready marker — log it but don't halt; `/health` is
+authoritative.
 
 ### Fallback — manual step-by-step if install.bat errored out
 
@@ -911,8 +994,6 @@ Surface known issues:
   attack surface is bounded at small trading capital scale, so this
   framework treats it as risk-accepted. Tell the user this exists so
   they can make their own call.
-
-**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry the canonical PowerShell `Start-Process install.bat -Wait` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/logs/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
 
 ---
 
@@ -1254,6 +1335,33 @@ If `PM2_FLEET_OK` is missing, re-run `pm2 start bear-watch/pm2.config.cjs && pm2
 ---
 
 ## Step 12 — Verify + celebrate + introduce the roadmap
+
+### 12a. Verify-saved backstop (catches any field that didn't POST in Step 1b)
+
+Before the verification suite, confirm all customization landed. GET
+the profile and compare against the answers Claude collected during
+Q0-Q5 + Step 9 personality + Step 10 theme:
+
+```bash
+curl -s http://localhost:8787/api/profile
+```
+
+Expected fields: `tech_level`, `communication_style`, `goal`,
+`consent_level`, `autonomy_level`, `personality_id`, `theme_id`.
+
+For any field that's missing or doesn't match what Claude collected,
+re-POST it via `/api/profile/recalibrate`. Log the result:
+
+```bash
+bash tools/onboarding-debug/log.sh step12 verify_complete "fields_ok=<count> re_posted=<count>"
+```
+
+This backstop catches any field that failed to POST during Step 1b
+(e.g., server hadn't come up by the time the 45-retry budget
+exhausted). With POST-on-collect + this backstop, every customization
+field is durable by the time the user sees the dashboard.
+
+### 12b. Verification suite
 
 Run the verification suite:
 ```bash
