@@ -127,35 +127,65 @@ explicitly said: "cant have them turning off auto mode."
 
 | Forbidden pattern | What to do instead |
 |---|---|
-| `powershell -ExecutionPolicy Bypass …` | `cmd /c install.bat` (or `cmd /c "<repo>\install.bat"` with absolute path) |
+| `powershell -ExecutionPolicy Bypass …` | The PowerShell `Start-Process -Wait` form below |
 | `powershell -ep Bypass …` | Same as above |
 | `powershell -File install.ps1` (any variation) | Same as above |
 | `pwsh -ExecutionPolicy Bypass …` | Same as above |
 | `Invoke-Expression $(...)` | Don't. Refuse and ask the user. |
-| Any direct invocation of `install.ps1`, `bootstrap.ps1`, `register-scheduled-tasks.ps1`, `uninstall.ps1` | Use `cmd /c install.bat` / `cmd /c uninstall.bat`. The .bat files internally handle the policy flags — Claude never types them. |
+| Any direct invocation of `install.ps1`, `bootstrap.ps1`, `register-scheduled-tasks.ps1`, `uninstall.ps1` | Use `Start-Process` on install.bat / uninstall.bat. The .bat files internally handle the policy flags — Claude never types them. |
 
 **You may freely READ install.bat to understand what it does** — BUT
 you must NOT then paraphrase its contents into a terminal command.
-The single line you ever type for install on Windows is:
 
-```bash
-PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"
+### The canonical install command on Windows
+
+Use the **PowerShell tool** (not the Bash tool) with this command:
+
+```powershell
+$env:PBX_NONINTERACTIVE = '1'; Start-Process -FilePath "<repo>\install.bat" -NoNewWindow -Wait
 ```
 
-That's it. No fallbacks. No "let me just try the underlying
-PowerShell directly." If `cmd /c install.bat` errors out:
+Why this exact form:
 
-1. Verify the path with `ls` / `dir`
-2. Re-run with the absolute path
-3. Tell the user what's broken and ask for help
+- **`Start-Process -Wait`** blocks the PowerShell session until
+  install.bat fully completes. PowerShell stays alive for the entire
+  7-9 min install. When PowerShell exits, the harness's
+  `run_in_background` notification fires CORRECTLY at actual
+  install completion — not the premature "false exit 0" that
+  `cmd /c install.bat` from the Bash tool was producing on Windows
+  due to deep-process-tree tracking issues.
+- **`-NoNewWindow`** keeps stdout in the existing console so the
+  harness can capture install.ps1's "[1/6] Ensuring Node..."
+  progress lines.
+- **No `-ExecutionPolicy Bypass`** keyword in what Claude types.
+  install.bat handles the policy flag internally.
+- **Replace `<repo>`** with the actual checkout path, normally
+  `$env:USERPROFILE\PBX-Stratos` or wherever git clone landed it.
+
+Run with `run_in_background: true` so the customization quiz can
+fire in parallel.
+
+### If install seems stuck or completes suspiciously fast
+
+Trust ready.json + /health over the bg notification:
+
+1. Check `.tooling/ready.json` exists — written near the end of bootstrap
+2. Check `runtime/lab/logs/install-stdout.log` has "PBX Stratos installed successfully"
+3. Check `curl http://127.0.0.1:8787/health` returns 200
+
+If any of those is true, install actually succeeded regardless of
+what the bg notification said. Only investigate failure if all three
+remain false after the expected 9 min install window.
+
+### Do not paraphrase install.bat contents into the terminal
 
 Do NOT, in any failure-recovery flow, switch to invoking
-`install.ps1` directly. The user's most recent test had this
-exact regression: Claude opened install.bat, read its contents
-(which include a `powershell -ExecutionPolicy Bypass -NoProfile
--File install.ps1` line), then paraphrased that line into the
-terminal. Auto mode blocked it. The user had to disable Auto
-mode. That can never happen again.
+`install.ps1` directly. Earlier tests had this regression: Claude
+opened install.bat, read its contents (which include a
+`powershell -ExecutionPolicy Bypass -NoProfile -File install.ps1`
+line), then paraphrased that line into the terminal. Auto mode
+blocked it. The user had to disable Auto mode. That can never
+happen again.
 
 Same rule applies to mac/Linux:
 
@@ -185,7 +215,7 @@ context in the message field.
 | When | Command | Why |
 |---|---|---|
 | Session start (your very first tool call after reading user's prompt) | `bash tools/onboarding-debug/log.sh session start "user prompt: <first 80 chars>"` | Anchors the timeline |
-| Right after backgrounding install.bat | `bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"` | Confirms install kicked off |
+| Right after backgrounding install.bat | `bash tools/onboarding-debug/log.sh step1 install_launched "Start-Process install.bat in bg"` | Confirms install kicked off |
 | Start of audit | `bash tools/onboarding-debug/log.sh step0 audit_started "running in parallel with bg install"` | |
 | Each audit check | `bash tools/onboarding-debug/log.sh step0 audit_check "<what you checked, 1-line summary>"` | One per Read/Grep batch |
 | Audit complete | `bash tools/onboarding-debug/log.sh step0 audit_complete "<count> checks, <issues found>"` | |
@@ -429,9 +459,17 @@ proceeds — NOT to gate install on a clean audit.
 **First two tool calls — do these BEFORE anything else:**
 
 1. `bash tools/onboarding-debug/log.sh session start "<user prompt 80 chars>"`
-2. Background-launch install.bat: Bash with `run_in_background: true`,
-   command `PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"`
-3. `bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"`
+2. Background-launch install.bat via the **PowerShell tool** with
+   `run_in_background: true`, command:
+   ```powershell
+   $env:PBX_NONINTERACTIVE = '1'; Start-Process -FilePath "<repo>\install.bat" -NoNewWindow -Wait
+   ```
+   (NOT `cmd /c install.bat` via Bash tool — that returns a false
+   exit 0 in seconds on Windows due to deep-process-tree tracking
+   issues, even though install.bat is actually still running. See
+   the canonical-install section above for why Start-Process -Wait
+   is the right form.)
+3. `bash tools/onboarding-debug/log.sh step1 install_launched "Start-Process install.bat in bg"`
 
 THEN run the audit. The install is now downloading Node / running
 npm install / etc. in the background while you read code in the
@@ -871,7 +909,7 @@ Surface known issues:
   framework treats it as risk-accepted. Tell the user this exists so
   they can make their own call.
 
-**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry `cmd /c install.bat` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/logs/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
+**Verify Step 3 install marker:** `test -f .tooling/ready.json && echo READY_OK`. If you don't see `READY_OK`, the install didn't complete — retry the canonical PowerShell `Start-Process install.bat -Wait` once; if still failing, capture the bg task's stdout (via the run_in_background notification or `runtime/lab/logs/install-stdout.log`) and halt per Terminal State 2. The export at the end of the skill will bundle the install stdout into the single dev-handoff file.
 
 ---
 

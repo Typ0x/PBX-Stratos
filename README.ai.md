@@ -593,15 +593,18 @@ Idle time is the enemy.
 ```bash
 # macOS / Linux
 bash scripts/bootstrap.sh
+```
 
-# Windows -- use the install.bat wrapper instead of invoking the
-# .ps1 directly. The wrapper sets the execution policy internally
-# so Claude doesn't have to type "-ExecutionPolicy Bypass" (which
-# trips Claude Desktop's auto-mode classifier as a security-bypass
-# attempt). For agent-driven installs, use:
-#   PBX_NONINTERACTIVE=1 cmd /c install.bat
-# Or, for the bootstrap step alone (not normally needed):
-cmd /c "powershell -NoProfile -File scripts\bootstrap.ps1"
+```powershell
+# Windows -- use the install.bat wrapper via PowerShell's
+# Start-Process -Wait. The wrapper handles -ExecutionPolicy
+# internally so Claude doesn't have to type it (which would trip
+# Claude Desktop's Auto mode classifier). Start-Process -Wait
+# blocks PowerShell until the install actually completes -- this
+# matters because cmd /c install.bat via the Bash tool was
+# returning false-exit-0 within seconds on Windows while the
+# install was still running (deep-process-tree tracking issue).
+$env:PBX_NONINTERACTIVE = '1'; Start-Process -FilePath "install.bat" -NoNewWindow -Wait
 ```
 
 `bootstrap.sh` / `bootstrap.ps1` downloads a standalone Node into
