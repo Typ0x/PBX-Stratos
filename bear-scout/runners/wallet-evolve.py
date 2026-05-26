@@ -44,8 +44,12 @@ REGION = {
     'FXdwYhavxUufiDfEA3kPyVzJSYoQ16euB1EdPfBakXX5': 'CHI',
     'Bb7yeJNz1CBsXetysWwHjkk9ospkNExiVTVVKXXWAgDd': 'TOR',
 }
-CONVERGE_RECALL = 0.50
-CONVERGE_LIFT = 4.0
+# Convergence target defaults. Override via --min-recall / --min-lift on
+# the CLI. These describe the "successful decode" bar; tune them for
+# your venue, your wallet population, and your tolerance for false
+# positives. They are neutral starting points, not tuned values.
+DEFAULT_MIN_RECALL = 0.50
+DEFAULT_MIN_LIFT = 4.0
 
 
 def log(msg: str) -> None:
@@ -462,14 +466,15 @@ def hyp_tightened_around(top, snapshots):
     return H
 
 
-def write_markdown(out_dir, pubkey, history, wallet_buys_n, snapshots_n):
+def write_markdown(out_dir, pubkey, history, wallet_buys_n, snapshots_n,
+                   min_recall=DEFAULT_MIN_RECALL, min_lift=DEFAULT_MIN_LIFT):
     base_rate = sum(1 for h in history for r in h['results']) and 0
     with open(f"{out_dir}/EVOLUTION.md", 'w', encoding="utf-8") as f:
-        f.write(f"# Wallet decoder â€” {pubkey}\n\n")
+        f.write(f"# Wallet decoder - {pubkey}\n\n")
         f.write(f"Reverse-engineering this wallet's strategy via systematic hypothesis evolution.\n\n")
         f.write(f"- **Wallet buys (real, on-chain):** {wallet_buys_n}\n")
-        f.write(f"- **Snapshots tested:** {snapshots_n} (every engine cycle Ã— 3 regions)\n")
-        f.write(f"- **Convergence target:** recall â‰¥ {CONVERGE_RECALL:.0%}, lift â‰¥ {CONVERGE_LIFT}Ã—\n\n")
+        f.write(f"- **Snapshots tested:** {snapshots_n} (every engine cycle x 3 regions)\n")
+        f.write(f"- **Convergence target:** recall >= {min_recall:.0%}, lift >= {min_lift}x\n\n")
         for h in history:
             f.write(f"## Epoch {h['epoch']} â€” {h.get('label', '')}\n\n")
             f.write(f"Evaluated **{len(h['results'])}** hypotheses.\n\n")
@@ -496,6 +501,14 @@ def main():
                     help='history window for API queries (default 60)')
     ap.add_argument('--out', default=None,
                     help='output dir (default ~/.pbx-lab/wallets/<pubkey>)')
+    ap.add_argument('--min-recall', type=float, default=DEFAULT_MIN_RECALL,
+                    help=f'convergence target: minimum recall on test set '
+                         f'(default {DEFAULT_MIN_RECALL}). The bar at which a '
+                         f'hypothesis is flagged as a "milestone" in the log.')
+    ap.add_argument('--min-lift', type=float, default=DEFAULT_MIN_LIFT,
+                    help=f'convergence target: minimum lift over base rate on '
+                         f'test set (default {DEFAULT_MIN_LIFT}). Pairs with '
+                         f'--min-recall to define the milestone bar.')
     args = ap.parse_args()
 
     out_dir = args.out or str(Path.home() / '.pbx-lab' / 'wallets' / args.pubkey)
@@ -663,7 +676,8 @@ def main():
             log(f"    {r['name'][:48]:48s} tr_f1={r['f1_train']:.3f}/te_f1={r['f1_test']:.3f} te_P={r['precision_test']:.2%} te_R={r['recall_test']:.2%} te_lift={r['lift_test']:.1f}Ã—")
 
         history.append({'epoch': epoch, 'label': label, 'results': results})
-        write_markdown(out_dir, args.pubkey, history, len(buys), len(snapshots))
+        write_markdown(out_dir, args.pubkey, history, len(buys), len(snapshots),
+                       min_recall=args.min_recall, min_lift=args.min_lift)
 
         top_metric = (ranked[0]['recall_test'], ranked[0]['lift_test']) if ranked else (0, 0)
         score = ranked[0]['recall_test'] * ranked[0]['lift_test'] if ranked else 0
@@ -671,17 +685,17 @@ def main():
         if score > prev_score + 0.05:
             best_metric = top_metric
             no_improve = 0
-            log(f"  â†‘ progress: recall={top_metric[0]:.2%}, lift={top_metric[1]:.1f}Ã—")
+            log(f"  ^ progress: recall={top_metric[0]:.2%}, lift={top_metric[1]:.1f}x")
         else:
             no_improve += 1
-            log(f"  â†’ no meaningful gain (best so far recall={best_metric[0]:.2%}, lift={best_metric[1]:.1f}Ã—)")
+            log(f"  > no meaningful gain (best so far recall={best_metric[0]:.2%}, lift={best_metric[1]:.1f}x)")
 
         # Note: don't early-exit. The convergence target is a milestone, not
-        # the stopping criterion â€” we want to keep evolving past initial finds.
-        if ranked and ranked[0]['recall_test'] >= CONVERGE_RECALL and ranked[0]['lift_test'] >= CONVERGE_LIFT:
-            log(f"  âœ“ milestone: {ranked[0]['name']}  recall={ranked[0]['recall_test']:.2%} lift={ranked[0]['lift_test']:.1f}Ã— (continuing search)")
+        # the stopping criterion - we want to keep evolving past initial finds.
+        if ranked and ranked[0]['recall_test'] >= args.min_recall and ranked[0]['lift_test'] >= args.min_lift:
+            log(f"  * milestone: {ranked[0]['name']}  recall={ranked[0]['recall_test']:.2%} lift={ranked[0]['lift_test']:.1f}x (continuing search)")
         if no_improve >= 3:
-            log(f"  ! stalled 3 epochs â€” would benefit from a meaningfully different feature axis next")
+            log(f"  ! stalled 3 epochs - would benefit from a meaningfully different feature axis next")
 
     # Persist everything
     train_base = train_buys / len(train_snaps) if train_snaps else 0
