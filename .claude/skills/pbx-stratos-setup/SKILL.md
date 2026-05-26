@@ -165,51 +165,64 @@ Same rule applies to mac/Linux:
 
 ---
 
-## Onboarding logging (noob-loop branch only — dev debugging)
+## 📒 MANDATORY logging (noob-loop branch — dev debugging)
 
-**Status:** experimental, present in `noob-loop` branch only. WILL be
-removed before this branch merges to `main`. Do not depend on it for
-production behavior.
+**Status:** experimental, noob-loop branch only. WILL be removed
+before merging to main. **But while we're on noob-loop, the logging
+is NON-OPTIONAL.** The dev team can't debug what they can't see.
 
-**Why:** when something fails during a fresh-VM noob install, the
-user wants to hand the dev team ONE file that says what happened —
-every step Claude ran, every popup, every API call, every error,
-every server log line. So fixes can be targeted, not guessed at.
+The latest noob-test export was missing step0 and step1 events
+entirely because Claude skipped the log calls — leaving the dev
+team blind to the audit phase. That can't keep happening.
 
-**How to use:** at every major checkpoint in Steps 0-12, log a
-single line:
+**The rule:** call `bash tools/onboarding-debug/log.sh` BEFORE and
+AFTER every meaningful action. Treat it like you'd treat a
+`console.log` in a debugging session: liberal, frequent, rich
+context in the message field.
+
+### Required log calls — DO NOT SKIP
+
+| When | Command | Why |
+|---|---|---|
+| Session start (your very first tool call after reading user's prompt) | `bash tools/onboarding-debug/log.sh session start "user prompt: <first 80 chars>"` | Anchors the timeline |
+| Right after backgrounding install.bat | `bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"` | Confirms install kicked off |
+| Start of audit | `bash tools/onboarding-debug/log.sh step0 audit_started "running in parallel with bg install"` | |
+| Each audit check | `bash tools/onboarding-debug/log.sh step0 audit_check "<what you checked, 1-line summary>"` | One per Read/Grep batch |
+| Audit complete | `bash tools/onboarding-debug/log.sh step0 audit_complete "<count> checks, <issues found>"` | |
+| Every AskUserQuestion fired | `bash tools/onboarding-debug/log.sh auq fired "<question short title>"` | |
+| Every user answer | `bash tools/onboarding-debug/log.sh auq answered "<choice>"` | |
+| Each install step complete | `bash tools/onboarding-debug/log.sh step<N> completed "<duration / detail>"` | |
+| Any failure or retry | `bash tools/onboarding-debug/log.sh error step<N> "<what failed>"` | |
+| Onboarding complete | `bash tools/onboarding-debug/log.sh step12 onboarding_complete "ok"` | |
+
+**Target volume on a normal install:** 30-50 log lines. NOT 5.
+Each one is a 5ms file append — overhead is trivial.
+
+### One-liner if you forget the exact format
 
 ```bash
 bash tools/onboarding-debug/log.sh <step> <event> "<short message>"
 ```
 
-Examples:
-```bash
-bash tools/onboarding-debug/log.sh step0 audit_started ""
-bash tools/onboarding-debug/log.sh step1 install_launched ""
-bash tools/onboarding-debug/log.sh step1 q0_choice "defaults"
-bash tools/onboarding-debug/log.sh step3 install_completed "exit=0 duration=187s"
-bash tools/onboarding-debug/log.sh step3 profile_posted "status=200"
-bash tools/onboarding-debug/log.sh error step5 "env_write_failed perm=denied"
-```
+step = `session` / `step0` / `step1` / ... / `step12` / `auq` / `error`
+event = action verb past-tense (`started`, `completed`, `failed`, `fired`, `answered`)
+message = free-form. Include anything that would help debug.
 
 (PowerShell equivalent: `pwsh tools/onboarding-debug/log.ps1 ...`)
 
-At the END of the skill (after Step 12 or after halting on error),
-run the export:
+### At the END of the skill
 
 ```bash
 bash tools/onboarding-debug/export.sh
 ```
 
-That command bundles the per-step log + server HTTP log + install
-stdout + pm2 tails + final state (ready.json, user-profile.json
-with secrets REDACTED) into one timestamped file at
-`runtime/lab/logs/onboarding-export-YYYYMMDD-HHMMSS.md` and prints the
-absolute path. Tell the user: "if anything went wrong, paste the
-contents of `<that path>` to the dev team in Discord/Slack."
+Bundles the step log + server HTTP log + install stdout + pm2 tails
++ final state (redacted) into one timestamped file at
+`runtime/lab/logs/onboarding-export-YYYYMMDD-HHMMSS.md` and prints
+the absolute path. Tell the user that path so they can paste it back
+to the dev team.
 
-### Logging convention -- when to call log.sh
+### Legacy: per-step log convention (keep for reference)
 
 - **At the START of every step** (Step 0 through Step 12): one log
   call with `step=stepN` `event=started`.
@@ -324,12 +337,30 @@ from inside the cloned folder.
 
 ---
 
-## Step 0 — Audit the repo (do this BEFORE asking the user anything)
+## Step 0 — Audit the repo IN PARALLEL with install launch
 
-**Why:** the user is about to let you install + run code that can
-eventually touch a real Solana wallet. Before doing that, look at
-the code. The user wants you to look. **The point of this step is
-your honest evaluation, not a scripted certification.**
+**Trust posture:** "we assume it's safe enough already but just to
+be sure." The user typed our canonical install trigger phrase, which
+implies they've already decided to trust the repo enough to run it.
+The audit's job is to surface any glaring problems while install
+proceeds — NOT to gate install on a clean audit.
+
+**First two tool calls — do these BEFORE anything else:**
+
+1. `bash tools/onboarding-debug/log.sh session start "<user prompt 80 chars>"`
+2. Background-launch install.bat: Bash with `run_in_background: true`,
+   command `PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"`
+3. `bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"`
+
+THEN run the audit. The install is now downloading Node / running
+npm install / etc. in the background while you read code in the
+foreground. They complete around the same time. User-perceived
+install time drops by ~2 min.
+
+**Why:** the user is letting you install + run code that can
+eventually touch a real Solana wallet. Look at the code. The user
+wants you to look. **The point of this step is your honest
+evaluation, not a scripted certification.**
 
 ### Audit at your own discretion
 
@@ -436,60 +467,37 @@ This is a clean handoff, not a failure mode.
 
 ---
 
-## Step 1 — Background-launch install.bat THEN run quiz in parallel
+## Step 1 — Q0 + quiz (install + audit already running in parallel)
 
-**This is the single most important sequencing rule in the skill.**
-The user wants "paste prompt → working dashboard in <5 min". The
-only way to hit that is to start install.bat the FIRST tool call of
-the session — before Q0, before any popup, before any audit. The
-quiz fills the install wait time; idle time is the enemy.
+By the time you reach Step 1, **install.bat is already running in
+the background** (launched as the first tool call in Step 0's
+parallel-audit flow) AND the audit is in flight (or already
+completed in parallel with Step 0 actions).
 
-### 1a. Launch install.bat in the background (FIRST tool call)
+Now collect the user's quiz answers. Hold them in memory; POST at
+end of Step 3 once /health is green.
 
-Use the Bash tool with **`run_in_background: true`**. install.bat
-detects Node + Python, installs them if missing, runs npm install,
-starts pm2, registers scheduled tasks, polls /health, opens the
-dashboard. Takes 3-5 min on a fresh Win11 box.
-
-```bash
-# Background launch -- absolute path so cmd doesn't care about CWD.
-# Replace <repo> with the actual checkout path (normally
-# $env:USERPROFILE\PBX-Stratos or wherever git clone landed it).
-PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"
-```
-
-**CRITICAL: do NOT type `-ExecutionPolicy Bypass` anywhere in this
-command.** That keyword trips Claude Desktop's Auto-mode classifier
-as "bypassing a security control" and the install gets blocked
-before it starts. install.bat handles the policy flag internally;
-Claude never types it. `cmd /c <bat>` is the safe wrapper.
-
-### 1b. Log the launch
-
-```bash
-bash tools/onboarding-debug/log.sh step1 install_launched ""
-```
-
-(See "Onboarding logging" section near the top of the skill —
-every major checkpoint gets one of these one-line logs so we can
-hand a single file back to the dev team for debugging.)
-
-### 1c. Immediately fire Q0
-
-The install is running in the background. Ask Q0 right now.
-
-### 1d. Quiz must NEVER block the install
+### 1a. Quiz must NEVER block the install
 
 If the user dismisses Q0 or any of Q1-Q5: fill that field with the
 default value (see defaults block below) and continue. The install
-is still running. **Never wait** for the user to come back to a
-popup — defaults are fine.
+is still running in the background. **Never wait** for the user to
+come back to a popup — defaults are fine.
 
-### 1e. Hold answers in memory
+### 1b. Hold answers in memory
 
 Do NOT POST anything in Step 1. The server isn't up yet. Step 3
 waits for install.bat to finish, then POSTs the collected (or
 defaulted) profile.
+
+### 1c. Log every Q answered
+
+```bash
+bash tools/onboarding-debug/log.sh auq answered "Q0=<defaults|walkthrough>"
+```
+
+Repeat for Q1-Q5 in walkthrough mode. Treat dismissals as
+`answered=dismissed-default`.
 
 ### Q0: Walkthrough or defaults? (gate before the 5-question quiz)
 

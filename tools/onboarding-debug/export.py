@@ -152,7 +152,7 @@ def build_timeline(
             step = item.get("step", "?")
             event = item.get("event", "?")
             message = redactor.line(str(item.get("message", "")))
-            tag = f"[{step}]"
+            tag = f"**[{step}]**"  # bold the Claude step events so they stand out from HTTP noise
             line = f"`{ts}` {tag} **{event}**"
             if message:
                 line += f" — {message}"
@@ -165,6 +165,40 @@ def build_timeline(
             line = f"`{ts}` [HTTP] **{method} {path}** → `{status}` ({ms}ms)"
             lines.append(line)
 
+    return "\n".join(lines)
+
+
+def build_step_only_timeline(
+    events: List[Dict[str, Any]],
+    redactor: Redactor,
+) -> str:
+    """Step events only -- the Claude-narrated story, separated out
+    so it's readable without the HTTP-poll noise."""
+    if not events:
+        return "(no step events -- Claude on the VM didn't call log.sh. Skill compliance regression — investigate.)"
+    items = sorted(events, key=lambda x: x.get("ts", ""))
+    lines = []
+    prev_ts: Optional[str] = None
+    for item in items:
+        ts = item.get("ts", "?")
+        step = item.get("step", "?")
+        event = item.get("event", "?")
+        message = redactor.line(str(item.get("message", "")))
+        # Compute gap from previous event in seconds for easy scan.
+        gap = ""
+        if prev_ts:
+            try:
+                t0 = dt.datetime.fromisoformat(prev_ts.replace("Z", "+00:00"))
+                t1 = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                delta = (t1 - t0).total_seconds()
+                gap = f"  (+{delta:.1f}s)"
+            except Exception:
+                gap = ""
+        line = f"`{ts}`{gap}  **[{step}]** {event}"
+        if message:
+            line += f" — {message}"
+        lines.append(line)
+        prev_ts = ts
     return "\n".join(lines)
 
 
@@ -391,7 +425,10 @@ def build_report() -> str:
 
     out.append(section("Git state", git_state()))
     out.append(section("System info", sysinfo()))
-    out.append(section("Timeline", build_timeline(session, http, redactor)))
+    out.append(section("Step log (Claude's narration only)",
+                       build_step_only_timeline(session, redactor)))
+    out.append(section("Full timeline (Claude steps + HTTP requests)",
+                       build_timeline(session, http, redactor)))
     out.append(section("Failures", build_failures(session, http)))
     out.append(section("Final state", final_state(redactor)))
     out.append(section("Scheduled tasks (Windows)", scheduled_tasks()))
