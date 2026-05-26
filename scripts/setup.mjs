@@ -144,12 +144,52 @@ function npmInstall() {
  * but don't abort the whole setup.
  */
 function ensureClaudeCli() {
+  // Detection 1: Are we being run FROM inside Claude Code? If so, the
+  // user has claude installed on this machine -- Claude Code Desktop
+  // sets CLAUDECODE=1 in every subprocess it spawns. Installing a
+  // second claude globally would just put a duplicate on the user's
+  // PATH and npm warns about it. Skip.
+  if (process.env.CLAUDECODE === '1' || process.env.CLAUDECODE === 'true') {
+    console.log('[setup] running inside Claude Code (CLAUDECODE=1); claude CLI is already on this machine -- skipping auto-install');
+    return;
+  }
+
+  // Detection 2: Plain PATH probe via `claude --version`. Fast and
+  // covers the case where the user has the npm-installed CLI on PATH.
   const probe = spawnSync('claude', ['--version'], {
     encoding: 'utf8', shell: process.platform === 'win32',
   });
   if (probe.status === 0 && /\d+\.\d+/.test(probe.stdout || '')) {
-    console.log(`[setup] claude CLI present: ${probe.stdout.trim()}`);
+    console.log(`[setup] claude CLI present on PATH: ${probe.stdout.trim()}`);
     return;
+  }
+
+  // Detection 3: Common install locations that aren't always on PATH
+  // (Claude Code Desktop ships its CLI in a per-user dir; the
+  // Anthropic shell installer puts it in ~/.claude/local). If we find
+  // a claude binary in any of these, skip the install -- the user
+  // has it, they just don't have it on system PATH. Surface where we
+  // found it so they can add it to PATH if they want.
+  const home = process.env.USERPROFILE || process.env.HOME || '';
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const appData = process.env.APPDATA || '';
+  const candidates = [
+    home && join(home, '.claude', 'local', 'claude' + (process.platform === 'win32' ? '.cmd' : '')),
+    home && join(home, '.claude', 'local', 'claude.exe'),
+    localAppData && join(localAppData, 'AnthropicClaude', 'claude.exe'),
+    localAppData && join(localAppData, 'AnthropicClaude', 'app', 'claude.exe'),
+    appData && join(appData, 'npm', 'claude.cmd'),
+    appData && join(appData, 'npm', 'claude'),
+    '/usr/local/bin/claude',
+    '/opt/homebrew/bin/claude',
+  ].filter(Boolean);
+  for (const c of candidates) {
+    try {
+      if (existsSync(c)) {
+        console.log(`[setup] claude CLI present at ${c} (not on PATH but installed) -- skipping auto-install`);
+        return;
+      }
+    } catch { /* ignore */ }
   }
   // PERF: claude CLI is only needed by the wallet-decode workflow,
   // which the user reaches many minutes after first dashboard load.
