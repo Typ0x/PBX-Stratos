@@ -3,7 +3,7 @@
 > **What this is:** the directory of all auto-discoverable skills shipped with PBX Stratos. Each skill lives at `.claude/skills/<name>/SKILL.md` with YAML frontmatter declaring its name + trigger description. Claude Code auto-discovers them at session start and decides when to invoke based on user trigger phrases.
 
 > **Status:** active
-> **Last reviewed:** 2026-05-26 (Phase 2 of v0.3.0 framework restructure — adopted 4 context skills + pbx-wallet-decoder, renamed pbx-stratos-setup → pbx-install, dropped pbx-aqi-sensors per pre-ship scrub)
+> **Last reviewed:** 2026-05-26 (Phase 4A of v0.3.0 framework restructure — added 3 new skills: pbx-ship-audit + pbx-upgrade + pbx-install-recover; migrations scaffold built)
 
 ## How skills work
 
@@ -12,7 +12,7 @@
 - When the user's prompt matches a trigger phrase in a description, Claude invokes that skill (reads the full body + executes the flow).
 - The user can invoke explicitly via `/skill-name` if the slash command is available; otherwise plain English trigger phrases work.
 
-## All shipped skills (10 active)
+## All shipped skills (13 active)
 
 Organized by purpose:
 
@@ -30,11 +30,13 @@ Organized by purpose:
 - `update` = refresh + WRITE the new knowledge from this session so nothing is lost
 - `audit` = "look through everything ever and make sure nothing important is forgotten"
 
-### Install + recovery (1 currently — 2 more queued for Phase 4A)
+### Install + recovery (3)
 
 | Skill | Trigger phrases | What it does |
 |---|---|---|
 | `pbx-install` | "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README" | Setup wizard for fresh PBX Stratos installs. Optional code audit → personality quiz → run platform installer → personality + theme apply → optional live trading + wallet generation → dashboard opens → roadmap handoff. Post-clone only; does not clone. (Renamed from `pbx-stratos-setup` in Phase 2.) |
+| `pbx-install-recover` | "install crashed halfway", "install failed", "resume install", "pick up where install left off", "pbx install recover" | Detects which install steps completed vs failed (11 checkpoints from `.tooling/` through `runtime/lab/user-profile.json`) and resumes from the first incomplete step. Idempotent — safe to re-invoke. Asks consent before destructive actions; respects user opt-outs (e.g., paper-only mode skips live-trading checks). |
+| `pbx-upgrade` | "upgrade PBX Stratos", "pbx upgrade", "pull framework updates", "update to latest", "migrate to v0.X.0" | Framework version migration. Identifies current → target version, walks migration scripts in `scripts/migrations/v<from>-to-v<to>.mjs` in order, reconciles new framework CLAUDE.md sections into user's `_context/CLAUDE.md`, restarts services with consent. Idempotent. NEVER pushes to git remote. |
 
 ### Customization (3)
 
@@ -50,11 +52,12 @@ Organized by purpose:
 |---|---|---|
 | `pbx-recover-bot` | "the PBX Stratos bot is broken", "PBX Stratos dashboard isn't loading", "the bot crashed", "I got a STRATOS alert" | Standard PBX Stratos diagnostic runbook: pm2 status → `/debug/health` → recent alerts → recent commits → pm2 logs → prescribed fix. |
 
-### Specialized (1 currently — 1 more queued for Phase 4A)
+### Specialized (2)
 
 | Skill | Trigger phrases | What it does |
 |---|---|---|
 | `pbx-wallet-decoder` | "decode this wallet", "analyze this trader", "reverse-engineer this wallet's strategy", "beat this trader", "copy this trader", "front-run this wallet" | Adversarial reverse-engineering framework. Drives `wallet-decoder.py` → `wallet-evolve.py` → `wallet-ml.py` → `wallet-microcontext.py` pipeline. Pulls a wallet's trades from prod, joins to market state at trade-time, evolves hypotheses, trains sklearn for non-linear interactions, outputs a counter-strategy proposal. |
+| `pbx-ship-audit` | "ship audit", "audit before ship", "scan file for alpha", "is this safe to ship", "check if I can copy this to the public fork" | Alpha-extraction gate before private → public cp (e.g., before shipping a private working fork's file into PBX Stratos). Reads target file, scans for tuned defaults / claimed backtest results / wallet pubkeys / named champion configs / learned hour-of-day boundaries, cross-references the alpha catalog if present, produces structured report with per-finding severity + recommendation. User decides per-item: keep-private / extract-to-config / ship-as-is. Less directly applicable on Stratos itself (Stratos is the recipient of handoffs); useful as documentation of the discipline + for downstream users with private forks. |
 
 ## Skills queued for later phases of v0.3.0 framework restructure
 
@@ -62,9 +65,6 @@ Per the framework restructure brief, the following skills will be added in subse
 
 | Skill | Queued in phase | What it'll do |
 |---|---|---|
-| `pbx-ship-audit` | Phase 4A (brief 1 §1.3) | REQUIRED gate before any pbxtra → Stratos cp. Scans target file for hardcoded alpha patterns. (Note: less directly applicable on Stratos since Stratos is the recipient of pbxtra→Stratos handoffs; useful as a self-audit gate.) |
-| `pbx-upgrade` | Phase 4A (brief 1 §1.3) | Framework version migration. Walks migration scripts in `scripts/migrations/`, reconciles new framework sections into user's `_context/CLAUDE.md`. |
-| `pbx-install-recover` | Phase 4A (brief 1 §1.3) | Detects which install steps completed vs failed and resumes from the first incomplete step. Idempotent. |
 | `pbx-orchestrate` | Phase 4.5 (brief 1 §1.5) | Manager pattern. Loads cross-scope state, builds prioritized work plan, optionally spawns background agents for parallel execution. |
 | `pbx-audit-restructure` | Section 7 (brief 1 §7) | Runs the 10-phase post-restructure audit protocol. Catches bugs that import-sweep sed misses. |
 
@@ -126,5 +126,6 @@ The prefix is the framework-shipped namespace. User-added skills can use any nam
 
 ## Skill changelog
 
+- **2026-05-26 (Phase 4A of v0.3.0 restructure):** Adopted 3 new skills: `pbx-ship-audit` (alpha-extraction gate before private → public cp, with §3.5.4 example value scrubs), `pbx-upgrade` (framework version migration with `scripts/migrations/` scaffold), `pbx-install-recover` (resume from partial install — 11 checkpoint detector). Migrations scaffold built at `scripts/migrations/` (README + template.mjs). Skill count now 13 active; 2 more queued (pbx-orchestrate Phase 4.5, pbx-audit-restructure §7).
 - **2026-05-26 (Phase 2 of v0.3.0 restructure):** Adopted 4 context-management skills from pbxtra (`pbx-context` / `pbx-refresh-context` / `pbx-update-context` / `pbx-audit-context`) with §3.5.5 substitutions + §3.5.6 C surgical removal applied to `pbx-audit-context`. Adopted `pbx-wallet-decoder` from pbxtra with §3.5.1 alpha-leak scrubs (description + 5 body edits removing decoded-trader specifics). Renamed Stratos's existing `pbx-stratos-setup` → `pbx-install`. Removed Stratos's existing `wallet-decoder` skill (superseded by `pbx-wallet-decoder`). Dropped `pbx-aqi-sensors` per brief 2 §3.5.3 (cannot be safely scrubbed). Skill count now 10 active; 5 more queued for later phases.
 - **Earlier:** Original skills shipped pre-restructure — `pbx-stratos-setup`, `pbx-personality-quiz`, `pbx-set-personality`, `pbx-set-theme`, `pbx-recover-bot`, `wallet-decoder`. (vm-noob-test was added on noob-loop and stripped at merge.)
