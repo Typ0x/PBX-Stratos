@@ -20,19 +20,13 @@ import { pm25BandDef } from './pm25_band.js';
 import { pm25ZScoreDef } from './pm25_zscore.js';
 import {
   regionArbDef,
-  regionArbFastDef,
-  regionArbWideDef,
-  regionArbDeepDef,
   regionArbBtmRotDef,
   regionArbBtmP01Def,
   regionArbZ1Def,
-  regionArbMimicDef,
-  regionArbAnticipatorDef,
   regionArbCadenceDef,
   regionArbConfirmDef,
   regionArbFlowDef,
   regionArbDipDef,
-  regionArbDipTightDef,
 } from './region_arb.js';
 import { rotationDef } from './rotation.js';
 import type { Strategy, StrategyDefinition } from './types.js';
@@ -80,19 +74,13 @@ const ALL_DEFS: StrategyDefinition[] = [
   pm25AllInDef,
   pm25ZScoreDef,
   regionArbDef,
-  regionArbFastDef,
-  regionArbWideDef,
-  regionArbDeepDef,
   regionArbBtmRotDef,
   regionArbBtmP01Def,
   regionArbZ1Def,
-  regionArbMimicDef,
-  regionArbAnticipatorDef,
   regionArbCadenceDef,
   regionArbConfirmDef,
   regionArbFlowDef,
   regionArbDipDef,
-  regionArbDipTightDef,
   decodedRuleDef,
 ];
 

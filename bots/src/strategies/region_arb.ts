@@ -10,16 +10,16 @@
  *   cheap   = argmin(d), rich = argmax(d)
  *
  * Trade:
- *   USDC + spread â‰¥ entryT          â†’ buy `cheap`
+ *   USDC + spread >= entryT          -> buy `cheap`
  *   region X + X is `rich`
- *     + spread â‰¥ exitT              â†’ exit to USDC
+ *     + spread >= exitT              -> exit to USDC
  *   + max-hold + optional stop-loss
  *
  * Why no buffers, no history, no per-region baselines:
  *   - Each region's "fair value" relative to its peers is the right
  *     reference. Per-region baselines drift with the price they're
  *     supposed to measure against, killing the signal.
- *   - cp-amm mid is stable between trades â€” using it instead of swap
+ *   - cp-amm mid is stable between trades - using it instead of swap
  *     events removes transient-slippage noise. If CHI's mid is
  *     persistently below NYC's mid by 5%, that's a real divergence
  *     the rebalancer can't unwind from a single pool.
@@ -44,12 +44,12 @@ export interface RegionArbOpts {
   /** Cross-region spread threshold to exit (when held becomes the richest). */
   exitT?: number;
   /** When set, exit as soon as the held region's deviation crosses this
-   *  threshold from below â€” independent of the held=richest condition.
+   *  threshold from below - independent of the held=richest condition.
    *  0.0 = exit on convergence to mean. 0.01 = wait for 1pp overshoot. */
   backToMeanExit?: number;
-  /** Adaptive entry â€” replace fixed entryT with "current spread > Î¼ + NÃ—Ïƒ
+  /** Adaptive entry - replace fixed entryT with "current spread > mean + N*sigma
    *  over rolling window of zscoreLookbackHrs". Tracks decide() ticks;
-   *  warm-up â‰¥ 8 ticks. */
+   *  warm-up >= 8 ticks. */
   zscoreEntry?: number;
   zscoreLookbackHrs?: number;
   /** Trade size in USDC raw (6dp). */
@@ -64,7 +64,7 @@ export interface RegionArbOpts {
   /** Override strategy id (orchestrator uses for per-bot wallet routing). */
   id?: string;
 
-  // â”€â”€â”€ Cadence / drift / flow extensions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Cadence / drift / flow extensions ---
   // Options below add (a) cadence-aware decide-skipping, (b) rolling
   // drift averages with multi-cycle confirmation, and (c) a flow-history
   // feature that penalizes regions the rebalancer has been net-selling.
@@ -73,7 +73,7 @@ export interface RegionArbOpts {
   /** Skip decide() when (UTC minute) % cyclePeriodMinutes is in this set.
    *  The PBX rebalancer fires every 5 min via a Render cron with the
    *  schedule "every 5 minutes". Default cycle period = 5. To dodge the
-   *  fire window, use [0, 1] â€” skips the fire minute + the minute after
+   *  fire window, use [0, 1] - skips the fire minute + the minute after
    *  for tx propagation. */
   cycleSkipMinutes?: number[];
   /** Modulo period (minutes) for cycleSkipMinutes. Default 5 = matches
@@ -81,23 +81,23 @@ export interface RegionArbOpts {
   cyclePeriodMinutes?: number;
 
   /** Average drift over the last N minutes of decide() ticks instead of
-   *  using instant prices. Reduces noise. lb=60-120 minutes is the
-   *  backtest sweet spot. Requires `tickMs` decided low enough to
-   *  collect â‰¥N samples within N minutes (e.g. tickMs=60000 â†’ 1 sample
+   *  using instant prices. Reduces noise. lb=60-120 minutes is a
+   *  reasonable starting range. Requires `tickMs` decided low enough to
+   *  collect >=N samples within N minutes (e.g. tickMs=60000 -> 1 sample
    *  per minute). */
   driftLookbackMin?: number;
 
   /** Require K consecutive decide() calls to identify the same region
-   *  as cheapest before entering. Conviction filter â€” eliminates false
+   *  as cheapest before entering. Conviction filter - eliminates false
    *  starts from transient drift. K=2 is a reasonable starting point. */
   requireConfirmCycles?: number;
 
   /** Flow-history feature: blend recent cumulative net USDC flow per
    *  region into the cheapest-region selection. Score(R) = -drift(R) -
-   *  flowFeatureWeight Ã— net_flow_last_K_cycles(R). The "less likely
+   *  flowFeatureWeight * net_flow_last_K_cycles(R). The "less likely
    *  to be sold next" heuristic: a region the rebalancer has been
    *  net-selling is now lighter in the vault.
-   *  Requires DB access (DATABASE_URL set) â€” degrades to the plain
+   *  Requires DB access (DATABASE_URL set) - degrades to the plain
    *  cheapest-of-cycle selection if DB unavailable.
    *  Pair with `flowFeatureN` (number of cycles to sum). */
   flowFeatureWeight?: number;
@@ -139,7 +139,7 @@ export class RegionArbStrategy implements Strategy {
   /** Last K cheapest-region picks for `requireConfirmCycles` filter. */
   private cheapestHistory: RegionKey[] = [];
 
-  /** Most recent decide() snapshot â€” surfaced via /debug/strategy-state. */
+  /** Most recent decide() snapshot - surfaced via /debug/strategy-state. */
   public lastDebug: {
     ts: number;
     holding: string;
@@ -172,7 +172,7 @@ export class RegionArbStrategy implements Strategy {
     // The rebalancer fires via Render cron `*/5 * * * *` (verified
     // 2026-05-10 from docs/rebalance-engine.md + a 3-agent review of
     // the Anchor program). To dodge the fire window, default config
-    // uses cycleSkipMinutes=[0,1] with cyclePeriodMinutes=5 â€” skips the
+    // uses cycleSkipMinutes=[0,1] with cyclePeriodMinutes=5 - skips the
     // fire minute + the minute after for tx propagation.
     if (this.cycleSkipMinutes && this.cycleSkipMinutes.has(new Date().getUTCMinutes() % this.cyclePeriodMinutes)) {
       return null;
@@ -188,7 +188,7 @@ export class RegionArbStrategy implements Strategy {
 
     // Maintain price history for drift-lookback averaging. Push current
     // snapshot, prune older than the configured window. Memory bounded
-    // by tickMs/lookback (e.g. 60s tick Ã— 120min = 120 entries).
+    // by tickMs/lookback (e.g. 60s tick * 120min = 120 entries).
     if (this.driftLookbackMin != null && valid.length === REGIONS.length) {
       const snap: Partial<Record<RegionKey, number>> = {};
       for (const v of valid) snap[v.region] = v.price;
@@ -212,15 +212,15 @@ export class RegionArbStrategy implements Strategy {
     };
 
     if (valid.length < 2) {
-      this.lastDebug = { ...debugBase, decision: 'no-prices (need â‰¥2 regions priceable)' };
+      this.lastDebug = { ...debugBase, decision: 'no-prices (need >=2 regions priceable)' };
       return null;
     }
 
     // 2. Cross-region mean and per-region deviations from it.
     //
     // When `driftLookbackMin` is set, we average the per-tick deviations
-    // over the lookback window (lab finding: 60-120 min window reduces
-    // noise + boosts predictor edge). Otherwise use instant prices.
+    // over the lookback window (a 60-120 min window is a reasonable
+    // starting range for reducing noise). Otherwise use instant prices.
     const mean = valid.reduce((s, v) => s + v.price, 0) / valid.length;
     const instantDevs = valid.map((v) => ({
       region: v.region,
@@ -229,8 +229,8 @@ export class RegionArbStrategy implements Strategy {
     }));
 
     let devs = instantDevs;
-    // Need â‰¥3 samples to compute a meaningful average. Below that, fall
-    // back to instant â€” the strategy still works but without smoothing.
+    // Need >=3 samples to compute a meaningful average. Below that, fall
+    // back to instant - the strategy still works but without smoothing.
     if (this.driftLookbackMin != null && this.priceHistory.length >= 3) {
       const sums: Record<string, number> = {};
       const counts: Record<string, number> = {};
@@ -252,7 +252,7 @@ export class RegionArbStrategy implements Strategy {
     }
 
     // Apply flow-history blend if configured. Score each region's
-    // "buy-ability" as -drift - flowWeight Ã— net_flow. The
+    // "buy-ability" as -drift - flowWeight * net_flow. The
     // most-negative-flow region (= one the rebalancer just bought)
     // gets a SMALLER buy-ability score; the just-sold region gets a
     // BIGGER one. We then identify cheapest by HIGHEST buy-ability,
@@ -262,10 +262,10 @@ export class RegionArbStrategy implements Strategy {
       try {
         const flow = await getFlowHistory(this.flowFeatureN).getSnapshot();
         if (flow != null) {
-          // Re-score: buyability(R) = -dev(R) - w Ã— flow(R)
+          // Re-score: buyability(R) = -dev(R) - w * flow(R)
           // Map back to a "synthetic deviation" so the existing
           // cheapest/richest argmin/argmax logic works unchanged:
-          // synth_dev = dev + w Ã— flow (lower = more buyable).
+          // synth_dev = dev + w * flow (lower = more buyable).
           scoredDevs = devs.map((d) => ({
             region: d.region,
             price: d.price,
@@ -273,7 +273,7 @@ export class RegionArbStrategy implements Strategy {
           }));
         }
       } catch (err) {
-        // Flow query failed â€” fall through with raw devs. Strategy
+        // Flow query failed - fall through with raw devs. Strategy
         // degrades to plain cheapest-of-cycle selection.
       }
     }
@@ -331,9 +331,9 @@ export class RegionArbStrategy implements Strategy {
       }
 
       // Back-to-mean exit. Fires when held has converged to/past the
-      // cross-region mean â€” doesn't wait for held to be the richest.
+      // cross-region mean - doesn't wait for held to be the richest.
       if (this.backToMeanExit != null && heldDev != null && heldDev.deviation >= this.backToMeanExit) {
-        const reason = `region-arb btm exit ${held} (dev=${(heldDev.deviation * 100).toFixed(2)}% â‰¥ ${(this.backToMeanExit * 100).toFixed(0)}%, spread=${(spread * 100).toFixed(2)}%)`;
+        const reason = `region-arb btm exit ${held} (dev=${(heldDev.deviation * 100).toFixed(2)}% >= ${(this.backToMeanExit * 100).toFixed(0)}%, spread=${(spread * 100).toFixed(2)}%)`;
         this.lastDebug = { ...debugBase, decision: reason };
         return this.exitIntent(held, wallet.regionBalance, now, reason);
       }
@@ -349,8 +349,8 @@ export class RegionArbStrategy implements Strategy {
     }
 
     // 4. ENTRY: holding USDC.
-    // Z-score adaptive entry â€” require spread > Î¼ + NÃ—Ïƒ over lookback
-    // window. Need â‰¥8 samples to compute meaningful stddev.
+    // Z-score adaptive entry - require spread > mean + N*sigma over lookback
+    // window. Need >=8 samples to compute meaningful stddev.
     if (this.zscoreEntry != null) {
       if (this.spreadHistory.length < 8) {
         this.lastDebug = { ...debugBase, decision: `zscore warmup (${this.spreadHistory.length}/8 samples)` };
@@ -361,17 +361,17 @@ export class RegionArbStrategy implements Strategy {
       const sd = Math.sqrt(variance);
       const z = sd > 0 ? (spread - m) / sd : 0;
       if (z < this.zscoreEntry) {
-        this.lastDebug = { ...debugBase, decision: `no entry â€” z=${z.toFixed(2)} < ${this.zscoreEntry} (Î¼=${(m * 100).toFixed(2)}%, Ïƒ=${(sd * 100).toFixed(2)}%)` };
+        this.lastDebug = { ...debugBase, decision: `no entry - z=${z.toFixed(2)} < ${this.zscoreEntry} (mean=${(m * 100).toFixed(2)}%, sd=${(sd * 100).toFixed(2)}%)` };
         return null;
       }
     } else if (spread < this.opts.entryT) {
-      this.lastDebug = { ...debugBase, decision: `no entry â€” spread ${(spread * 100).toFixed(2)}% < entryT ${(this.opts.entryT * 100).toFixed(0)}%` };
+      this.lastDebug = { ...debugBase, decision: `no entry - spread ${(spread * 100).toFixed(2)}% < entryT ${(this.opts.entryT * 100).toFixed(0)}%` };
       return null;
     }
 
     // Conviction filter: require K consecutive ticks to identify the same
     // region as cheapest before entering. Eliminates false starts on
-    // transient drift. Lab epoch 9 finding: K=2 sufficient.
+    // transient drift. K=2 is a reasonable starting point.
     if (this.requireConfirmCycles != null) {
       if (this.cheapestHistory.length < this.requireConfirmCycles) {
         this.lastDebug = { ...debugBase, decision: `confirm warmup (${this.cheapestHistory.length}/${this.requireConfirmCycles})` };
@@ -379,14 +379,14 @@ export class RegionArbStrategy implements Strategy {
       }
       const allMatch = this.cheapestHistory.every((c) => c === cheapest.region);
       if (!allMatch) {
-        this.lastDebug = { ...debugBase, decision: `confirm filter â€” cheapest history [${this.cheapestHistory.join(',')}] doesn't all match ${cheapest.region}` };
+        this.lastDebug = { ...debugBase, decision: `confirm filter - cheapest history [${this.cheapestHistory.join(',')}] doesn't all match ${cheapest.region}` };
         return null;
       }
     }
 
     // Self-block guard: previously `if (baseSize > balance) refuse`, which
     // meant a single fee-eating round-trip (~1.5% loss from Token-2022 60bps
-    // Ã— 2 legs + slippage) permanently disabled the bot â€” it would land at
+    // x 2 legs + slippage) permanently disabled the bot - it would land at
     // $19.70 against a $20 trade size and never re-enter. Now we scale down
     // to whatever's available (minus a $0.10 dust reserve for tx fees), but
     // still refuse to trade below 50% of baseSize so the trade stays
@@ -399,7 +399,7 @@ export class RegionArbStrategy implements Strategy {
     const size = available < baseSize ? available : baseSize;
     const minSize = baseSize / 2n;               // floor: 50% of baseSize
     if (size < minSize) {
-      this.lastDebug = { ...debugBase, decision: `underfunded â€” need â‰¥$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}) have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}` };
+      this.lastDebug = { ...debugBase, decision: `underfunded - need >=$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}) have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}` };
       return null;
     }
 
@@ -430,12 +430,10 @@ export class RegionArbStrategy implements Strategy {
   }
 }
 
-// â”€â”€â”€ Registry defs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Registry def ---
 //
-// Four threshold/size profiles. entryT/exitT tuned around the fee floor
-// (~1.7% round-trip Token-2022 + Meteora). With no rolling window to
-// configure, the only thing that varies between variants is sensitivity
-// to dispersion + position size.
+// Neutral starting calibration. entryT/exitT tuned around the fee floor
+// (~1.7% round-trip Token-2022 + Meteora). Tune for your venue.
 
 export const regionArbDef: StrategyDefinition = {
   name: 'region_arb',
@@ -446,59 +444,14 @@ export const regionArbDef: StrategyDefinition = {
   defaultTickMs: 15_000,
 };
 
-export const regionArbFastDef: StrategyDefinition = {
-  name: 'region_arb_fast',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbStrategy({
-    id: walletId,
-    entryT: 0.03,
-    exitT: 0.025,
-    baseSizeUsdcRaw: 20_000_000n,
-    cooldownSec: 60,
-  }),
-  minUsdcRaw: 20_000_000n,
-  defaultLiveTradeUsdcRaw: 20_000_000n,
-  defaultTickMs: 15_000,
-};
-
-export const regionArbWideDef: StrategyDefinition = {
-  name: 'region_arb_wide',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbStrategy({
-    id: walletId,
-    entryT: 0.05,
-    exitT: 0.04,
-    baseSizeUsdcRaw: 40_000_000n,
-    cooldownSec: 120,
-  }),
-  minUsdcRaw: 40_000_000n,
-  defaultLiveTradeUsdcRaw: 40_000_000n,
-  defaultTickMs: 30_000,
-};
-
-export const regionArbDeepDef: StrategyDefinition = {
-  name: 'region_arb_deep',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbStrategy({
-    id: walletId,
-    entryT: 0.06,
-    exitT: 0.05,
-    baseSizeUsdcRaw: 80_000_000n,
-    cooldownSec: 300,
-  }),
-  minUsdcRaw: 80_000_000n,
-  defaultLiveTradeUsdcRaw: 80_000_000n,
-  defaultTickMs: 60_000,
-};
-
-// â”€â”€â”€ Variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Variants ---
 //
-// Three reference variants exploring the BTM-exit and z-score-entry
+// Reference variants exploring the BTM-exit and z-score-entry
 // extensions. Treat the parameters as starting points; re-tune for your
 // venue, fee model, and capital.
 
 /** Back-to-mean exit. Exits the held region as soon as it returns to the
- *  cross-region mean (dev â‰¥ 0), without waiting for it to flip to
+ *  cross-region mean (dev >= 0), without waiting for it to flip to
  *  richest. */
 export const regionArbBtmRotDef: StrategyDefinition = {
   name: 'region_arb_btm_rot',
@@ -535,7 +488,7 @@ export const regionArbBtmP01Def: StrategyDefinition = {
 };
 
 /** Z-score adaptive entry. Replace fixed entryT with "current spread
- *  > 1Ïƒ above its rolling 24h mean". Fewer trades, lower fee burden. */
+ *  > 1 sigma above its rolling 24h mean". Fewer trades, lower fee burden. */
 export const regionArbZ1Def: StrategyDefinition = {
   name: 'region_arb_z1',
   liveAllowed: true,
@@ -543,7 +496,7 @@ export const regionArbZ1Def: StrategyDefinition = {
     id: walletId,
     entryT: 0,                    // ignored when zscoreEntry is set
     exitT: 0.03,
-    zscoreEntry: 1.0,             // require spread > Î¼ + 1Ïƒ
+    zscoreEntry: 1.0,             // require spread > mean + 1*sigma
     zscoreLookbackHrs: 24,
     baseSizeUsdcRaw: 20_000_000n,
     cooldownSec: 90,
@@ -553,60 +506,7 @@ export const regionArbZ1Def: StrategyDefinition = {
   defaultTickMs: 15_000,
 };
 
-// â”€â”€â”€ Mimic + anticipator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-//
-// Two strategies parameterised by an observed reference trader's
-// profile (decoded via the wallet-decoder pipeline at bear-scout/runners/):
-//
-//   region_arb_mimic copies the reference trader's parameters directly â€”
-//   useful as a baseline to A/B against derivative strategies that
-//   exit earlier or size differently.
-//
-//   region_arb_anticipator fires earlier (5pp before the reference
-//   would), exits via back-to-mean. Captures the convergence half of
-//   each cycle BEFORE the reference trader's demand pushes the spread
-//   further.
-
-/** Mimics an observed reference trader's profile (patient entry, exit on
- *  significant overshoot of the cross-region mean). Parameters below are
- *  one example calibration â€” re-decode and re-fit for your target. */
-export const regionArbMimicDef: StrategyDefinition = {
-  name: 'region_arb_mimic',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbStrategy({
-    id: walletId,
-    entryT: 0.15,                 // 15pp â€” matches their p25 entry
-    exitT: 0.12,                  // wait for held=richest with â‰¥12pp spread
-    backToMeanExit: 0.08,         // OR exit when held is 8pp+ above mean
-    baseSizeUsdcRaw: 20_000_000n,
-    cooldownSec: 300,             // they avg 1-3 cycles/day, no need to fire often
-    maxHoldSec: 5 * 86400,
-  }),
-  minUsdcRaw: 20_000_000n,
-  defaultLiveTradeUsdcRaw: 20_000_000n,
-  defaultTickMs: 30_000,
-};
-
-/** Anticipates a reference trader by firing earlier than their entry
- *  threshold and exiting when spread compresses (before they'd close).
- *  Captures the early-convergence portion of the cycle. */
-export const regionArbAnticipatorDef: StrategyDefinition = {
-  name: 'region_arb_anticipator',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbStrategy({
-    id: walletId,
-    entryT: 0.10,                 // 10pp â€” fire 5pp before reference bot
-    exitT: 0.99,                  // disable richest-flip exit
-    backToMeanExit: 0.0,          // exit when held returns to cross-region mean
-    baseSizeUsdcRaw: 20_000_000n,
-    cooldownSec: 60,
-  }),
-  minUsdcRaw: 20_000_000n,
-  defaultLiveTradeUsdcRaw: 20_000_000n,
-  defaultTickMs: 15_000,
-};
-
-// â”€â”€â”€ Drift / confirmation / flow variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Drift / confirmation / flow variants ---
 //
 // Three variants exploring the cadence-aware, multi-cycle confirmation,
 // and flow-history extensions independently. Treat the parameters below
@@ -622,7 +522,7 @@ export const regionArbCadenceDef: StrategyDefinition = {
   liveAllowed: true,
   factory: (walletId) => new RegionArbStrategy({
     id: walletId,
-    entryT: 0.12,                 // 12pp entry â€” wide
+    entryT: 0.12,                 // 12pp entry - wide
     exitT: 0.03,                  // 3pp exit-when-richest
     cycleSkipMinutes: [0, 1],     // skip fire minute + propagation buffer
     cyclePeriodMinutes: 5,        // matches actual rebalancer cron
@@ -639,13 +539,13 @@ export const regionArbCadenceDef: StrategyDefinition = {
  *    - requireConfirmCycles=2: same region must be cheapest on the
  *      previous tick AND current tick before entering.
  *    - backToMeanExit=-0.02: exit when held region's drift recovers
- *      to -2% (still slightly cheap) â€” before full mean-reversion.
+ *      to -2% (still slightly cheap) - before full mean-reversion.
  *      Catches the peak; exiting at 0% would let it overshoot down.
  *
- *  Key constraint: tickMs=60_000 (1 min) so 120-min drift gets â‰¥120
+ *  Key constraint: tickMs=60_000 (1 min) so 120-min drift gets >=120
  *  samples. Smaller tickMs is fine but doesn't reduce noise further.
  *
- *  No flow feature â€” this is the drift-only baseline. The `flow`
+ *  No flow feature - this is the drift-only baseline. The `flow`
  *  variant below adds flow on top. */
 export const regionArbConfirmDef: StrategyDefinition = {
   name: 'region_arb_confirm',
@@ -658,17 +558,17 @@ export const regionArbConfirmDef: StrategyDefinition = {
     driftLookbackMin: 120,        // 2-hour rolling drift average
     requireConfirmCycles: 2,      // require 2 ticks to agree
     baseSizeUsdcRaw: 20_000_000n,
-    cooldownSec: 300,             // patient â€” only fire on conviction
+    cooldownSec: 300,             // patient - only fire on conviction
     maxHoldSec: 5 * 86400,
   }),
   minUsdcRaw: 20_000_000n,
   defaultLiveTradeUsdcRaw: 20_000_000n,
-  defaultTickMs: 60_000,          // 1 min tick â†’ â‰¥120 samples for lb=120
+  defaultTickMs: 60_000,          // 1 min tick -> >=120 samples for lb=120
 };
 
 /** Drift + flow-history. Same as `region_arb_confirm` PLUS a flow-history
  *  feature: penalize regions the rebalancer has been net-selling recently
- *  (proxy for "vault is now lighter on that region â†’ less likely to be
+ *  (proxy for "vault is now lighter on that region -> less likely to be
  *  sold again next cycle").
  *
  *  Flow source: prod DB `rebalance_trades` (refreshed every 60s, cached
@@ -687,7 +587,7 @@ export const regionArbFlowDef: StrategyDefinition = {
     id: walletId,
     entryT: 0.05,
     exitT: 0.99,
-    backToMeanExit: -0.03,        // even earlier exit (âˆ’3% per epoch 12)
+    backToMeanExit: -0.03,        // even earlier exit
     driftLookbackMin: 120,
     requireConfirmCycles: 2,
     flowFeatureWeight: 0.0005,
@@ -701,7 +601,7 @@ export const regionArbFlowDef: StrategyDefinition = {
   defaultTickMs: 60_000,
 };
 
-// â”€â”€â”€ Range-position dip-buyer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Range-position dip-buyer ---
 //
 // A textbook 24h mean-reversion rule, parameterised by entry / exit
 // range positions:
@@ -711,18 +611,13 @@ export const regionArbFlowDef: StrategyDefinition = {
 //   window. Cap hold time so a region that never recovers doesn't tie
 //   up capital indefinitely.
 //
-// This is the strategy template the `wallet-decoder` framework at
-// bear-scout/runners/ most often produces â€” competitor wallets on PBX-style
-// region markets commonly follow this shape, with (entryRangePos,
-// exitRangePos, maxHoldSec) as the decoded parameters.
-//
 // Implementation notes:
 //   - Tracks per-region price series in memory (24h * 60s tick = 1440
-//     samples Ã— 3 regions = small).
+//     samples * 3 regions = small).
 //   - Decides per tick: scan all regions; if any region is at range
 //     low AND we're in USDC, BUY it. If holding, check range high or
 //     max-hold timer for exit.
-//   - No spread / mean / drift / flow features â€” this rule doesn't
+//   - No spread / mean / drift / flow features - this rule doesn't
 //     need them.
 
 export interface RegionArbDipOpts {
@@ -736,7 +631,7 @@ export interface RegionArbDipOpts {
   exitRangePos?: number;
   /** Max hold seconds (default 24h). */
   maxHoldSec?: number;
-  /** Cooldown after any trade in seconds (default 0 â€” re-eligible immediately). */
+  /** Cooldown after any trade in seconds (default 0 - re-eligible immediately). */
   cooldownSec?: number;
   /** Per-trade size in USDC base units (default $300). */
   baseSizeUsdcRaw?: bigint;
@@ -760,7 +655,7 @@ export class RegionArbDipStrategy implements Strategy {
   private lastTradeAt = 0;
   private readonly entryAt = new Map<RegionKey, number>();
   private readonly entryPrice = new Map<RegionKey, number>();
-  /** Per-region price samples tsâ†’price. Pruned to rangeWindowSec. */
+  /** Per-region price samples ts->price. Pruned to rangeWindowSec. */
   private readonly priceHistory: Record<RegionKey, Array<{ ts: number; price: number }>> = {
     NYC: [], CHI: [], TOR: [],
   };
@@ -800,7 +695,7 @@ export class RegionArbDipStrategy implements Strategy {
    * computed instead of 24h range), which racks up fee losses on
    * non-mean-reverting micro-fluctuations.
    *
-   * Source: rebalance_trades.amount_in/amount_out â†’ execution price.
+   * Source: rebalance_trades.amount_in/amount_out -> execution price.
    * Slight bias vs live pool mid (~10-30 bps) but matches the backtest
    * price view exactly.
    */
@@ -824,11 +719,11 @@ export class RegionArbDipStrategy implements Strategy {
         let region: RegionKey | null = null;
         let price: number | null = null;
         if (t.token_in === USDC) {
-          // engine BOUGHT region â†’ price = USDC_in / region_out
+          // engine BOUGHT region -> price = USDC_in / region_out
           region = REGIONS.find((r) => r.mint === t.token_out)?.key ?? null;
           if (region && t.amount_out > 0) price = t.amount_in / t.amount_out;
         } else if (t.token_out === USDC) {
-          // engine SOLD region â†’ price = USDC_out / region_in
+          // engine SOLD region -> price = USDC_out / region_in
           region = REGIONS.find((r) => r.mint === t.token_in)?.key ?? null;
           if (region && t.amount_in > 0) price = t.amount_out / t.amount_in;
         }
@@ -884,7 +779,7 @@ export class RegionArbDipStrategy implements Strategy {
     });
     const debugBase = { ts: now, holding: wallet.holding, decision: '', perRegion };
 
-    // 1. EXIT LOGIC â€” if holding a region
+    // 1. EXIT LOGIC - if holding a region
     if (wallet.holding !== 'USDC') {
       const held = wallet.holding as RegionKey;
       const heldPrice = prices[held];
@@ -912,7 +807,7 @@ export class RegionArbDipStrategy implements Strategy {
       return null;
     }
 
-    // 2. ENTRY LOGIC â€” pick the lowest-range-pos region that's below entry threshold
+    // 2. ENTRY LOGIC - pick the lowest-range-pos region that's below entry threshold
     const candidates = perRegion
       .filter((p) => p.rangePos != null && p.rangePos <= this.opts.entryRangePos)
       .sort((a, b) => (a.rangePos! - b.rangePos!));
@@ -922,7 +817,7 @@ export class RegionArbDipStrategy implements Strategy {
         .sort((a, b) => (a.rangePos! - b.rangePos!))[0];
       this.lastDebug = {
         ...debugBase,
-        decision: `no entry â€” lowest rangePos ${best ? best.region + ' ' + ((best.rangePos ?? 0) * 100).toFixed(0) + '%' : 'n/a'} > ${(this.opts.entryRangePos * 100).toFixed(0)}%`,
+        decision: `no entry - lowest rangePos ${best ? best.region + ' ' + ((best.rangePos ?? 0) * 100).toFixed(0) + '%' : 'n/a'} > ${(this.opts.entryRangePos * 100).toFixed(0)}%`,
       };
       return null;
     }
@@ -941,7 +836,7 @@ export class RegionArbDipStrategy implements Strategy {
     const size = available < baseSize ? available : baseSize;
     const minSize = baseSize / 2n;             // floor: 50% of baseSize
     if (size < minSize) {
-      this.lastDebug = { ...debugBase, decision: `underfunded â€” need â‰¥$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}) have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}` };
+      this.lastDebug = { ...debugBase, decision: `underfunded - need >=$${(Number(minSize) / 1e6).toFixed(2)} (50% of base $${(Number(baseSize) / 1e6).toFixed(0)}) have $${(Number(wallet.usdcBalance) / 1e6).toFixed(2)}` };
       return null;
     }
 
@@ -973,12 +868,9 @@ export class RegionArbDipStrategy implements Strategy {
 }
 
 /**
- *  region_arb_dip â€” buy bottom 20% of 24h range, exit top 25%, 24h max hold.
+ *  region_arb_dip - buy bottom 20% of 24h range, exit top 25%, 24h max hold.
  *
- *  This is the decoded competitor strategy. Recommended sizing: $300/trade,
- *  run 3 concurrent bots (one per region opportunity at a time, but since
- *  this strategy holds exactly one region at a time, you can run 3 instances
- *  with the same logic â€” they'll diversify entries naturally).
+ *  Neutral starting calibration; re-tune for your venue.
  */
 export const regionArbDipDef: StrategyDefinition = {
   name: 'region_arb_dip',
@@ -988,24 +880,7 @@ export const regionArbDipDef: StrategyDefinition = {
     entryRangePos: 0.20,
     exitRangePos: 0.75,
     maxHoldSec: 24 * 3600,
-    baseSizeUsdcRaw: 100_000_000n,   // $100/trade â€” lower slippage, smaller capital
-    cooldownSec: 0,
-  }),
-  minUsdcRaw: 100_000_000n,
-  defaultLiveTradeUsdcRaw: 100_000_000n,
-  defaultTickMs: 60_000,
-};
-
-/** Tighter variant â€” bottom 15% / top 80%, longer max-hold. */
-export const regionArbDipTightDef: StrategyDefinition = {
-  name: 'region_arb_dip_tight',
-  liveAllowed: true,
-  factory: (walletId) => new RegionArbDipStrategy({
-    id: walletId,
-    entryRangePos: 0.15,
-    exitRangePos: 0.80,
-    maxHoldSec: 48 * 3600,
-    baseSizeUsdcRaw: 100_000_000n,
+    baseSizeUsdcRaw: 100_000_000n,   // $100/trade - lower slippage, smaller capital
     cooldownSec: 0,
   }),
   minUsdcRaw: 100_000_000n,
