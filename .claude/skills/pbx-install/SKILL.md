@@ -1,5 +1,5 @@
 ---
-name: pbx-stratos-setup
+name: pbx-install
 description: PBX Stratos onboarding wizard. Use when the user is inside a cloned PBX-Stratos repository (cwd contains `install.bat`, `CLAUDE.md`, `bear-watch/`, `.claude/skills/`) and asks to install or onboard. Trigger phrases — "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README". The skill runs the platform installer (`install.bat` on Windows, `install.sh` on macOS/Linux), walks through the 5-question personality quiz, applies personality + theme, optionally enables live trading + wallet, opens the dashboard at http://localhost:8787, and hands off to the roadmap. Does not clone — assumes the repo is already on disk. If the user prefers to run install.bat themselves, point them there and step back.
 ---
 
