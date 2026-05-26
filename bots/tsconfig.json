@@ -7,8 +7,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "outDir": "dist",
-    "rootDir": "src"
+    "noEmit": true
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*",
+    "../kernel/ts/src/**/*"
+  ]
 }

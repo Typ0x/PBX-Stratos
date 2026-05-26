@@ -40,9 +40,9 @@
 
 import type { Strategy, TickContext, TradeIntent } from './types.js';
 import { getAllPrices } from '../server/prices.js';
-import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../regions.js';
-import { getWallet, getTrades } from '../core/state.js';
-import { getCycleHistory, CycleHistory } from '../core/cycle_history.js';
+import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../../../kernel/ts/src/regions.js';
+import { getWallet, getTrades } from '../../../kernel/ts/src/state.js';
+import { getCycleHistory, CycleHistory } from '../../../kernel/ts/src/cycle_history.js';
 import {
   LiveSnapshotBuilder,
   SNAPSHOT_REGIONS,

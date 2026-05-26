@@ -40,8 +40,8 @@
  * `dev_*` window actually referenced â€” carrying 24h only when needed.
  */
 
-import { MedianBuffer } from '../../core/median_price.js';
-import { CycleHistory, type EngineCycle } from '../../core/cycle_history.js';
+import { MedianBuffer } from '../../../../kernel/ts/src/median_price.js';
+import { CycleHistory, type EngineCycle } from '../../../../kernel/ts/src/cycle_history.js';
 import type { Snapshot, SnapValue } from './interpreter.js';
 
 /** The 3 active regions, in the iteration order the Python decoder uses

@@ -8,10 +8,10 @@
  * the timeseries are intentional and fine.
  */
 import { Connection } from '@solana/web3.js';
-import { readChainState } from './chain.js';
+import { readChainState } from '../../../kernel/ts/src/chain.js';
 import { getAllPrices } from './prices.js';
 import type { Store, NavSnapshot } from './store.js';
-import type { RegionKey } from '../regions.js';
+import type { RegionKey } from '../../../kernel/ts/src/regions.js';
 
 const SNAPSHOT_INTERVAL_MS = 60_000; // every 60s
 

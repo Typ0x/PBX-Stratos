@@ -30,7 +30,7 @@
  * a live bot, so this small basis is acceptable and documented.
  */
 
-import { REGIONS, type RegionKey } from '../regions.js';
+import { REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
 
 const PRICE_URL = 'https://lite-api.jup.ag/price/v3';
 

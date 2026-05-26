@@ -1,6 +1,6 @@
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { JupiterVenue } from '@pbx/swap-router';
-import { USDC_MINT } from '../regions.js';
+import { USDC_MINT } from './regions.js';
 
 /**
  * On live startup, if the bot wallet has SOL but not enough USDC, auto-

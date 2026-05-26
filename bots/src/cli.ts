@@ -13,9 +13,9 @@
  * explicitly — neither defaults. Refusing to trade without a clear signal
  * of intent is cheaper than refunding a bad accidental swap.
  */
-import { loadBotKeypair } from './core/wallet.js';
-import { preflightLive } from './core/preflight.js';
-import { autoWrapSolToUsdcIfNeeded } from './core/auto_wrap.js';
+import { loadBotKeypair } from '../../kernel/ts/src/wallet.js';
+import { preflightLive } from '../../kernel/ts/src/preflight.js';
+import { autoWrapSolToUsdcIfNeeded } from '../../kernel/ts/src/auto_wrap.js';
 import { LIVE_STRATEGIES, createStrategy, listStrategies } from './strategies/index.js';
 import type { Strategy } from './strategies/types.js';
 import { run } from './runner.js';

@@ -52,8 +52,8 @@ import { runWorkflow, MAX_PARALLEL_WALLETS, type WorkflowEvent } from './workflo
 import { listDecodes } from './workflow/decodes-store.js';
 import { backupSnoozeMs, shouldPromptBackup } from './backup-cadence.js';
 import { CLAUDE_NEEDS_SHELL, isClaudeAvailable, resolveClaude, resolvePython } from './workflow/exec-compat.js';
-import { generateNewMnemonic, isWellFormedMnemonic } from './hd.js';
-import { ensureMasterKeyCanary } from './secrets.js';
+import { generateNewMnemonic, isWellFormedMnemonic } from '../../../kernel/ts/src/hd.js';
+import { ensureMasterKeyCanary } from '../../../kernel/ts/src/secrets.js';
 import { Store } from './store.js';
 import { NavSnapshotter } from './nav-snapshotter.js';
 import { getAllPrices } from './prices.js';
@@ -61,11 +61,11 @@ import { getAllPricesPaper, getPaperPriceHealth } from './paper-prices.js';
 import { parseBotLog, pairRoundTrips, type RoundTrip } from './trade-history.js';
 import { AirQualityStore } from './airquality-store.js';
 import { fetchBackfill } from './airquality-backfill.js';
-import { fetchBundles } from '../core/scores.js';
+import { fetchBundles } from '../../../kernel/ts/src/scores.js';
 import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../strategies/index.js';
 import { validatePredicate, stripWalletTermsFromEntry } from '../strategies/dsl/interpreter.js';
 import type { WalletMeta } from './store.js';
-import { USDC_MINT, REGIONS, type RegionKey } from '../regions.js';
+import { USDC_MINT, REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
 
 const USDC = new PublicKey(USDC_MINT);
 

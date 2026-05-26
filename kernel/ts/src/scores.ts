@@ -1,4 +1,4 @@
-import type { RegionKey } from '../regions.js';
+import type { RegionKey } from './regions.js';
 
 /**
  * Per-region scoring from /api/signals. Two derived views:

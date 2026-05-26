@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { JupiterVenue, MeteoraVenue, OrcaVenue, PBX_METEORA_POOLS, SwapRouter } from '@pbx/swap-router';
 import type { Keypair } from '@solana/web3.js';
-import { initStrategyWallet, getWallet, recordTrade, snapshot } from './core/state.js';
-import { installSignalHandler, isTripped, trip } from './core/kill_switch.js';
-import { REGIONS, USDC_MINT, type RegionKey } from './regions.js';
+import { initStrategyWallet, getWallet, recordTrade, snapshot } from '../../kernel/ts/src/state.js';
+import { installSignalHandler, isTripped, trip } from '../../kernel/ts/src/kill_switch.js';
+import { REGIONS, USDC_MINT, type RegionKey } from '../../kernel/ts/src/regions.js';
 import type { Strategy } from './strategies/types.js';
 
 export interface RunnerOptions {

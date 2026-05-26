@@ -1,6 +1,6 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, getAccount, TokenAccountNotFoundError } from '@solana/spl-token';
-import { USDC_MINT } from '../regions.js';
+import { USDC_MINT } from './regions.js';
 
 /**
  * Live-mode preflight: before any bot submits a real tx, assert that the

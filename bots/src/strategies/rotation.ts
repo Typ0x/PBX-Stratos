@@ -1,6 +1,6 @@
-import { bestRegion, fetchScores } from '../core/scores.js';
-import { getWallet } from '../core/state.js';
-import { USDC_MINT, regionByKey } from '../regions.js';
+import { bestRegion, fetchScores } from '../../../kernel/ts/src/scores.js';
+import { getWallet } from '../../../kernel/ts/src/state.js';
+import { USDC_MINT, regionByKey } from '../../../kernel/ts/src/regions.js';
 import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './types.js';
 
 /**

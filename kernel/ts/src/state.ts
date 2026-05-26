@@ -1,4 +1,4 @@
-import type { RegionKey } from '../regions.js';
+import type { RegionKey } from './regions.js';
 
 /**
  * In-memory bot state: what each strategy is currently holding, and a

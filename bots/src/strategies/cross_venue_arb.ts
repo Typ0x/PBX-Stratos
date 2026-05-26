@@ -1,5 +1,5 @@
-import { getWallet } from '../core/state.js';
-import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../regions.js';
+import { getWallet } from '../../../kernel/ts/src/state.js';
+import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../../../kernel/ts/src/regions.js';
 import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './types.js';
 
 /**

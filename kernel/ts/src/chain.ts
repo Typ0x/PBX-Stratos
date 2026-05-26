@@ -6,8 +6,9 @@ import {
   TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token';
-import { REGIONS, USDC_MINT, type RegionKey } from '../regions.js';
-import type { PersistedState } from './store.js';
+import { REGIONS, USDC_MINT, type RegionKey } from './regions.js';
+// store.ts is cross-domain (lives in watch-scope, server/). Kernel imports the server's state type as a documented architectural exception. Path will update again in 7.3 when store.ts moves to bear-watch/code/src/server/.
+import type { PersistedState } from '../../../bots/src/server/store.js';
 
 /**
  * Reads on-chain balances and produces a PersistedState whose `holding`

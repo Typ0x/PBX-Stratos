@@ -39,7 +39,7 @@ import {
   type SnapshotRegion,
   type WalletView,
 } from './features.js';
-import { type EngineCycle } from '../../core/cycle_history.js';
+import { type EngineCycle } from '../../../../kernel/ts/src/cycle_history.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = join(HERE, 'fixtures', 'features_parity_fixture.json');

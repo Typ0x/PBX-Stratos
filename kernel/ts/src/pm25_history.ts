@@ -8,7 +8,7 @@
  *   inflate the sample count. The buffer warms up live over time.
  */
 import { fetchBundles } from './scores.js';
-import type { RegionKey } from '../regions.js';
+import type { RegionKey } from './regions.js';
 
 export interface Pm25Sample {
   ts: number; // unix seconds

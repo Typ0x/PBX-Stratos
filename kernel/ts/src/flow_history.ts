@@ -15,7 +15,7 @@
  * the strategy degrades to plain MCC instead of crashing.
  */
 import { Client } from 'pg';
-import type { RegionKey } from '../regions.js';
+import type { RegionKey } from './regions.js';
 
 const REGION_BY_MINT: Record<string, RegionKey> = {
   Bb7yeJNz1CBsXetysWwHjkk9ospkNExiVTVVKXXWAgDd: 'TOR',

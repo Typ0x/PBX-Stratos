@@ -16,7 +16,7 @@
  * Each daily CSV: location_id,sensors_id,location,datetime,lat,lon,parameter,units,value
  */
 import { gunzipSync } from 'node:zlib';
-import { REGIONS, type RegionKey } from '../regions.js';
+import { REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
 import type { Pm25Sample } from './airquality-store.js';
 
 const DATASET_RAW =

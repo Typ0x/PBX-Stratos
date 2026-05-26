@@ -1,6 +1,6 @@
-import { fetchBundles } from '../core/scores.js';
-import { getWallet } from '../core/state.js';
-import { USDC_MINT, regionByKey, type RegionKey } from '../regions.js';
+import { fetchBundles } from '../../../kernel/ts/src/scores.js';
+import { getWallet } from '../../../kernel/ts/src/state.js';
+import { USDC_MINT, regionByKey, type RegionKey } from '../../../kernel/ts/src/regions.js';
 import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './types.js';
 
 /**
