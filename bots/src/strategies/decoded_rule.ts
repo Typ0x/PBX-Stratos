@@ -1,12 +1,15 @@
 /**
- * DecodedRuleStrategy â€” run a decoded DSL rule as a live bot (Phase 3a).
+ * DecodedRuleStrategy - run a decoded DSL rule as a live bot (Phase 3a).
  *
- * The wallet-decoder pipeline (`bear-scout/runners/`) produces a competitor's
- * strategy as a pair of predicate strings (an ENTRY predicate and an EXIT
- * predicate) over the snapshot feature space in `compute_snapshots`. This
- * strategy evaluates those predicates each tick against the live snapshot
- * dicts built by `LiveSnapshotBuilder`, and turns a firing predicate into
- * a `TradeIntent`.
+ * The wallet-decoder pipeline in `bear-scout/runners/` produces a pair of
+ * predicate strings (an ENTRY predicate and an EXIT predicate) over the
+ * snapshot feature space in `compute_snapshots`. This strategy evaluates
+ * those predicates each tick against the live snapshot dicts built by
+ * `LiveSnapshotBuilder`, and turns a firing predicate into a `TradeIntent`.
+ *
+ * What "decoded" means here is a property of the pipeline output, not a
+ * statement about whose strategy is being run - operators are
+ * responsible for the source of any predicates they deploy.
  *
  * â”€â”€ Pipeline (mirrors RegionArbDipStrategy) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *   1. First tick: pre-seed the snapshot builder's price history from the
