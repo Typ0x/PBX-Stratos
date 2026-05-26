@@ -1168,9 +1168,15 @@ If the user picks 1, 2, or 3 → that's their theme. If they pick
 | 3 | **Matrix** (green-on-black mono) | Pairs naturally with Hacker. |
 | 4 | **← See original themes** | Go back to the first three. |
 
-User round-trips freely until they pick. Once they do, POST the
-`theme_id` to the profile API — the endpoint will copy
-`themes/<id>.css` to `bots/src/server/active-theme.css` automatically:
+User round-trips freely until they pick. **As your very next tool
+call after the picker AskUserQuestion returns, POST the `theme_id`
+to the profile API.** Don't batch it with other steps — the
+dashboard polls `/api/profile` every 2s in the warmup window
+specifically to catch this and hot-swap the loaded stylesheet. The
+sooner you POST, the sooner the user sees their picked theme.
+
+The endpoint will copy `themes/<id>.css` to
+`bots/src/server/active-theme.css` automatically:
 
 ```bash
 curl -X POST http://localhost:8787/api/profile/recalibrate \
