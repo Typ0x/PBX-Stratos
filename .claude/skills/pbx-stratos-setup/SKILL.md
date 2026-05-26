@@ -277,13 +277,6 @@ setup. Highlights you cannot skip:
 
 ## 🛑 Multitasking pattern (the install-feels-fast principle)
 
-**Latest noob-test failure mode:** Claude on the VM said to the user
-"sit tight while the installer runs, I'll walk you through the
-onboarding quiz when it's done." That violates this entire section.
-The quiz IS the user's productive use of install time. If you find
-yourself about to type "sit tight" or "I'll wait" or "when install
-finishes" -- STOP, restart the step, fire the quiz popup now.
-
 The setup wizard has several slow operations the user would otherwise
 stare at for minutes. **Never make the user wait for a sequential
 operation when a concurrent one is possible.** Use this pattern:
@@ -344,73 +337,25 @@ from inside the cloned folder.
 
 ---
 
-## Step 0 — First FOUR tool calls (DO NOT DEVIATE)
+## Step 0 — Audit the repo IN PARALLEL with install launch
 
-**🛑 STOP. This is the most important section in the skill.** If
-you don't follow this exact sequence, the user sits idle while
-install runs. Watching the previous noob-loop test, Claude said to
-the user "sit tight while the installer runs — when it finishes I'll
-walk you through the onboarding quiz." That is a **skill violation**.
-
-**The user's wait time during install IS the quiz time.** They
-should NEVER be sitting watching a spinner. The whole reason the
-quiz exists is to fill the install wait.
-
-### Exact tool call sequence — your VERY FIRST turn
-
-Make these four tool calls in order, IN A SINGLE TURN:
-
-1. **Log session start**
-   ```bash
-   bash tools/onboarding-debug/log.sh session start "<first 80 chars of user prompt>"
-   ```
-
-2. **Background-launch install.bat** — `Bash` with `run_in_background: true`,
-   command:
-   ```bash
-   PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"
-   ```
-
-3. **Log the launch**
-   ```bash
-   bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"
-   ```
-
-4. **Fire Q0** — see Step 1's Q0 section for the AskUserQuestion
-   options. This is your turn-ending tool call. AFTER this fires,
-   your turn ends and the user sees the popup.
-
-### Forbidden phrases — never type these
-
-| Forbidden | Why |
-|---|---|
-| "Sit tight" | The user shouldn't be idle. Fire Q0. |
-| "I'll wait for the install to finish" | YOU shouldn't be idle. Fire Q0 + do audit in parallel. |
-| "When the install completes, I'll walk you through the quiz" | Quiz happens DURING install, not after. |
-| "Heres what to expect" (as a stalling narrative) | If you're typing a long narrative explanation, you've already wasted user-time. Fire Q0. |
-| Any sentence whose net effect is "the user should now wait" | Fire Q0. |
-
-### After Q0 (turns 2+)
-
-When the user clicks Q0:
-
-- If defaults: log the choice, jump to Step 2 env probe (parallel
-  with install). You now have install-time to do the audit before
-  Step 3 needs the profile.
-- If walkthrough: fire Q1. Between Q1 and Q2, do 1-2 audit checks.
-  Between Q2 and Q3, more audit checks. By Q5 the audit is mostly
-  done. THIS is the parallel-audit pattern in action.
-
-The audit is no longer a 2-minute blocker between prompt and quiz.
-It's a series of small reads interleaved with the quiz Q's.
-
-### Trust posture
-
-"We assume the repo is safe enough already but just to be sure."
-The user typed our canonical install trigger phrase, which implies
-they've already decided to trust the repo enough to run it. The
-audit's job is to surface any glaring problems while install
+**Trust posture:** "we assume it's safe enough already but just to
+be sure." The user typed our canonical install trigger phrase, which
+implies they've already decided to trust the repo enough to run it.
+The audit's job is to surface any glaring problems while install
 proceeds — NOT to gate install on a clean audit.
+
+**First two tool calls — do these BEFORE anything else:**
+
+1. `bash tools/onboarding-debug/log.sh session start "<user prompt 80 chars>"`
+2. Background-launch install.bat: Bash with `run_in_background: true`,
+   command `PBX_NONINTERACTIVE=1 cmd /c "<repo>\install.bat"`
+3. `bash tools/onboarding-debug/log.sh step1 install_launched "cmd /c install.bat in bg"`
+
+THEN run the audit. The install is now downloading Node / running
+npm install / etc. in the background while you read code in the
+foreground. They complete around the same time. User-perceived
+install time drops by ~2 min.
 
 **Why:** the user is letting you install + run code that can
 eventually touch a real Solana wallet. Look at the code. The user
