@@ -1163,7 +1163,62 @@
   function fp(value) {
     try { return JSON.stringify(value); } catch { return String(Math.random()); }
   }
+
+  // Theme hot-swap. The dashboard's <link id="active-theme-link"> loads
+  // /active-theme.css once at page load. When the noob install fires
+  // POST /api/profile/recalibrate with a new theme_id, the server
+  // copies themes/<id>.css over active-theme.css, but the browser
+  // still has the OLD css cached in its stylesheet object (default
+  // theme if this was a fresh install, or the previous theme if a
+  // recalibrate). The recalibrate MODAL handles this by calling
+  // location.reload() after Save, but the noob-install flow POSTs
+  // directly from Claude in the chat -- no reload.
+  //
+  // Fix: poll /api/profile, hot-swap the <link>'s href on any
+  // detected theme_id change OR on first observation of a real
+  // theme_id (handles the fresh-install case where the page loaded
+  // before any theme was picked).
+  //
+  // Poll cadence: aggressive (2s) for the first 90s after page load
+  // to catch the noob-install recalibrate quickly, then drops to the
+  // regular 15s refreshAll cadence. The endpoint is cached server-
+  // side, so polls cost ~1ms each.
+  let knownThemeId = null;
+  let pageLoadAt = Date.now();
+  async function checkThemeChange() {
+    try {
+      const profile = await api('/api/profile');
+      const themeId = profile && profile.theme_id;
+      if (!themeId) return; // no theme set yet, nothing to apply
+      if (knownThemeId !== themeId) {
+        // Either first time we see a real theme (page loaded with
+        // empty/default active-theme.css), or theme changed since
+        // last check. Either way, hot-swap so the browser picks up
+        // the right CSS.
+        const link = document.getElementById('active-theme-link');
+        if (link) {
+          link.href = '/active-theme.css?t=' + Date.now();
+        }
+        knownThemeId = themeId;
+      }
+    } catch { /* non-fatal, will retry next cycle */ }
+  }
+  // Fast warmup polling: every 2s for the first 90s. Catches the
+  // noob-install flow's recalibrate POST within seconds instead of
+  // waiting for the next 15s refreshAll cycle.
+  let warmupInterval = setInterval(() => {
+    if (Date.now() - pageLoadAt > 90_000) {
+      clearInterval(warmupInterval);
+      return;
+    }
+    checkThemeChange();
+  }, 2000);
+
   async function refreshAll() {
+    // Fire-and-forget: detect a theme-id change since page load and
+    // hot-swap the active-theme.css link if needed. Doesn't block the
+    // rest of refreshAll.
+    checkThemeChange();
     try {
       const s = await api('/dashboard/state');
       // `/dashboard/state` doesn't carry per-bot run mode / decoded rule
@@ -1896,7 +1951,59 @@
     // falls back to a 2.5s setTimeout when the browser doesn't support
     // idle callbacks (older Safari).
     schedulePrefetchAllViews();
+    // Start polling /api/workflow/preflight every 5s to show a
+    // bottom-right "Background installs: pending / ready" indicator
+    // until both deferred installs (pip-decoder + claude-code CLI)
+    // are done. See checkBackgroundInstalls() below.
+    checkBackgroundInstalls();
   });
+
+  // ============ background-install footer indicator ============
+  // The install.ps1 + setup.mjs flow defers two heavy installs (the
+  // pip decoder deps + the @anthropic-ai/claude-code CLI) to
+  // background so the dashboard comes up sooner. Without UI surface,
+  // a user (or agent) who clicks decode within 2-3 min of dashboard
+  // load hits an opaque "tools missing" error. This poll watches the
+  // preflight endpoint, surfaces a calm "Background installs: 1/2
+  // ready" indicator in the footer, auto-hides once both are green.
+  // If either install fails, surfaces a retry hint.
+  let bgInstallPollHandle = null;
+  async function checkBackgroundInstalls() {
+    const indicator = document.getElementById('bg-install-indicator');
+    const text = document.getElementById('bg-install-text');
+    if (!indicator || !text) return;
+    let data;
+    try { data = await api('/api/workflow/preflight'); }
+    catch { return; /* server hiccup — retry next poll */ }
+    if (!data) return;
+    // ready=true means everything's installed (or was pre-installed
+    // and never needed the deferral). bgInstallInProgress=true means
+    // at least one is still chugging. Otherwise: both done or
+    // permanently failed (we surface the failure rather than hide).
+    if (data.ready) {
+      // Brief "ready" flash then auto-hide
+      indicator.classList.remove('hidden');
+      text.textContent = 'Background installs: ready ✓';
+      setTimeout(() => indicator.classList.add('hidden'), 4000);
+      if (bgInstallPollHandle) { clearTimeout(bgInstallPollHandle); bgInstallPollHandle = null; }
+      return;
+    }
+    if (data.bgInstallInProgress) {
+      indicator.classList.remove('hidden');
+      const bits = [];
+      if (data.bgInstall && data.bgInstall.pip) bits.push('decoder pip');
+      if (data.bgInstall && data.bgInstall.claudeCli) bits.push('claude CLI');
+      text.textContent = bits.length
+        ? `Installing in background: ${bits.join(', ')}…`
+        : 'Background installs: in progress…';
+      bgInstallPollHandle = setTimeout(checkBackgroundInstalls, 5000);
+      return;
+    }
+    // Not in-progress, not ready -> permanent failure or never tried.
+    // Hide silently; the Discover view banner will surface details
+    // when the user gets there.
+    indicator.classList.add('hidden');
+  }
 
   // ============ workflow (Strategy Discovery) ============
   //
@@ -3269,6 +3376,38 @@
       banner.classList.add('hidden');
       return;
     }
+
+    // Friendly "background install in progress" state -- when the
+    // deferred pip-decoder / claude-code installs (commit dee7676)
+    // are still running, the server returns bgInstallInProgress=true.
+    // Show a calm "decoder finishing up, ready in ~2 min" message
+    // instead of the scary missing-tools list, and auto-recheck
+    // every 8s so the button enables itself once installs finish.
+    if (data.bgInstallInProgress) {
+      while (banner.firstChild) banner.removeChild(banner.firstChild);
+      const wrap = document.createElement('div');
+      wrap.className = 'text-emerald-200/90';
+      const head = document.createElement('div');
+      head.className = 'text-emerald-200 font-medium flex items-center gap-2';
+      const spinner = document.createElement('span');
+      spinner.className = 'inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot';
+      head.append(spinner);
+      head.appendChild(document.createTextNode('Decoder is finishing install in the background — ready in ~1-2 min'));
+      wrap.append(head);
+      const sub = document.createElement('div');
+      sub.className = 'text-[12px] muted mt-1';
+      sub.textContent = 'The dashboard is fully usable; only the "Find top traders & decode" button waits on this. It will auto-enable when ready.';
+      wrap.append(sub);
+      banner.append(wrap);
+      banner.classList.remove('hidden');
+      startBtn.disabled = true;
+      startBtn.title = 'Decoder still installing — auto-enables when ready';
+      // Re-check every 8s; once data.ready flips true, the early
+      // return at the top of this function clears the banner.
+      setTimeout(checkWorkflowPreflight, 8000);
+      return;
+    }
+
     // Render missing-tool list with remediation
     while (banner.firstChild) banner.removeChild(banner.firstChild);
     const head = document.createElement('div');
@@ -4397,10 +4536,43 @@
     }, 220);
   }
 
-  // Render one toast in the bottom-right stack. Auto-dismisses after
-  // ~6s. Stack supports multiple toasts when several unlocks land in
-  // a single poll — they cascade up the right edge.
+  // Toast queue + stagger.
+  //
+  // Multiple unlocks in one poll cycle (e.g. user just hit a milestone
+  // that auto-detects 5 chained achievements) USED to fire 5 toasts
+  // simultaneously — overwhelming. Now they cascade through a queue
+  // with a 500ms gap between each, and each toast stays visible for
+  // 8000ms. Single-toast unlocks (manual mark, single auto-detect)
+  // hit the head of the queue and render immediately — the stagger
+  // only kicks in when the queue has more than one item.
+  //
+  // The queue lives in module-scope state so successive
+  // showAchievementToast() calls from different render passes still
+  // share one staggered cascade.
+  const TOAST_STAGGER_MS = 500;
+  const TOAST_DURATION_MS = 8000;
+  const toastQueue = [];
+  let toastDrainTimer = null;
+
   function showAchievementToast(unlock) {
+    toastQueue.push(unlock);
+    if (!toastDrainTimer) drainToastQueue();
+  }
+
+  function drainToastQueue() {
+    if (toastQueue.length === 0) {
+      toastDrainTimer = null;
+      return;
+    }
+    const next = toastQueue.shift();
+    renderAchievementToastNow(next);
+    toastDrainTimer = setTimeout(drainToastQueue, TOAST_STAGGER_MS);
+  }
+
+  // Render one toast in the bottom-right stack. Auto-dismisses after
+  // TOAST_DURATION_MS. Stack supports multiple toasts — they cascade
+  // up the right edge via flex-col-reverse on the parent.
+  function renderAchievementToastNow(unlock) {
     const stack = document.getElementById('achievement-toast-stack');
     if (!stack) return;
     const titleText = unlock.title || ('Unlocked: ' + unlock.taskId);
@@ -4465,8 +4637,8 @@
     toast.style.cursor = 'pointer';
     toast.title = 'Click to jump to this achievement in the list';
 
-    // Auto-dismiss after 6s.
-    setTimeout(() => dismissToast(toast), 6000);
+    // Auto-dismiss after TOAST_DURATION_MS (8s).
+    setTimeout(() => dismissToast(toast), TOAST_DURATION_MS);
   }
 
   // Flip a row from "not done" to "done" without re-rendering the
@@ -4921,13 +5093,108 @@
     if (silent && tourActive()) return;
     const host = document.getElementById('view-health');
     if (!host) return;
-    // Foreground first-paint: show the lightweight loading card. Silent
-    // refresh: leave the existing content alone while we fetch.
+    // Foreground first-paint: render the FULL page structure with
+    // REAL static labels (top status names, the 7 check names, the
+    // 2 pm2 processes, the 6 scheduled tasks). Status pills + detail
+    // text show "checking..." until the API call lands and patches
+    // them in. Replaces the previous dull all-gray skeleton -- the
+    // page now looks alive immediately and the user just sees status
+    // pills flip from gray to green/red when data arrives.
+    // Silent refresh: leave existing content alone while we fetch.
     if (!silent) {
-      replace(host,
-        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-          el('div', { class: 'text-[13px] muted' }, 'Loading health…')),
+      // Known-static labels. These never change between installs.
+      // Source of truth: /api/ops/health response shape + CANONICAL_SCHEDULED_TASKS.
+      const TOP_CARDS = [
+        { key: 'server',     label: 'Dashboard server',  sub: 'Fastify on port 8787' },
+        { key: 'paperTrade', label: 'Paper-trade bot',   sub: 'pm2 + 60s tick loop' },
+        { key: 'rpc',        label: 'Solana RPC',        sub: 'Helius mainnet endpoint' },
+      ];
+      const CHECKS = [
+        { name: 'Server alive',          hint: 'process responding to requests' },
+        { name: 'Dashboard responds',    hint: 'dashboard.html readable' },
+        { name: 'Paper-trade heartbeat', hint: 'heartbeat file < 5 min old' },
+        { name: 'AQI feed fresh',        hint: 'AQI snapshot < 30 min old' },
+        { name: 'Alerts writable',       hint: 'alerts.jsonl appendable' },
+        { name: 'Disk space',            hint: '> 5% free on lab partition' },
+        { name: 'RPC reachable',         hint: 'getSlot returns a slot number' },
+      ];
+      const PM2_PROCS = [
+        { name: 'bear-watch-server-stratos', role: 'Dashboard + live bot runner' },
+        { name: 'paper-trade-bot-stratos',   role: 'Paper strategy ticker' },
+      ];
+      const SCHED_TASKS = [
+        { name: 'STRATOS-HealthCheck',   schedule: 'every 5 min' },
+        { name: 'STRATOS-WeatherPull',   schedule: 'hourly' },
+        { name: 'STRATOS-DailyDigest',   schedule: 'daily 06:00 EDT' },
+        { name: 'STRATOS-StateBackup',   schedule: 'daily 03:00 EDT' },
+        { name: 'STRATOS-CodebaseBackup',schedule: 'weekly Sun 03:30' },
+        { name: 'STRATOS-MetaWatchdog',  schedule: 'every 5 min' },
+      ];
+      const pendingPill = () => el('span', {
+        class: 'inline-flex items-center text-[10px] font-semibold mono tracking-wide '
+          + 'uppercase px-2 py-0.5 rounded border bg-zinc-700/30 text-zinc-400 border-zinc-700/60',
+      }, 'checking...');
+      const sk = el('div', { class: 'space-y-6' },
+        // 3 top status cards with real labels
+        el('section', { class: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+          ...TOP_CARDS.map((c) => el('div', {
+            class: 'card rounded-xl p-5 flex items-center gap-4',
+          },
+            el('span', { class: 'inline-block w-3 h-3 rounded-full bg-zinc-600/60 pulse-dot' }),
+            el('div', { class: 'flex-1 space-y-1' },
+              el('div', { class: 'text-xs text-zinc-400 uppercase tracking-wider mono' }, c.label),
+              el('div', { class: 'text-sm text-zinc-200 font-medium' }, c.sub),
+              pendingPill(),
+            ),
+          )),
+        ),
+        // 7 checks with real names
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'flex items-baseline justify-between mb-2' },
+            el('div', { class: 'text-sm font-semibold text-zinc-100' }, '7 Health Checks'),
+            el('div', { class: 'text-[10px] mono uppercase tracking-wider text-zinc-500' }, 'running...'),
+          ),
+          ...CHECKS.map((c) =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200' }, c.name),
+                el('div', { class: 'text-xs text-zinc-500' }, c.hint),
+              ),
+              pendingPill(),
+            ),
+          ),
+        ),
+        // pm2 processes
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'text-sm font-semibold text-zinc-100 mb-2' }, 'PM2 Processes'),
+          ...PM2_PROCS.map((p) =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200 mono' }, p.name),
+                el('div', { class: 'text-xs text-zinc-500' }, p.role),
+              ),
+              pendingPill(),
+            ),
+          ),
+        ),
+        // Scheduled tasks
+        el('section', { class: 'card rounded-xl p-5 space-y-3' },
+          el('div', { class: 'text-sm font-semibold text-zinc-100 mb-2' }, 'Windows Scheduled Tasks'),
+          ...SCHED_TASKS.map((t) =>
+            el('div', { class: 'flex items-center gap-3 py-2 border-b border-zinc-800/40 last:border-b-0' },
+              el('span', { class: 'inline-block w-2.5 h-2.5 rounded-full bg-zinc-600/60' }),
+              el('div', { class: 'flex-1' },
+                el('div', { class: 'text-sm text-zinc-200 mono' }, t.name),
+                el('div', { class: 'text-xs text-zinc-500' }, t.schedule),
+              ),
+              pendingPill(),
+            ),
+          ),
+        ),
       );
+      replace(host, sk);
     }
     if (viewCache.health) viewCache.health.fetching = true;
     let data;
@@ -5220,10 +5487,55 @@
     const host = document.getElementById('view-achievements');
     if (!host) return;
     if (!silent) {
-      replace(host,
-        el('div', { class: 'card rounded-xl py-16 px-6 text-center' },
-          el('div', { class: 'text-[13px] muted' }, 'Loading achievements…')),
+      // Skeleton with REAL section names + task counts baked in.
+      // The 7 sections are static -- ROADMAP.md never adds new
+      // sections, just new tasks within existing ones. Source of
+      // truth: CLAUDE.md "The 7-section / 130-task roadmap" table.
+      // The user's progress (count + section bar) loads from API.
+      const SECTIONS = [
+        { id: 1, name: 'Genesis',   total: 14, blurb: 'Install + verify safety + get oriented' },
+        { id: 2, name: 'Pulse',     total: 19, blurb: 'Watch the bot run, learn the rhythm' },
+        { id: 3, name: 'Forge',     total: 22, blurb: 'Tweak strategies + run first wallet decode' },
+        { id: 4, name: 'Architect', total: 22, blurb: 'Build own strategy via agentic-decode loop' },
+        { id: 5, name: 'Mainnet',   total: 28, blurb: 'Go live with real money' },
+        { id: 6, name: 'Vanguard',  total: 12, blurb: 'Claim $100 reward + customize everything' },
+        { id: 7, name: 'Mastery',   total: 14, blurb: 'Beyond the author’s current level' },
+      ];
+      const sk = el('div', { class: 'space-y-4' },
+        // Profile header card -- show real labels, just no numbers yet
+        el('div', { class: 'card rounded-xl p-5 flex items-center gap-4' },
+          el('span', { class: 'inline-block w-10 h-10 rounded-full bg-zinc-700/40 animate-pulse' }),
+          el('div', { class: 'flex-1 space-y-1' },
+            el('div', { class: 'text-xs text-zinc-400 uppercase tracking-wider mono' }, 'Your Achievements'),
+            el('div', { class: 'text-sm text-zinc-300' },
+              el('span', { class: 'text-zinc-500' }, 'Loading your progress… '),
+              el('span', { class: 'mono text-zinc-400' }, '— / 130 total tasks across 7 sections'),
+            ),
+            el('div', { class: 'h-2 w-full bg-zinc-800/60 rounded mt-2' }),
+          ),
+        ),
+        // 7 section cards with REAL names + total counts
+        ...SECTIONS.map((s) =>
+          el('div', { class: 'card rounded-xl p-5 flex items-baseline justify-between gap-3' },
+            el('div', { class: 'flex-1' },
+              el('div', { class: 'text-sm font-semibold text-zinc-100' },
+                el('span', { class: 'mono text-zinc-500 mr-2' }, 's' + s.id + '.'),
+                s.name,
+              ),
+              el('div', { class: 'text-xs text-zinc-500 mt-0.5' }, s.blurb),
+            ),
+            el('div', { class: 'flex items-baseline gap-3' },
+              el('div', { class: 'text-xs mono text-zinc-400' },
+                el('span', { class: 'text-zinc-600' }, '—'),
+                ' / ',
+                String(s.total),
+              ),
+              el('div', { class: 'h-1.5 w-32 bg-zinc-800/60 rounded' }),
+            ),
+          ),
+        ),
       );
+      replace(host, sk);
     }
     if (viewCache.achievements) viewCache.achievements.fetching = true;
     let data;

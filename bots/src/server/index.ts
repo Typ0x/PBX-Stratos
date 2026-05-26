@@ -78,6 +78,35 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/**
+ * Bug #2 fix: parse JSON tolerantly of a UTF-8 BOM (EF BB BF) at offset 0.
+ *
+ * PowerShell 5.1 Desktop edition (the default on Windows 10/11) writes
+ * UTF-8 *with* BOM by default for `Set-Content -Encoding utf8` and
+ * `Out-File -Encoding utf8`. The agent-driven install writes
+ * runtime/lab/user-profile.json from PowerShell during the quiz, so
+ * the file lands with a BOM, and JSON.parse throws on it. Every
+ * subsequent dashboard poll of /api/ops/achievements then returns
+ * HTTP 500 with a misleading "exists but is unreadable" error.
+ *
+ * Strip the BOM if present, then parse. On parse failure, the
+ * surrounding `Error.message` should mention "BOM" so a future
+ * operator searching for the symptom finds this comment.
+ */
+function parseJsonTolerant(text: string): unknown {
+  // ZWNBSP / UTF-8 BOM (﻿ == EF BB BF) at start.
+  const cleaned = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (text.charCodeAt(0) === 0xfeff) {
+      throw new Error(`JSON parse failed even after stripping UTF-8 BOM: ${msg}`);
+    }
+    throw err;
+  }
+}
+
 /** Loopback check (raw socket address — never req.ip, which honors
  *  X-Forwarded-For when trustProxy is enabled). Covers IPv4 127.0.0.0/8,
  *  IPv6 ::1, IPv4-mapped-IPv6 ::ffff:127.x.x.x, and the literal
@@ -836,7 +865,13 @@ app.get('/health/apps', async () => {
   // app as stalled/down.
   try {
     const labDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
-    const hbPath = join(labDir, 'paper_trade_heartbeat.txt');
+    // Bug #1 fix: paper-trade.py writes `paper-trade-heartbeat` (hyphens,
+    // no extension). The previous filename here was `paper_trade_heartbeat.txt`
+    // (underscores + .txt) which never matched, so /health/apps always
+    // reported `paperTrade: down` even on a healthy bot AND the
+    // STRATOS-MetaWatchdog re-triggered pm2 recovery every 5 min on a
+    // perfectly-running bot. Canonical filename comes from the producer.
+    const hbPath = join(labDir, 'paper-trade-heartbeat');
     if (!existsSync(hbPath)) {
       apps.paperTrade = 'down';
       issues.push('paper-trade-bot heartbeat file missing — bot may not be running');
@@ -876,7 +911,51 @@ app.get('/health/apps', async () => {
 // All checks run as short subprocesses (~50ms each) with a 3s timeout.
 // Result is unauthenticated + safe to expose: it reveals only whether
 // known tooling exists, no secrets or file paths.
-app.get('/api/workflow/preflight', async () => {
+app.get('/api/workflow/preflight', async () => cached(preflightRespCache, RESP_CACHE_TTL_MS, async () => {
+  // Fast-path: detect bg-install BEFORE running the slow probes.
+  // During the first ~5 min after install, `pip install -e .[decoder]`
+  // and `npm install -g claude-code` are still completing in the
+  // background. The python/claude/sklearn probes each pay their full
+  // 3s timeout during that window -- producing 9-25s preflight calls
+  // (seen in the 6cebcb2 noob-test export: 25,764ms cold call).
+  // Detecting bg-install from file mtimes lets us return the same
+  // "warming up" response in <5ms instead of waiting for probes
+  // to time out. After the warmup window, slow-probe path runs
+  // normally and gets cached for 90s.
+  const fastPathLabDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
+  function fastPathBgActive(filename: string): boolean {
+    const p = join(fastPathLabDir, filename);
+    if (!existsSync(p)) return false;
+    try {
+      return Date.now() - statSync(p).mtimeMs < 5 * 60 * 1000;
+    } catch { return false; }
+  }
+  const fastPipActive = fastPathBgActive('pip-bg.log');
+  const fastClaudeCliActive = fastPathBgActive('claude-cli-bg.log');
+  if (fastPipActive || fastClaudeCliActive) {
+    return {
+      ready: false,
+      bgInstallInProgress: true,
+      bgInstall: { pip: fastPipActive, claudeCli: fastClaudeCliActive },
+      checks: {
+        python: {
+          ok: false, version: null, minor: null, required: '>= 3.9',
+          error: undefined,
+          note: 'Probe deferred — bg install in progress. Will reprobe automatically.',
+        },
+        claudeCli: {
+          ok: false, version: null, error: undefined,
+          note: 'Claude CLI install in progress in the background — usually ready 1-2 min after install.bat finishes. The decode button will enable automatically.',
+        },
+        sklearn: {
+          ok: false, version: null, error: undefined,
+          note: 'pip install -e .[decoder] in progress in the background — usually ready 2-3 min after install.bat finishes.',
+        },
+      },
+      remediation: { python: null, claudeCli: null },
+    };
+  }
+
   type ProbeResult = { ok: boolean; version?: string; error?: string };
   const probe = (cmd: string, args: string[], useShell = false): Promise<ProbeResult> =>
     new Promise((resolveProbe) => {
@@ -938,8 +1017,34 @@ app.get('/api/workflow/preflight', async () => {
   // data-driven fallback. sklearn is reported for diagnostics only —
   // the dashboard decoders don't import it.
   const allReady = pythonOk && claudeCli.ok;
+
+  // Detect whether a background install is mid-flight. install.ps1
+  // (Step 2) and scripts/setup.mjs (ensureClaudeCli) write
+  // runtime/lab/pip-bg.log / runtime/lab/claude-cli-bg.log when they
+  // launch the deferred installs. If a log was touched in the last 5
+  // minutes, the user is in the post-install warmup window and the
+  // dashboard should show "Decoder finishing install" instead of a
+  // hard "missing" error -- closes the only UX gap from the deferred-
+  // install perf optimization (see dee7676).
+  const labDir = process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab');
+  function bgInstallActive(filename: string): boolean {
+    const p = join(labDir, filename);
+    if (!existsSync(p)) return false;
+    try {
+      const ageMs = Date.now() - statSync(p).mtimeMs;
+      return ageMs < 5 * 60 * 1000;
+    } catch { return false; }
+  }
+  const bgInstall = {
+    pip: !sklearn.ok && bgInstallActive('pip-bg.log'),
+    claudeCli: !claudeCli.ok && bgInstallActive('claude-cli-bg.log'),
+  };
+  const bgInstallInProgress = bgInstall.pip || bgInstall.claudeCli;
+
   return {
     ready: allReady,
+    bgInstallInProgress,
+    bgInstall,
     checks: {
       python: { ok: pythonOk, version: python.version, minor: pythonMinor,
                 required: '>= 3.9',
@@ -948,10 +1053,15 @@ app.get('/api/workflow/preflight', async () => {
         ok: claudeCli.ok, version: claudeCli.version, error: claudeCli.error,
         note: claudeCli.ok
           ? 'Claude CLI found — wallet decoding will use the LLM refinement loop.'
-          : 'Claude CLI not found. The decode workflow requires it — install '
-            + 'and reload to enable the "Find top traders & decode" button.',
+          : bgInstall.claudeCli
+            ? 'Claude CLI install in progress in the background — usually ready 1-2 min after install.bat finishes. The decode button will enable automatically.'
+            : 'Claude CLI not found. The decode workflow requires it — install '
+              + 'and reload to enable the "Find top traders & decode" button.',
       },
-      sklearn: { ok: sklearn.ok, version: sklearn.version, error: sklearn.error },
+      sklearn: {
+        ok: sklearn.ok, version: sklearn.version, error: sklearn.error,
+        note: bgInstall.pip ? 'pip install -e .[decoder] in progress in the background — usually ready 2-3 min after install.bat finishes.' : undefined,
+      },
     },
     remediation: {
       python: !pythonOk ? {
@@ -959,14 +1069,14 @@ app.get('/api/workflow/preflight', async () => {
         linux: 'sudo apt-get install python3.12 python3.12-venv',
         note: 'Or use pyenv: curl https://pyenv.run | bash && pyenv install 3.12 && pyenv local 3.12',
       } : null,
-      claudeCli: !claudeCli.ok ? {
+      claudeCli: !claudeCli.ok && !bgInstall.claudeCli ? {
         macOS: 'npm install -g @anthropic-ai/claude-code',
         linux: 'npm install -g @anthropic-ai/claude-code',
         note: 'Required for the decode workflow. See https://docs.claude.com/en/docs/claude-code.',
       } : null,
     },
   };
-});
+}));
 
 // Powers the dashboard's market Leaderboard view. Returns the top
 // traders on PBX ranked by USDC volume in the last N days, enriched
@@ -1760,7 +1870,68 @@ const CANONICAL_SCHEDULED_TASKS: Array<{ name: string; schedule: string }> = [
   { name: 'STRATOS-MetaWatchdog',   schedule: 'every 5 min' },
 ];
 
-async function snapshotPm2(): Promise<Pm2Row[]> {
+// Perf: short-lived in-memory cache around the shell snapshots so the
+// dashboard's 15-second poll loop reuses results between ticks instead
+// of paying for a fresh pm2/schtasks shell-out every time. TTL=12s is
+// just under the 15s poll interval so consecutive polls reliably
+// hit cache (cold tick → fresh data; the next tick reuses it).
+// Per-key inflight promise prevents thundering-herd if two requests
+// arrive while a snapshot is being computed.
+//
+// Was 5s -> 12s -> 60s. The 12s was still too short: the noob-test
+// VM polls /api/ops/achievements every 18-29s (not the nominal 15s,
+// because each call takes 3-10s and shifts the next poll), so 12s
+// always expired between calls. 60s reliably covers consecutive polls
+// while still surfacing pm2-status changes within a minute -- which
+// is the right cadence given the test VM isn't going through realtime
+// process churn anyway.
+const SHELL_SNAPSHOT_TTL_MS = 60000;
+
+// Generic response cache. Wraps any async producer in a TTL'd cache
+// with inflight-promise coalescing. Used to memoize the full response
+// of expensive dashboard endpoints (achievements / health / preflight)
+// across the dashboard's 15s poll cycle. Each endpoint has its own
+// slot so caches don't cross-contaminate. Returns a cached object
+// reference; do NOT mutate after returning.
+type CacheSlot<T> = { data: T | null; at: number; inflight: Promise<T> | null };
+async function cached<T>(
+  slot: CacheSlot<T>,
+  ttlMs: number,
+  producer: () => Promise<T>,
+): Promise<T> {
+  const now = Date.now();
+  if (slot.data !== null && now - slot.at < ttlMs) return slot.data;
+  if (slot.inflight) return slot.inflight;
+  slot.inflight = producer().then((v) => {
+    slot.data = v;
+    slot.at = Date.now();
+    slot.inflight = null;
+    return v;
+  }).catch((err) => {
+    slot.inflight = null;
+    throw err;
+  });
+  return slot.inflight;
+}
+const achievementsRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+const healthRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+const preflightRespCache: CacheSlot<unknown> = { data: null, at: 0, inflight: null };
+// 30s -> 90s. The 30s caught most polls but the 6cebcb2 noob-test
+// export showed one cache miss at a 38s gap (preflight: 3174ms vs
+// the cache-hit 4ms). The miss was a single-digit % of calls so the
+// fix is small, but 90s eliminates it entirely. Trade-off: pm2/
+// schtasks status can be stale up to 90s; user-mutating writes still
+// invalidate the achievements slot immediately so user actions
+// remain instant.
+const RESP_CACHE_TTL_MS = 90000;
+let pm2CacheData: Pm2Row[] | null = null;
+let pm2CacheAt = 0;
+let pm2Inflight: Promise<Pm2Row[]> | null = null;
+let schedCacheData: SchedRow[] | null = null;
+let schedCacheAt = 0;
+let schedInflight: Promise<SchedRow[]> | null = null;
+
+async function snapshotPm2Raw(): Promise<Pm2Row[]> {
   try {
     const { execSync } = await import('node:child_process');
     const raw = execSync('pm2 jlist', {
@@ -1796,62 +1967,98 @@ async function snapshotPm2(): Promise<Pm2Row[]> {
   }
 }
 
-async function snapshotSchtasks(): Promise<SchedRow[]> {
-  const out: SchedRow[] = [];
+async function snapshotPm2(): Promise<Pm2Row[]> {
+  const now = Date.now();
+  if (pm2CacheData && now - pm2CacheAt < SHELL_SNAPSHOT_TTL_MS) {
+    return pm2CacheData;
+  }
+  if (pm2Inflight) return pm2Inflight;
+  pm2Inflight = snapshotPm2Raw().then((rows) => {
+    pm2CacheData = rows;
+    pm2CacheAt = Date.now();
+    pm2Inflight = null;
+    return rows;
+  }).catch((err) => {
+    pm2Inflight = null;
+    throw err;
+  });
+  return pm2Inflight;
+}
+
+async function snapshotSchtasksRaw(): Promise<SchedRow[]> {
   if (process.platform !== 'win32') {
     return CANONICAL_SCHEDULED_TASKS.map((t) => ({
       name: t.name, schedule: t.schedule,
       lastRunIso: null, lastResult: 'platform not Windows', nextRunIso: null,
     }));
   }
+  const parseIso = (s: string | null): string | null => {
+    if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  // Parallel-fire the 6 per-task queries. Previously these ran
+  // sequentially (~200ms each on a healthy box, 500-1000ms each on a
+  // VM with antivirus) which gated EVERY achievements + health
+  // render on a 1.2-6s shell wait. Promise.all + execFile (no shell)
+  // collapses that to one cluster of concurrent process spawns -- on
+  // a 2-core VM the wall time drops to roughly one schtasks call's
+  // worth of latency.
   try {
-    const { execSync } = await import('node:child_process');
-    // Probe — if even the first task is unreachable, fall back to canonical.
-    execSync('schtasks /query /fo csv /v /tn STRATOS-HealthCheck', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      shell: 'cmd.exe',
-    });
-    const parseIso = (s: string | null): string | null => {
-      if (!s || /\bN\/A\b/i.test(s) || /\bNever\b/i.test(s)) return null;
-      const d = new Date(s);
-      return Number.isNaN(d.getTime()) ? null : d.toISOString();
-    };
-    for (const t of CANONICAL_SCHEDULED_TASKS) {
-      try {
-        const listRaw = execSync(`schtasks /query /tn ${t.name} /fo list /v`, {
-          encoding: 'utf8',
-          timeout: 5000,
-          stdio: ['ignore', 'pipe', 'ignore'],
-          windowsHide: true,
-          shell: 'cmd.exe',
-        });
-        const lastRun = /Last Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        const nextRun = /Next Run Time:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        const lastResult = /Last Result:\s*(.+)/i.exec(listRaw)?.[1]?.trim() || null;
-        out.push({
-          name: t.name,
-          schedule: t.schedule,
-          lastRunIso: parseIso(lastRun),
-          lastResult,
-          nextRunIso: parseIso(nextRun),
-        });
-      } catch {
-        out.push({
-          name: t.name, schedule: t.schedule,
-          lastRunIso: null, lastResult: 'not registered', nextRunIso: null,
-        });
-      }
-    }
-    return out;
+    const cp = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(cp.execFile);
+    const results = await Promise.all(
+      CANONICAL_SCHEDULED_TASKS.map(async (t): Promise<SchedRow> => {
+        try {
+          const { stdout } = await execFileAsync(
+            'schtasks',
+            ['/query', '/tn', t.name, '/fo', 'list', '/v'],
+            { encoding: 'utf8', timeout: 5000, windowsHide: true, shell: false },
+          );
+          const lastRun = /Last Run Time:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          const nextRun = /Next Run Time:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          const lastResult = /Last Result:\s*(.+)/i.exec(stdout)?.[1]?.trim() || null;
+          return {
+            name: t.name,
+            schedule: t.schedule,
+            lastRunIso: parseIso(lastRun),
+            lastResult,
+            nextRunIso: parseIso(nextRun),
+          };
+        } catch {
+          return {
+            name: t.name, schedule: t.schedule,
+            lastRunIso: null, lastResult: 'not registered', nextRunIso: null,
+          };
+        }
+      }),
+    );
+    return results;
   } catch {
     return CANONICAL_SCHEDULED_TASKS.map((t) => ({
       name: t.name, schedule: t.schedule,
       lastRunIso: null, lastResult: null, nextRunIso: null,
     }));
   }
+}
+
+async function snapshotSchtasks(): Promise<SchedRow[]> {
+  const now = Date.now();
+  if (schedCacheData && now - schedCacheAt < SHELL_SNAPSHOT_TTL_MS) {
+    return schedCacheData;
+  }
+  if (schedInflight) return schedInflight;
+  schedInflight = snapshotSchtasksRaw().then((rows) => {
+    schedCacheData = rows;
+    schedCacheAt = Date.now();
+    schedInflight = null;
+    return rows;
+  }).catch((err) => {
+    schedInflight = null;
+    throw err;
+  });
+  return schedInflight;
 }
 
 // ─── Ops: health (7-check mirror) ──────────────────────────────────────
@@ -1871,7 +2078,7 @@ async function snapshotSchtasks(): Promise<SchedRow[]> {
 //
 // Auth: gated by the same bearer-token middleware as the rest of /api/*.
 // No mutation; safe to re-call as often as the dashboard wants.
-app.get('/api/ops/health', async () => {
+app.get('/api/ops/health', async () => cached(healthRespCache, RESP_CACHE_TTL_MS, async () => {
   const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
   const heartbeatPath = join(labDir, 'paper-trade-heartbeat');
   const aqiSnapshotPath = join(labDir, 'aqi-snapshot.json');
@@ -2080,7 +2287,7 @@ app.get('/api/ops/health', async () => {
     scheduledTasks,
     alerts,
   };
-});
+}));
 
 // ─── Ops: achievements (roadmap progress + event-driven unlocks) ──────
 //
@@ -2093,7 +2300,7 @@ app.get('/api/ops/health', async () => {
 //   - event-driven achievements from achievements/definitions.json,
 //     with unlocked state from ~/.pbx-lab/achievements.json and the
 //     first-unlocked-at timestamps from that same file.
-app.get('/api/ops/achievements', async () => {
+app.get('/api/ops/achievements', async () => cached(achievementsRespCache, RESP_CACHE_TTL_MS, async () => {
   const labDir = (process.env.STRATOS_LAB_HOME ?? join(homedir(), '.pbx-lab'));
   const profilePath = join(labDir, 'user-profile.json');
   const unlockedPath = join(labDir, 'achievements.json');
@@ -2144,11 +2351,12 @@ app.get('/api/ops/achievements', async () => {
   let profile: Record<string, unknown> | null = null;
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       throw new Error(
-        `user-profile.json exists but is unreadable — refusing to write ` +
-        `(would truncate other fields). Repair the file and retry. ` +
+        `user-profile.json contains invalid JSON. Repair the file and retry. ` +
+        `If written from PowerShell, check for a UTF-8 BOM at offset 0 — ` +
+        `parseJsonTolerant strips it automatically but other malformations fail. ` +
         `Underlying error: ${(err as Error).message}`
       );
     }
@@ -2492,7 +2700,7 @@ app.get('/api/ops/achievements', async () => {
     autoDetectedTasks,
     autoUnlockedThisRequest: autoUnlocked,
   };
-});
+}));
 
 // ─── Ops: mark a roadmap task complete ─────────────────────────────────
 //
@@ -2517,11 +2725,11 @@ app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req
   let profile: Record<string, unknown> = {};
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       return reply.code(500).send({
-        error: 'user-profile.json exists but is unreadable; refusing to overwrite. ' +
-          'Repair the file and re-try. Underlying error: ' + (err as Error).message,
+        error: 'user-profile.json contains invalid JSON. Repair the file and re-try. ' +
+          'Underlying error: ' + (err as Error).message,
       });
     }
   }
@@ -2550,6 +2758,10 @@ app.post<{ Body: { taskId?: string } }>('/api/ops/achievements/mark', async (req
   } catch {
     // Non-fatal — the profile update is the source of truth.
   }
+  // Invalidate the achievements response cache so the next GET reflects
+  // this mark immediately instead of serving up-to-12s-stale data.
+  achievementsRespCache.data = null;
+  achievementsRespCache.at = 0;
   return { ok: true, taskId, achievements_unlocked: existing, last_updated: nowIso };
 });
 
@@ -2571,10 +2783,10 @@ app.get('/api/profile', async (_req, reply) => {
   const profilePath = join(labDir, 'user-profile.json');
   if (!existsSync(profilePath)) return {};
   try {
-    return JSON.parse(readFileSync(profilePath, 'utf8'));
+    return parseJsonTolerant(readFileSync(profilePath, 'utf8'));
   } catch (err) {
     return reply.code(500).send({
-      error: 'user-profile.json exists but is unreadable. Repair the file first. ' +
+      error: 'user-profile.json contains invalid JSON. Repair the file first. ' +
         'Underlying error: ' + (err as Error).message,
     });
   }
@@ -2624,15 +2836,52 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
     'hacker':          'matrix',
   };
 
+  // Levenshtein distance for "did you mean" hints. Tiny implementation
+  // — only used on the 400 path so perf doesn't matter. Returns
+  // edit-distance between two strings (lowercase comparison).
+  function levenshtein(a: string, b: string): number {
+    const x = a.toLowerCase(), y = b.toLowerCase();
+    const m = x.length, n = y.length;
+    if (m === 0) return n; if (n === 0) return m;
+    const d: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) d[i]![0] = i;
+    for (let j = 0; j <= n; j++) d[0]![j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = x[i - 1] === y[j - 1] ? 0 : 1;
+        d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
+      }
+    }
+    return d[m]![n]!;
+  }
+  function nearestAllowed(value: string, allowed: string[]): string | null {
+    let best: { val: string; dist: number } | null = null;
+    for (const a of allowed) {
+      const dist = levenshtein(value, a);
+      if (best === null || dist < best.dist) best = { val: a, dist };
+    }
+    // Only suggest if the distance is reasonable (≤ ~50% of value length)
+    if (best && best.dist <= Math.max(2, Math.floor(value.length / 2))) return best.val;
+    return null;
+  }
+
   // Collect + validate.
   const updates: Record<string, string> = {};
   for (const field of Object.keys(ALLOWED)) {
     const raw = body[field];
     if (raw == null) continue;  // field omitted → don't change it
     if (typeof raw !== 'string' || !ALLOWED[field]!.includes(raw)) {
+      // Item 15: include a "did you mean" hint so AI clients can
+      // self-correct on first retry instead of guessing again.
+      const suggestion = typeof raw === 'string' ? nearestAllowed(raw, ALLOWED[field]!) : null;
+      const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
       return reply.code(400).send({
-        error: `invalid value for ${field}: ${JSON.stringify(raw)}. ` +
+        error: `invalid value for ${field}: ${JSON.stringify(raw)}.${hint} ` +
           `Allowed: ${ALLOWED[field]!.join(', ')}.`,
+        field,
+        provided: raw,
+        allowed: ALLOWED[field]!,
+        suggestion,
       });
     }
     updates[field] = raw;
@@ -2648,10 +2897,10 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
   let profile: Record<string, unknown> = {};
   if (existsSync(profilePath)) {
     try {
-      profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profile = parseJsonTolerant(readFileSync(profilePath, 'utf8')) as Record<string, unknown>;
     } catch (err) {
       return reply.code(500).send({
-        error: 'user-profile.json exists but is unreadable; refusing to overwrite. ' +
+        error: 'user-profile.json contains invalid JSON; refusing to overwrite. ' +
           'Repair the file and retry. Underlying error: ' + (err as Error).message,
       });
     }
@@ -2695,6 +2944,11 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
     }
   }
 
+  // Invalidate the achievements cache -- personality_id / theme_id
+  // changes affect s1.t9 detector results, so a poll right after
+  // recalibrate should see the fresh state instead of up-to-12s stale.
+  achievementsRespCache.data = null;
+  achievementsRespCache.at = 0;
   return {
     ok: true,
     updated_fields: Object.keys(updates),

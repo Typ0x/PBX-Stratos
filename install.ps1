@@ -29,6 +29,19 @@
 $ErrorActionPreference = 'Stop'
 $RepoRoot = $PSScriptRoot
 
+# Mirror install console output to runtime/lab/logs/install-stdout.log
+# for post-install debugging. Wrapped in try/catch because Start-Transcript
+# can fail if a previous install left a transcript hanging; we want
+# install to proceed regardless.
+try {
+  $LogsDir = Join-Path $RepoRoot 'runtime\lab\logs'
+  if (-not (Test-Path $LogsDir)) { New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null }
+  $TranscriptPath = Join-Path $LogsDir 'install-stdout.log'
+  Start-Transcript -Path $TranscriptPath -Force | Out-Null
+} catch {
+  Write-Host "(transcript capture failed: $_  -- continuing)" -ForegroundColor DarkGray
+}
+
 function Step {
   param([int]$N, [string]$Title)
   Write-Host ""
@@ -68,6 +81,19 @@ Write-Host "================================================================" -F
 Write-Host " PBX Stratos installer" -ForegroundColor Cyan
 Write-Host " repo: $RepoRoot" -ForegroundColor Gray
 Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " Here's what I'm about to do (in order, 3-6 min total):" -ForegroundColor White
+Write-Host "   1. Ensure Node.js >=18 (download bundled Node ~30MB if missing)" -ForegroundColor Gray
+Write-Host "   2. Ensure Python 3.10+ (download bundled Python ~25MB if missing)" -ForegroundColor Gray
+Write-Host "   3. npm install ~262 workspace packages" -ForegroundColor Gray
+Write-Host "   4. Create Python venv + start pip install -e .[decoder] in background" -ForegroundColor Gray
+Write-Host "   5. Install pm2 globally (if not already)" -ForegroundColor Gray
+Write-Host "   6. pm2 start bear-watch fleet (dashboard + paper-trade bot)" -ForegroundColor Gray
+Write-Host "   7. Register 6 Windows scheduled tasks (STRATOS-*)" -ForegroundColor Gray
+Write-Host "   8. Poll /health, open browser to /dashboard/fresh" -ForegroundColor Gray
+Write-Host ""
+Write-Host " All under this folder, no admin needed. Ctrl+C to abort." -ForegroundColor Gray
+Write-Host ""
 
 # ----------------------------------------------------------------
 Step 1 "Ensuring Node.js + Python + npm deps (via scripts/bootstrap.ps1)"
@@ -143,15 +169,26 @@ try {
     }
 
     if (Test-Path $venvPy) {
-      & $venvPy -m pip install --quiet --disable-pip-version-check -e ".[decoder]"
-      if ($LASTEXITCODE -ne 0) {
-        # Don't hard-fail -- the dashboard runs without decoder deps.
-        # The user just can't run wallet-evolve / agentic-decode until
-        # they're installed manually.
-        Warn "pip install -e .[decoder] failed (exit $LASTEXITCODE). Dashboard still works; decoder scripts won't."
-      } else {
-        Ok "Python venv + decoder deps ready"
-      }
+      # PERF: pip install -e .[decoder] pulls scikit-learn + numpy
+      # (~100MB download + compile) and takes 60-180s. The dashboard
+      # works fine without these -- they're only needed by
+      # bear-scout/runners/wallet-evolve.py and wallet-ml.py, which
+      # run only when the user clicks "Find top traders & decode" or
+      # invokes the wallet-decoder skill. Defer to background so the
+      # dashboard comes up faster. Log to runtime/lab/pip-bg.log so
+      # the user can check progress if a decode click hits before it
+      # finishes.
+      $pipLogDir = Join-Path $RepoRoot 'runtime\lab'
+      if (-not (Test-Path $pipLogDir)) { New-Item -ItemType Directory -Force -Path $pipLogDir | Out-Null }
+      $pipLog = Join-Path $pipLogDir 'pip-bg.log'
+      "$(Get-Date -Format o) -- starting background pip install -e .[decoder]" | Out-File -FilePath $pipLog -Encoding utf8
+      Start-Process -FilePath $venvPy `
+        -ArgumentList @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', '.[decoder]') `
+        -WorkingDirectory $RepoRoot `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $pipLog `
+        -RedirectStandardError ($pipLog + '.err') | Out-Null
+      Ok "Python venv ready; decoder deps installing in background (logs: runtime/lab/pip-bg.log)"
     } else {
       Warn ".venv created but python.exe missing -- skipping pip install"
     }
@@ -164,12 +201,33 @@ try {
 Step 3 "Installing pm2 (global, if missing)"
 $pm2Cmd = Get-Command pm2 -ErrorAction SilentlyContinue
 if (-not $pm2Cmd) {
-  & npm install -g pm2
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "npm install -g pm2 failed (exit $LASTEXITCODE)."
-    exit 1
+  # setup.mjs kicks off `npm install -g pm2` in the background at the
+  # start of Step 1, running it in parallel with the slow workspace
+  # install. By the time we reach Step 3, pm2 is usually already
+  # installed. If not (slow npm registry, etc.), wait up to 60s for
+  # the bg install to land before falling back to a sequential install.
+  $pm2BgLog = Join-Path $RepoRoot 'runtime\lab\logs\pm2-bg.log'
+  if (Test-Path $pm2BgLog) {
+    Write-Host "       (parallel pm2 install was kicked off in Step 1; waiting up to 60s for it to finish)..." -ForegroundColor Gray
+    $waited = 0
+    while ($waited -lt 60 -and -not (Get-Command pm2 -ErrorAction SilentlyContinue)) {
+      Start-Sleep -Seconds 2
+      $waited += 2
+    }
+    $pm2Cmd = Get-Command pm2 -ErrorAction SilentlyContinue
+    if ($pm2Cmd) {
+      Ok "pm2 installed by parallel bg install (waited ${waited}s)"
+    }
   }
-  Ok "pm2 installed globally"
+  if (-not $pm2Cmd) {
+    Write-Host "       (bg install didn't complete in time; falling back to sequential install)" -ForegroundColor Gray
+    & npm install -g pm2
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "npm install -g pm2 failed (exit $LASTEXITCODE)."
+      exit 1
+    }
+    Ok "pm2 installed globally (sequential fallback)"
+  }
 } else {
   Ok "pm2 already present at $($pm2Cmd.Source)"
 }
@@ -199,21 +257,41 @@ if ($LASTEXITCODE -ne 0) {
 
 # ----------------------------------------------------------------
 Step 6 "Waiting for /health + verifying both pm2 apps online"
-# Server needs a beat to come fully online after pm2 start. On cold
-# machines this can take 30-60s (npm cache cold, Windows Defender
-# scanning each file). Poll up to 90s.
-$maxWait = 90
+# Bug #3 fix: bumped from 90s -> 180s -> 300s. On cold Windows
+# machines with Defender / SmartScreen scanning the freshly-downloaded
+# node + python + 262 npm packages, /health has been observed taking
+# up to ~235s to respond after pm2 start even when the install
+# actually succeeded. The 90s budget fired "Install FAILED" on green
+# installs; the 180s budget was still too tight for the slowest cold
+# boots observed in the bff49e6 noob-test (235s). 300s gives ~65s
+# safety margin over the slowest cold boot observed so far.
+# Override with STRATOS_INSTALL_HEALTH_WAIT env var if needed.
+$maxWait = if ($env:STRATOS_INSTALL_HEALTH_WAIT) { [int]$env:STRATOS_INSTALL_HEALTH_WAIT } else { 300 }
 $elapsed = 0
 $healthOk = $false
+Write-Host "       polling /health (will print progress every 10s)..." -ForegroundColor Gray
 while ($elapsed -lt $maxWait) {
   try {
-    $r = Invoke-WebRequest -Uri 'http://localhost:8787/health' -UseBasicParsing -TimeoutSec 2
+    # IPv4 literal, not "localhost". On Windows 11, "localhost" resolves
+    # to ::1 (IPv6) FIRST, and Fastify binds to 127.0.0.1 only. The
+    # IPv6 connection fails and Invoke-WebRequest hangs until timeout
+    # instead of falling back to IPv4 -- which makes EVERY 180s install
+    # report FAIL even when the server is up and answering perfectly
+    # from any other client. Hard-coding 127.0.0.1 skips name resolution
+    # entirely.
+    $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/health' -UseBasicParsing -TimeoutSec 2
     if ($r.StatusCode -eq 200) { $healthOk = $true; break }
   } catch {
     # Server still booting -- keep waiting.
   }
   Start-Sleep -Seconds 1
   $elapsed++
+  # Heartbeat output every 10s so the user (or agent) doesn't think
+  # the install hung. /health can take 90-235s on cold Windows boots
+  # while Defender scans 262 fresh npm packages.
+  if ($elapsed -gt 0 -and ($elapsed % 10) -eq 0) {
+    Write-Host ("       [waited {0}s / {1}s]" -f $elapsed, $maxWait) -ForegroundColor Gray
+  }
 }
 
 # Don't just trust /health (which only proves the dashboard server is
@@ -224,7 +302,9 @@ while ($elapsed -lt $maxWait) {
 $bothOnline = $false
 if ($healthOk) {
   try {
-    $a = Invoke-WebRequest -Uri 'http://localhost:8787/health/apps' -UseBasicParsing -TimeoutSec 5
+    # Same IPv4 literal as the /health poll above -- "localhost" on
+    # Win11 resolves to ::1 first and Fastify is IPv4-only.
+    $a = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/health/apps' -UseBasicParsing -TimeoutSec 5
     if ($a.StatusCode -eq 200) {
       $apps = ($a.Content | ConvertFrom-Json).apps
       if ($apps.server -eq 'online' -and $apps.paperTrade -eq 'online') {
@@ -239,22 +319,34 @@ if ($healthOk) {
 }
 
 if (-not $healthOk) {
-  # Hard fail: dashboard never came up. Show the user where to look.
+  # Hard fail: dashboard never came up. Tail the actual log files so
+  # the user (or the agent driving the install) gets actionable output
+  # inline -- no need to go hunt for log paths and re-run commands.
   Write-Host ""
   Write-Host "================================================================" -ForegroundColor Red
   Write-Host " Install FAILED -- /health never reached 200 within ${maxWait}s" -ForegroundColor Red
   Write-Host "================================================================" -ForegroundColor Red
+  $serverLog = Join-Path $RepoRoot 'bots\_server_log.txt'
+  $paperLog  = Join-Path $RepoRoot 'bear-scout\runners\_paper_trade_log.txt'
+  if (Test-Path $serverLog) {
+    Write-Host ""
+    Write-Host " --- last 30 lines of bots/_server_log.txt ---" -ForegroundColor Yellow
+    Get-Content $serverLog -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+  }
+  if (Test-Path $paperLog) {
+    Write-Host ""
+    Write-Host " --- last 30 lines of bear-scout/runners/_paper_trade_log.txt ---" -ForegroundColor Yellow
+    Get-Content $paperLog -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+  }
   Write-Host ""
-  Write-Host " Check the pm2 logs to diagnose:" -ForegroundColor White
+  Write-Host " Further diagnosis:" -ForegroundColor White
   Write-Host "   pm2 list" -ForegroundColor Gray
   Write-Host "   pm2 logs bear-watch-server-stratos --lines 100 --nostream" -ForegroundColor Gray
   Write-Host "   pm2 logs paper-trade-bot-stratos    --lines 100 --nostream" -ForegroundColor Gray
   Write-Host ""
-  Write-Host " Or look at the raw log files at:" -ForegroundColor White
-  Write-Host "   $RepoRoot\bots\_server_log.txt" -ForegroundColor Gray
-  Write-Host "   $RepoRoot\bear-scout\runners\_paper_trade_log.txt" -ForegroundColor Gray
-  Write-Host ""
   Write-Host " NOT opening the browser since the install didn't complete." -ForegroundColor Yellow
+  # Flush the transcript so failure mode is captured to the install-stdout.log.
+  try { Stop-Transcript | Out-Null } catch { }
   exit 1
 }
 
@@ -265,7 +357,11 @@ Ok "/health returned 200 after ${elapsed}s"
 
 # Open /dashboard, not the bare root -- the server doesn't mount "/"
 # (though we now redirect, this avoids any 302 round-trip).
-Start-Process 'http://localhost:8787/dashboard'
+# /dashboard/fresh (vs /dashboard) clears localStorage and force-fires
+# the 10-step onboarding overlay even if a previous browser session set
+# the "tour-done" flag. Critical for first-install UX where the user
+# needs the tour to show.
+Start-Process 'http://localhost:8787/dashboard/fresh'
 
 # ----------------------------------------------------------------
 Write-Host ""
@@ -282,4 +378,8 @@ Write-Host ""
 Write-Host " Personality + theme picks (interactive):" -ForegroundColor Gray
 Write-Host "   Tell Claude  ""set up PBX Stratos""  or  ""run the personality quiz""" -ForegroundColor Gray
 Write-Host ""
+
+# Stop the transcript so the install-stdout.log file is flushed and closed.
+try { Stop-Transcript | Out-Null } catch { }
+
 exit 0

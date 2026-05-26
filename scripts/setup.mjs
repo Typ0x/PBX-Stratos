@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, rmSync, openSync } from 'node:fs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const toolingDir = join(repoRoot, '.tooling');
@@ -27,8 +27,14 @@ function probePython(cand) {
   // The `py` launcher needs `-3` to prefer Python 3 over a default 2 install.
   const args = (cand === 'py') ? ['-3', '--version'] : ['--version'];
   try {
-    const r = spawnSync(cand, args, { encoding: 'utf8' });
-    if (r.status === 0 && isUsablePython((r.stdout || r.stderr).trim())) {
+    // stdio: ['ignore', 'pipe', 'pipe'] -- capture both streams but
+    // SUPPRESS the Microsoft Store Python launcher stub's scary
+    // "Python was not found; run without arguments to install from
+    // the Microsoft Store..." stderr message from leaking to the
+    // user's console. We still inspect the captured stderr for the
+    // real Python version line below; we just don't pass it through.
+    const r = spawnSync(cand, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    if (r.status === 0 && isUsablePython((r.stdout || r.stderr || '').trim())) {
       // For `py -3` return the launcher with the -3 flag baked into the
       // returned identifier so callers know to invoke it with -3.
       return (cand === 'py') ? 'py -3' : cand;
@@ -138,35 +144,142 @@ function npmInstall() {
  * but don't abort the whole setup.
  */
 function ensureClaudeCli() {
+  // Detection 1: Are we being run FROM inside Claude Code? If so, the
+  // user has claude installed on this machine -- Claude Code Desktop
+  // sets CLAUDECODE=1 in every subprocess it spawns. Installing a
+  // second claude globally would just put a duplicate on the user's
+  // PATH and npm warns about it. Skip.
+  if (process.env.CLAUDECODE === '1' || process.env.CLAUDECODE === 'true') {
+    console.log('[setup] running inside Claude Code (CLAUDECODE=1); claude CLI is already on this machine -- skipping auto-install');
+    return;
+  }
+
+  // Detection 2: Plain PATH probe via `claude --version`. Fast and
+  // covers the case where the user has the npm-installed CLI on PATH.
   const probe = spawnSync('claude', ['--version'], {
     encoding: 'utf8', shell: process.platform === 'win32',
   });
   if (probe.status === 0 && /\d+\.\d+/.test(probe.stdout || '')) {
-    console.log(`[setup] claude CLI present: ${probe.stdout.trim()}`);
+    console.log(`[setup] claude CLI present on PATH: ${probe.stdout.trim()}`);
     return;
   }
-  console.log('[setup] installing @anthropic-ai/claude-code globally (for the decode workflow)...');
-  const install = spawnSync('npm', ['install', '-g', '@anthropic-ai/claude-code',
-    '--no-audit', '--no-fund', '--loglevel=error'], {
-    cwd: repoRoot, stdio: 'inherit', shell: process.platform === 'win32',
-  });
-  if (install.status !== 0) {
-    console.warn('[setup] WARN: could not install @anthropic-ai/claude-code globally.');
-    console.warn('[setup]       The decode workflow will fail preflight until you run:');
-    console.warn('[setup]         npm install -g @anthropic-ai/claude-code');
-    return;
+
+  // Detection 3: Common install locations that aren't always on PATH
+  // (Claude Code Desktop ships its CLI in a per-user dir; the
+  // Anthropic shell installer puts it in ~/.claude/local). If we find
+  // a claude binary in any of these, skip the install -- the user
+  // has it, they just don't have it on system PATH. Surface where we
+  // found it so they can add it to PATH if they want.
+  const home = process.env.USERPROFILE || process.env.HOME || '';
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const appData = process.env.APPDATA || '';
+  const candidates = [
+    home && join(home, '.claude', 'local', 'claude' + (process.platform === 'win32' ? '.cmd' : '')),
+    home && join(home, '.claude', 'local', 'claude.exe'),
+    localAppData && join(localAppData, 'AnthropicClaude', 'claude.exe'),
+    localAppData && join(localAppData, 'AnthropicClaude', 'app', 'claude.exe'),
+    appData && join(appData, 'npm', 'claude.cmd'),
+    appData && join(appData, 'npm', 'claude'),
+    '/usr/local/bin/claude',
+    '/opt/homebrew/bin/claude',
+  ].filter(Boolean);
+  for (const c of candidates) {
+    try {
+      if (existsSync(c)) {
+        console.log(`[setup] claude CLI present at ${c} (not on PATH but installed) -- skipping auto-install`);
+        return;
+      }
+    } catch { /* ignore */ }
   }
-  const verify = spawnSync('claude', ['--version'], {
+  // PERF: claude CLI is only needed by the wallet-decode workflow,
+  // which the user reaches many minutes after first dashboard load.
+  // Originally this was a blocking ~60s install at the END of bootstrap
+  // (right before install.ps1 moved on to Steps 2-4); now spawn it
+  // DETACHED so bootstrap returns immediately and the dashboard can
+  // come up sooner. If the user hits the decode button before this
+  // background install finishes, /api/workflow/preflight will surface
+  // the missing-CLI message; they retry after a moment.
+  console.log('[setup] launching detached background install of @anthropic-ai/claude-code (ready in ~1-2 min)...');
+  // Write a marker log so /api/workflow/preflight can detect the
+  // background install is in flight and show the user a
+  // "decoder finishing install" hint instead of a hard error if they
+  // click decode before the install completes (see Bug #2 / dee7676).
+  import('node:child_process').then(({ spawn }) => {
+    try {
+      // Make sure runtime/lab/ exists -- it might not yet on first install
+      const labDir = process.env.STRATOS_LAB_HOME
+        || join(repoRoot, 'runtime', 'lab');
+      mkdirSync(labDir, { recursive: true });
+      const bgLog = join(labDir, 'claude-cli-bg.log');
+      writeFileSync(bgLog, `${new Date().toISOString()} -- starting background npm install -g @anthropic-ai/claude-code\n`);
+      // Touch the file periodically so /api/workflow/preflight's
+      // "modified in last 5 min" check stays true even if install is
+      // slow. Simpler: just rely on the initial timestamp being recent.
+      const out = openSync(bgLog, 'a');
+      const child = spawn('npm', ['install', '-g', '@anthropic-ai/claude-code',
+        '--no-audit', '--no-fund', '--loglevel=error'], {
+        cwd: repoRoot,
+        detached: true,
+        stdio: ['ignore', out, out],
+        shell: process.platform === 'win32',
+      });
+      child.unref();
+    } catch (e) {
+      console.warn(`[setup] WARN: could not launch detached claude CLI install: ${e.message}`);
+    }
+  }).catch(() => {});
+}
+
+/**
+ * Kick off `npm install -g pm2` in the background BEFORE the
+ * workspace npm install. The two npm processes run concurrently --
+ * by the time the workspace install finishes (~5-6 min on cold VM),
+ * pm2 is also installed. install.ps1 Step 3 then becomes a no-op
+ * because Get-Command pm2 returns the path. Net saving: ~1-2 min
+ * off cold install wall time.
+ *
+ * No-op if pm2 is already on PATH (detected via `pm2 --version`).
+ */
+function ensurePm2InBackground() {
+  const probe = spawnSync('pm2', ['--version'], {
     encoding: 'utf8', shell: process.platform === 'win32',
   });
-  if (verify.status === 0) {
-    console.log(`[setup] claude CLI installed: ${(verify.stdout || '').trim()}`);
+  if (probe.status === 0 && /\d+\.\d+/.test(probe.stdout || '')) {
+    console.log(`[setup] pm2 already present: ${probe.stdout.trim()}`);
+    return;
   }
+  console.log('[setup] launching parallel background install of pm2 (concurrent with workspace install)...');
+  // Same pattern as ensureClaudeCli: detached spawn + marker log so
+  // install.ps1 can detect bg install is in flight.
+  import('node:child_process').then(({ spawn }) => {
+    try {
+      const labDir = process.env.STRATOS_LAB_HOME
+        || join(repoRoot, 'runtime', 'lab', 'logs');
+      mkdirSync(labDir, { recursive: true });
+      const bgLog = join(labDir, 'pm2-bg.log');
+      writeFileSync(bgLog, `${new Date().toISOString()} -- starting parallel npm install -g pm2\n`);
+      const out = openSync(bgLog, 'a');
+      const child = spawn('npm', ['install', '-g', 'pm2',
+        '--no-audit', '--no-fund', '--loglevel=error'], {
+        cwd: repoRoot,
+        detached: true,
+        stdio: ['ignore', out, out],
+        shell: process.platform === 'win32',
+      });
+      child.unref();
+    } catch (e) {
+      console.warn(`[setup] WARN: could not launch parallel pm2 install: ${e.message}`);
+    }
+  }).catch(() => {});
 }
 
 async function main() {
   mkdirSync(toolingDir, { recursive: true });
   const python = await ensurePython();
+  // Kick off pm2 install in BACKGROUND so it runs in parallel with
+  // the workspace npm install below. install.ps1 Step 3 becomes a
+  // no-op when pm2 is already on PATH by then.
+  ensurePm2InBackground();
   npmInstall();
   ensureClaudeCli();
   // Record both the python AND node paths the bootstrap chose so that
