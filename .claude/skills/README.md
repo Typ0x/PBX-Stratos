@@ -12,7 +12,7 @@
 - When the user's prompt matches a trigger phrase in a description, Claude invokes that skill (reads the full body + executes the flow).
 - The user can invoke explicitly via `/skill-name` if the slash command is available; otherwise plain English trigger phrases work.
 
-## All shipped skills (13 active)
+## All shipped skills (14 active)
 
 Organized by purpose:
 
@@ -59,13 +59,18 @@ Organized by purpose:
 | `pbx-wallet-decoder` | "decode this wallet", "analyze this trader", "reverse-engineer this wallet's strategy", "beat this trader", "copy this trader", "front-run this wallet" | Adversarial reverse-engineering framework. Drives `wallet-decoder.py` → `wallet-evolve.py` → `wallet-ml.py` → `wallet-microcontext.py` pipeline. Pulls a wallet's trades from prod, joins to market state at trade-time, evolves hypotheses, trains sklearn for non-linear interactions, outputs a counter-strategy proposal. |
 | `pbx-ship-audit` | "ship audit", "audit before ship", "scan file for alpha", "is this safe to ship", "check if I can copy this to the public fork" | Alpha-extraction gate before private → public cp (e.g., before shipping a private working fork's file into PBX Stratos). Reads target file, scans for tuned defaults / claimed backtest results / wallet pubkeys / named champion configs / learned hour-of-day boundaries, cross-references the alpha catalog if present, produces structured report with per-finding severity + recommendation. User decides per-item: keep-private / extract-to-config / ship-as-is. Less directly applicable on Stratos itself (Stratos is the recipient of handoffs); useful as documentation of the discipline + for downstream users with private forks. |
 
+### Manager / orchestration (1)
+
+| Skill | Trigger phrases | What it does |
+|---|---|---|
+| `pbx-orchestrate` | "orchestrate", "manager mode", "get shit done", "run the open work", "delegate this", "spin up agents for X" | Loads cross-scope state, builds prioritized work plan with dependencies + blockers, optionally spawns background agents for parallel execution across scopes. Three modes: `--plan` (default, outputs plan only), `--execute` (spawns agents with approval gates for T2/T3), `--auto` (fully autonomous within Phase 6 safety hooks). Maintains `_context/_assignments.md` coordination file so concurrent chats see active assignments. Native Claude Code implementation of OpenClaw's agent-fleet pattern. |
+
 ## Skills queued for later phases of v0.3.0 framework restructure
 
-Per the framework restructure brief, the following skills will be added in subsequent phases:
+Per the framework restructure brief, the following skill will be added in a subsequent phase:
 
 | Skill | Queued in phase | What it'll do |
 |---|---|---|
-| `pbx-orchestrate` | Phase 4.5 (brief 1 §1.5) | Manager pattern. Loads cross-scope state, builds prioritized work plan, optionally spawns background agents for parallel execution. |
 | `pbx-audit-restructure` | Section 7 (brief 1 §7) | Runs the 10-phase post-restructure audit protocol. Catches bugs that import-sweep sed misses. |
 
 ## Skills explicitly NOT shipping on Stratos
@@ -126,6 +131,8 @@ The prefix is the framework-shipped namespace. User-added skills can use any nam
 
 ## Skill changelog
 
+- **2026-05-26 (Phase 4.5 of v0.3.0 restructure):** Adopted `pbx-orchestrate` (manager pattern, OpenClaw-style agent-fleet) with §3.5.7 cosmetic scrubs (incident references genericized) + §3.5.5 substitutions (bear-scout-2 references removed, ship-to-Stratos → ship-to-sibling-fork direction-agnostic). New "Manager / orchestration" category. Skill count now 14 active; 1 more queued (pbx-audit-restructure §7).
+- **2026-05-26 (Phase 4B of v0.3.0 restructure):** Added dashboard extension pattern (`docs/EXTENSIONS.md` + `bear-den/dashboards/extensions/{README.md, example/}`). No skills added; framework feature for multi-contributor dashboard merging. Auto-discovery lands in Phase 7; manual wiring works today.
 - **2026-05-26 (Phase 4A of v0.3.0 restructure):** Adopted 3 new skills: `pbx-ship-audit` (alpha-extraction gate before private → public cp, with §3.5.4 example value scrubs), `pbx-upgrade` (framework version migration with `scripts/migrations/` scaffold), `pbx-install-recover` (resume from partial install — 11 checkpoint detector). Migrations scaffold built at `scripts/migrations/` (README + template.mjs). Skill count now 13 active; 2 more queued (pbx-orchestrate Phase 4.5, pbx-audit-restructure §7).
 - **2026-05-26 (Phase 2 of v0.3.0 restructure):** Adopted 4 context-management skills from pbxtra (`pbx-context` / `pbx-refresh-context` / `pbx-update-context` / `pbx-audit-context`) with §3.5.5 substitutions + §3.5.6 C surgical removal applied to `pbx-audit-context`. Adopted `pbx-wallet-decoder` from pbxtra with §3.5.1 alpha-leak scrubs (description + 5 body edits removing decoded-trader specifics). Renamed Stratos's existing `pbx-stratos-setup` → `pbx-install`. Removed Stratos's existing `wallet-decoder` skill (superseded by `pbx-wallet-decoder`). Dropped `pbx-aqi-sensors` per brief 2 §3.5.3 (cannot be safely scrubbed). Skill count now 10 active; 5 more queued for later phases.
 - **Earlier:** Original skills shipped pre-restructure — `pbx-stratos-setup`, `pbx-personality-quiz`, `pbx-set-personality`, `pbx-set-theme`, `pbx-recover-bot`, `wallet-decoder`. (vm-noob-test was added on noob-loop and stripped at merge.)
