@@ -230,6 +230,8 @@ run had only 3 log lines and was hard to diagnose.
 | After each POST returns | `bash tools/onboarding-debug/log.sh step1 post_complete "<field>=<value> status=<code>"` | Status=200 expected |
 | Each /health poll in Step 3a | `bash tools/onboarding-debug/log.sh step3 health_polling "iteration <N>"` | One per curl /health |
 | /health returns 200 | `bash tools/onboarding-debug/log.sh step3 install_complete "/health 200"` | The completion announcement trigger |
+| Theme re-POST before browser opens | `bash tools/onboarding-debug/log.sh step3 theme_repost_pre "<theme_id>"` | Defense against dashboard reading profile before original POST landed |
+| Theme re-POST after browser opens | `bash tools/onboarding-debug/log.sh step3 theme_repost_post "<theme_id>"` | Defense against pre-browser POST racing first paint |
 | Verify-saved start (Step 12a) | `bash tools/onboarding-debug/log.sh step12 verify_start ""` | |
 | Verify-saved complete | `bash tools/onboarding-debug/log.sh step12 verify_complete "fields_ok=<N> re_posted=<N>"` | |
 | Each install step complete | `bash tools/onboarding-debug/log.sh step<N> completed "<duration / detail>"` | |
@@ -374,8 +376,9 @@ Three applications you'll use throughout this skill:
    `AskUserQuestion` returns, the next tool call is the POST for that
    single answer. If the server isn't up yet (early questions during
    install), wrap the POST in a retry loop that keeps trying every 2s
-   until it succeeds (up to ~45 attempts ≈ 90s). Step 1b walks through
-   this pattern in detail.
+   until it succeeds (up to ~120 attempts ≈ 240s — `/health` has been
+   observed taking up to 235s on cold Windows VMs). Step 1b walks
+   through this pattern in detail.
 
 2. **The install-wait is an active polling loop.** After your last
    customization POST and after audit completes, if `/health` isn't
@@ -390,6 +393,17 @@ Three applications you'll use throughout this skill:
    Windows (see `_context/bear-watch/noob-loop-lessons.md` line 28-31).
    Trust `/health` returning 200 AND `.tooling/ready.json` existing
    over the bg notification.
+
+4. **`theme_id` re-POSTs around every browser-open.** install.ps1
+   auto-opens the dashboard at `/health`=200, and the dashboard reads
+   `/api/profile` on first paint to load the theme CSS. To defend
+   against the dashboard reading the profile before the original
+   `theme_id` POST landed, re-POST `theme_id` immediately BEFORE the
+   browser opens (right when `/health` returns 200) AND immediately
+   AFTER (right after the user-facing "install finished" announcement).
+   The double-POST is cheap (~50ms each) and removes any race between
+   "POST landed" and "browser first-paint reads profile." Step 3b
+   walks through the placement.
 
 If you ever find yourself with no defined next action mid-skill,
 default to `curl /health`. That simultaneously checks for install
@@ -666,7 +680,7 @@ PowerShell (preferred on Windows):
 ```powershell
 $body = '{"<field>":"<value>"}'
 $posted = $false
-1..45 | ForEach-Object {
+1..120 | ForEach-Object {
   if ($posted) { return }
   try {
     Invoke-RestMethod -Uri http://127.0.0.1:8787/api/profile/recalibrate `
@@ -680,7 +694,7 @@ $posted = $false
 Bash (mac/Linux):
 
 ```bash
-for i in $(seq 1 45); do
+for i in $(seq 1 120); do
   if curl -sf -X POST http://127.0.0.1:8787/api/profile/recalibrate \
     -H "Content-Type: application/json" \
     -d '{"<field>":"<value>"}' > /dev/null 2>&1; then
@@ -690,14 +704,17 @@ for i in $(seq 1 45); do
 done
 ```
 
-Why retry-until-up: Q1-Q3 typically fire while install is still
-running (server not listening on :8787 yet). By Q4-Q5 the server is
-usually up. The retry loop turns "early POST fails silently" into
-"early POST waits patiently."
+Why retry-until-up: on cold Windows VMs, `/health` has been observed
+taking up to 235s to return 200 (Defender scanning fresh npm
+packages). That means ALL of Q1-Q7 will typically fire before the
+server is up — every POST goes into retry mode and lands when the
+server finally answers. The 120 × 2s = 240s budget covers the
+observed cold-boot ceiling with ~5s margin.
 
-If all 45 retries exhaust (~90s without server), continue with the
+If all 120 retries exhaust (~240s without server), continue with the
 next question anyway — the verify-saved backstop at Step 12a will
-re-POST any missing field once `/health` confirms green.
+re-POST any missing field once `/health` confirms green. The
+backstop is the safety net for installs slower than 240s.
 
 ### 1c. Log every Q answered + each POST
 
@@ -922,8 +939,9 @@ announce.
 Your next tool call is `curl http://127.0.0.1:8787/health`. If it
 returns 200, install has reached post-pm2-start phase — skip to 3b.
 If not 200, sleep 10s via `powershell Start-Sleep -Seconds 10`, then
-`curl /health` again. Loop until 200 or until 30 iterations (~5 min)
-have passed.
+`curl /health` again. Loop until 200 or until 36 iterations (~6 min)
+have passed. `/health` has been observed taking up to 235s on cold
+Windows VMs, so the 360s budget gives ~125s safety margin.
 
 Each iteration is a tool call. There is no passive turn-end. If you
 want foreground work between polls, the lessons file at
@@ -935,14 +953,42 @@ default-when-nothing-else-to-do is the next `curl /health`.
 bash tools/onboarding-debug/log.sh step3 health_polling "iteration <N>"
 ```
 
-If 30 iterations pass without `/health` returning 200, capture the
-install stdout from `runtime/lab/logs/install-stdout.log` and halt
-per Terminal State 2.
+If 36 iterations (~6 min) pass without `/health` returning 200,
+capture the install stdout from `runtime/lab/logs/install-stdout.log`
+and halt per Terminal State 2.
 
-### 3b. Announce completion to the user
+### 3b. Re-POST theme_id, announce, re-POST theme_id again
 
-The moment `/health` returns 200, announce in the user's active
-personality voice (or default voice if personality not yet picked):
+The moment `/health` returns 200, install.ps1 is about to auto-open
+the dashboard at `http://localhost:8787/dashboard/fresh`. The
+dashboard reads `/api/profile` on first paint and applies the theme
+CSS based on `theme_id`. To defend against the dashboard reading
+profile before the original `theme_id` POST landed, do this exact
+3-step sequence:
+
+**1. POST `theme_id` BEFORE the browser opens.** If `theme_id` was
+collected (Step 10 already happened OR user picked defaults in Q0),
+re-POST it now via the same `/api/profile/recalibrate` endpoint:
+
+```powershell
+$theme = '<picked-or-default-theme_id>'
+try {
+  Invoke-RestMethod -Uri http://127.0.0.1:8787/api/profile/recalibrate `
+    -Method POST -ContentType 'application/json' `
+    -Body "{`"theme_id`":`"$theme`"}" -TimeoutSec 5 -ErrorAction Stop | Out-Null
+} catch { }
+```
+
+```bash
+bash tools/onboarding-debug/log.sh step3 theme_repost_pre "<theme_id>"
+```
+
+If `theme_id` wasn't collected yet (user is still mid-Step-10 picker),
+skip this POST — there's nothing to send. Step 10's own POST handles
+the case when it lands.
+
+**2. Announce install completion in the user's active personality
+voice** (or default voice if personality not yet picked):
 
 > "Install just finished. Server is up at http://127.0.0.1:8787/dash —
 > the dashboard will open automatically. Saving final customization
@@ -950,6 +996,26 @@ personality voice (or default voice if personality not yet picked):
 
 ```bash
 bash tools/onboarding-debug/log.sh step3 install_complete "/health 200"
+```
+
+**3. POST `theme_id` AGAIN immediately after the announcement** (after
+the browser has been opened by install.ps1). The dashboard polls
+`/api/profile` every 2s during the first 90s of page load specifically
+to catch this and hot-swap the loaded stylesheet — the second POST
+guarantees the warmup-window catches the theme even if the pre-browser
+POST raced with first paint.
+
+```powershell
+# Same POST as step 1 above. Yes, identical. Defense in depth.
+try {
+  Invoke-RestMethod -Uri http://127.0.0.1:8787/api/profile/recalibrate `
+    -Method POST -ContentType 'application/json' `
+    -Body "{`"theme_id`":`"$theme`"}" -TimeoutSec 5 -ErrorAction Stop | Out-Null
+} catch { }
+```
+
+```bash
+bash tools/onboarding-debug/log.sh step3 theme_repost_post "<theme_id>"
 ```
 
 The bg-task completion notification may or may not have already
@@ -1255,6 +1321,14 @@ to the profile API.** Don't batch it with other steps — the
 dashboard polls `/api/profile` every 2s in the warmup window
 specifically to catch this and hot-swap the loaded stylesheet. The
 sooner you POST, the sooner the user sees their picked theme.
+
+This is ONE of three `theme_id` POSTs that fire during the install
+flow. The other two happen in Step 3b (before + after install.ps1
+auto-opens the browser at `/health`=200). Together they form the
+double-POST-around-browser-open defense — see the Active-flow
+principle bullet 4. If you're running this step BEFORE install
+completes, the retry-until-up wrapper from Step 1b applies here
+too (server may not be listening yet).
 
 The endpoint will copy `themes/<id>.css` to
 `bots/src/server/active-theme.css` automatically:

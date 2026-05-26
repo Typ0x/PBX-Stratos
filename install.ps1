@@ -257,15 +257,16 @@ if ($LASTEXITCODE -ne 0) {
 
 # ----------------------------------------------------------------
 Step 6 "Waiting for /health + verifying both pm2 apps online"
-# Bug #3 fix: bumped from 90s -> 180s. On cold Windows machines with
-# Defender / SmartScreen scanning the freshly-downloaded node + python
-# + 262 npm packages, /health can take 90-150s to respond after pm2
-# start even when the install actually succeeded. The old 90s budget
-# was firing "Install FAILED" on otherwise-green installs, skipping
-# the browser-open, and confusing the agent driving the install.
-# 180s is enough headroom for the slowest realistic cold boot.
+# Bug #3 fix: bumped from 90s -> 180s -> 300s. On cold Windows
+# machines with Defender / SmartScreen scanning the freshly-downloaded
+# node + python + 262 npm packages, /health has been observed taking
+# up to ~235s to respond after pm2 start even when the install
+# actually succeeded. The 90s budget fired "Install FAILED" on green
+# installs; the 180s budget was still too tight for the slowest cold
+# boots observed in the bff49e6 noob-test (235s). 300s gives ~65s
+# safety margin over the slowest cold boot observed so far.
 # Override with STRATOS_INSTALL_HEALTH_WAIT env var if needed.
-$maxWait = if ($env:STRATOS_INSTALL_HEALTH_WAIT) { [int]$env:STRATOS_INSTALL_HEALTH_WAIT } else { 180 }
+$maxWait = if ($env:STRATOS_INSTALL_HEALTH_WAIT) { [int]$env:STRATOS_INSTALL_HEALTH_WAIT } else { 300 }
 $elapsed = 0
 $healthOk = $false
 Write-Host "       polling /health (will print progress every 10s)..." -ForegroundColor Gray
@@ -286,7 +287,7 @@ while ($elapsed -lt $maxWait) {
   Start-Sleep -Seconds 1
   $elapsed++
   # Heartbeat output every 10s so the user (or agent) doesn't think
-  # the install hung. /health can take 90-150s on cold Windows boots
+  # the install hung. /health can take 90-235s on cold Windows boots
   # while Defender scans 262 fresh npm packages.
   if ($elapsed -gt 0 -and ($elapsed % 10) -eq 0) {
     Write-Host ("       [waited {0}s / {1}s]" -f $elapsed, $maxWait) -ForegroundColor Gray
