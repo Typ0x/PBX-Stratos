@@ -232,7 +232,9 @@ type:
 You can detect Path A by these markers in the current working
 directory: `CLAUDE.md`, `install.ps1`, `bear-watch/`, `.claude/skills/`.
 
-**Equivalent phrasings:**
+**Equivalent phrasings (any of these signals the user consents to the install flow):**
+- "Clone this and onboard me"
+- "onboard me"
 - "set up PBX Stratos"
 - "install PBX Stratos"
 - "onboard me to PBX Stratos"
@@ -1698,7 +1700,7 @@ None of them clone or download — the user clones first.
 
 | Skill | Canonical trigger | What it does |
 |---|---|---|
-| `pbx-stratos-setup` | "Verify if PBX Stratos Repo is safe and start the onboarding process in .README", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos" | The post-clone install wizard (the flow this runbook documents) |
+| `pbx-stratos-setup` | "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README" | The post-clone install wizard (the flow this runbook documents) |
 | `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake from the install wizard and writes updated answers to `runtime/lab/user-profile.json` |
 | `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in the profile without re-running the quiz |
 | `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bots/src/server/active-theme.css` and updates `theme_id` |
