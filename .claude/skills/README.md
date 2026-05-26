@@ -12,7 +12,7 @@
 - When the user's prompt matches a trigger phrase in a description, Claude invokes that skill (reads the full body + executes the flow).
 - The user can invoke explicitly via `/skill-name` if the slash command is available; otherwise plain English trigger phrases work.
 
-## All shipped skills (14 active)
+## All shipped skills (15 active)
 
 Organized by purpose:
 
@@ -65,13 +65,11 @@ Organized by purpose:
 |---|---|---|
 | `pbx-orchestrate` | "orchestrate", "manager mode", "get shit done", "run the open work", "delegate this", "spin up agents for X" | Loads cross-scope state, builds prioritized work plan with dependencies + blockers, optionally spawns background agents for parallel execution across scopes. Three modes: `--plan` (default, outputs plan only), `--execute` (spawns agents with approval gates for T2/T3), `--auto` (fully autonomous within Phase 6 safety hooks). Maintains `_context/_assignments.md` coordination file so concurrent chats see active assignments. Native Claude Code implementation of OpenClaw's agent-fleet pattern. |
 
-## Skills queued for later phases of v0.3.0 framework restructure
+### Verification + audit (1)
 
-Per the framework restructure brief, the following skill will be added in a subsequent phase:
-
-| Skill | Queued in phase | What it'll do |
+| Skill | Trigger phrases | What it does |
 |---|---|---|
-| `pbx-audit-restructure` | Section 7 (brief 1 §7) | Runs the 10-phase post-restructure audit protocol. Catches bugs that import-sweep sed misses. |
+| `pbx-audit-restructure` | "audit restructure", "post-move audit", "post-reorg verification", "verify the restructure", "/pbx-audit-restructure" | Runs the 10-phase post-restructure verification protocol (`_context/protocols/audit-restructure.md`). Catches the bugs that file-move sed-replace sweeps systematically miss: typescript import drift, subprocess path hardcodes, pm2 cwd staleness, workspace registration gaps, scheduled-task path staleness, .gitignore stale entries, empty scaffold pollution, orphan dirs. Designed to be invoked immediately after any code reorg that moves >5 files OR changes package boundaries / tsconfig path aliases / pm2 entry points. All 10 phases must pass green for the audit to succeed. |
 
 ## Skills explicitly NOT shipping on Stratos
 
@@ -131,6 +129,7 @@ The prefix is the framework-shipped namespace. User-added skills can use any nam
 
 ## Skill changelog
 
+- **2026-05-26 (Section 7 of v0.3.0 restructure):** Adopted `pbx-audit-restructure` (10-phase post-restructure verification protocol + invocable skill) mirrored from pbxtra per brief 1 §7. Substitutions applied per brief 1 §3.5.5 (pbxtra-bear-den → PBX-Stratos paths, bear-watch-server-pbxtra → -stratos, PBXTRA- → STRATOS-, localhost:4269 → :8787, ~/.pbx-lab-pbxtra/ → ~/.pbx-stratos-runtime/lab/). New "Verification + audit" category. Skill count now 15 active; 0 queued.
 - **2026-05-26 (Phase 4.5 of v0.3.0 restructure):** Adopted `pbx-orchestrate` (manager pattern, OpenClaw-style agent-fleet) with §3.5.7 cosmetic scrubs (incident references genericized) + §3.5.5 substitutions (bear-scout-2 references removed, ship-to-Stratos → ship-to-sibling-fork direction-agnostic). New "Manager / orchestration" category. Skill count now 14 active; 1 more queued (pbx-audit-restructure §7).
 - **2026-05-26 (Phase 4B of v0.3.0 restructure):** Added dashboard extension pattern (`docs/EXTENSIONS.md` + `bear-den/dashboards/extensions/{README.md, example/}`). No skills added; framework feature for multi-contributor dashboard merging. Auto-discovery lands in Phase 7; manual wiring works today.
 - **2026-05-26 (Phase 4A of v0.3.0 restructure):** Adopted 3 new skills: `pbx-ship-audit` (alpha-extraction gate before private → public cp, with §3.5.4 example value scrubs), `pbx-upgrade` (framework version migration with `scripts/migrations/` scaffold), `pbx-install-recover` (resume from partial install — 11 checkpoint detector). Migrations scaffold built at `scripts/migrations/` (README + template.mjs). Skill count now 13 active; 2 more queued (pbx-orchestrate Phase 4.5, pbx-audit-restructure §7).

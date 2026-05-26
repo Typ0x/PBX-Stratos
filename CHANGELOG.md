@@ -15,14 +15,14 @@ First framework-restructured release. Topology + skills + hooks + protocols are 
 
 - **CLAUDE.md split**: root becomes pure framework (816 lines, install-agnostic). Install-specific content moved to `_context/CLAUDE.md` (gitignored, local-only) with `@import` chain root → `_context/CLAUDE.md` → `_context/soul.md`.
 - **Soul.md character layer**: per-user evolved Claude voice/tone/vocabulary at `_context/soul.md` (gitignored). Template skeleton at `_context/.template/soul.md.example` ships publicly.
-- **14 active skills** (was 7 pre-restructure). All prefixed `pbx-*`:
+- **15 active skills** (was 7 pre-restructure). All prefixed `pbx-*`:
   - Context management (4): `pbx-context`, `pbx-refresh-context`, `pbx-update-context`, `pbx-audit-context`
   - Install + recovery (3): `pbx-install` (renamed from `pbx-stratos-setup`), `pbx-install-recover`, `pbx-upgrade`
   - Customization (3): `pbx-personality-quiz`, `pbx-set-personality`, `pbx-set-theme`
   - Ops (1): `pbx-recover-bot`
   - Specialized (2): `pbx-wallet-decoder`, `pbx-ship-audit`
   - Manager / orchestration (1): `pbx-orchestrate`
-  - Queued for completion of this version: `pbx-audit-restructure` (lands during code-reorg verification work)
+  - Verification / audit (1): `pbx-audit-restructure` (10-phase post-restructure verification protocol; mirrored from pbxtra per brief 1 §7 with §3.5.5 substitutions)
 - **Catalog**: `.claude/skills/README.md` documents all skills with trigger phrases + categories.
 - **Dashboard extension pattern**: `docs/EXTENSIONS.md` + `bear-den/dashboards/extensions/` scaffold for multi-contributor dashboard panels. Auto-discovery lands with code reorg.
 - **Migrations scaffold**: `scripts/migrations/` ready for future framework version migrations (consumed by `pbx-upgrade` skill).
@@ -47,7 +47,6 @@ First framework-restructured release. Topology + skills + hooks + protocols are 
 ### Coming in v0.3.0 final (before public release)
 
 - Section 2 Wave B — region_arb tuned-defaults extraction (more substantial; separate commits per the audit's wave structure).
-- Section 7 — `pbx-audit-restructure` skill + `_context/protocols/audit-restructure.md` protocol (10-phase post-reorg verification).
 - Phase 7 — code reorg into scope-coherent dirs (`kernel/`, `bear-watch/code/`, `bear-scout/code/`, `bear-scout/research/`, `bear-den/dashboards/`). Major topology change.
 - Optional work-packages from 2026-05-26 delta brief: weather-pull resilience (required), site-snapshotter (optional), multi-API ensemble research scaffold (optional).
 - Pre-publish verification: fresh-clone install smoke test, alpha-leak grep ZERO, README + ARCHITECTURE updated for new topology.

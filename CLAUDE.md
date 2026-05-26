@@ -151,7 +151,7 @@ Use them when the trigger phrase matches what the user said:
 - `pbx-update-context` = refresh + WRITE the new knowledge from this session so nothing is lost
 - `pbx-audit-context` = "look through everything ever and make sure nothing important is forgotten"
 
-**Full skill catalog with trigger phrases:** see [`.claude/skills/README.md`](.claude/skills/README.md) for all 16 currently-shipping skills (context management × 4 + install + recovery × 3 + customization × 3 + ops + specialized × 3 + manager/orchestration × 1 + verification/audit × 1).
+**Full skill catalog with trigger phrases:** see [`.claude/skills/README.md`](.claude/skills/README.md) for all 15 currently-shipping skills (context management × 4 + install + recovery × 3 + customization × 3 + ops × 1 + specialized × 2 + manager/orchestration × 1 + verification/audit × 1). PBXtra ships an additional sensor-discovery skill (`pbx-aqi-sensors`) that Stratos intentionally omits per the public-fork alpha-protection policy.
 
 Related but separate: `audit-brief.md` + `audit-professional.md` protocols (in `_context/protocols/`) audit CODE. The 4 skills above audit / refresh / update CONTEXT (docs, journals, topics).
 
