@@ -9,8 +9,8 @@ import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './t
  * z-score falls below exitZ.
  *
  * Defaults: entryZ=2 (≥2σ above mean), exitZ=-1 (≥1σ below mean), 24h
- * window. Backtested as Z_pm25_2--1_w24, +37% over 5 post-spike days
- * with 7 trades.
+ * window. Neutral starting point — tune for your environment via your
+ * own backtest.
  *
  * Different failure mode from BAND: triggers only on rare outliers, so
  * fires less often but with higher conviction.

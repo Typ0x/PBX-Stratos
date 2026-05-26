@@ -8,8 +8,8 @@ import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './t
  * all times. Switches only when the new top beats the current holding by
  * `minEdgePct` percentile points. Never sits in USDC after first entry.
  *
- * Defaults: 24h lookback, 30pp edge — backtested as ALL_IN_e30_w24,
- * +41.55% over 5 post-spike days with 17 trades.
+ * Defaults: 24h lookback, 30pp edge — a neutral starting point. Tune
+ * for your environment via your own backtest.
  */
 export class Pm25AllInStrategy implements Strategy {
   readonly id: string;

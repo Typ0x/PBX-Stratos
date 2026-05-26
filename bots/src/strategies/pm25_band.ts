@@ -14,8 +14,9 @@ import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './t
  *   4. If holding a region: exit to USDC when its pm25 drops below
  *      exitPct.
  *
- * Defaults are the BAND_80-20_w11 config that returned +88% over 5
- * post-spike days in backtesting.
+ * Defaults are a generic 80/20 percentile band with 11h lookback —
+ * a neutral starting point. Tune for your environment via your own
+ * backtest.
  */
 export class Pm25BandStrategy implements Strategy {
   readonly id: string;
