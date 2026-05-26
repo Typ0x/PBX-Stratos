@@ -562,10 +562,31 @@ See [Section 7](#7-the-5-question-personality-quiz). Five
 `AskUserQuestion` popups in sequence. Saves answers to
 `runtime/lab/user-profile.json`.
 
-**Parallelism opportunity:** at the START of Q1, kick off
-`scripts/bootstrap.sh` (or `bootstrap.ps1`) in the background —
-it'll finish around Q4-Q5 and you can move straight to Step 3
-without waiting.
+### 🛑 Install-feels-fast principle
+
+The user's wait time during install IS the customization time.
+Background every install operation you can FIRST, then fill the
+wait by driving the user through customization popups. Concretely:
+
+1. **Background `install.bat`** (Windows) or `install.sh`
+   (mac/Linux) as one of your earliest tool calls.  Internally it
+   parallelizes its slow sub-steps (workspace npm install, global
+   pm2 install, python decoder deps) so you only background
+   `install.bat` itself — not each sub-step.
+2. **Run customization popups WHILE install streams.** The 5-
+   question personality quiz, the personality picker, the theme
+   picker — fire these as `AskUserQuestion` calls while install
+   runs. By the time customization is done, install is mostly
+   done too.
+3. **The phrase "waiting on install" is only honest when it's
+   literally the last thing.** Before you type something like
+   "let's wait for install to complete," check: is there any
+   customization popup you haven't fired yet? Any audit check you
+   haven't run? Any non-blocking explanation you could be giving?
+   If yes, do those first.
+
+The user should never be staring at a spinner while you sit idle.
+Idle time is the enemy.
 
 ### Step 2 — Bootstrap (Node + Python + ready.json)
 

@@ -281,6 +281,38 @@ The setup wizard has several slow operations the user would otherwise
 stare at for minutes. **Never make the user wait for a sequential
 operation when a concurrent one is possible.** Use this pattern:
 
+### Core principle: the install wait IS the customization time
+
+The user's wait time during install is not dead time — it's
+customization time. The install runs in the background while you
+walk them through the personality quiz, theme pick, and other
+customization popups. By the time customization is done, install
+is mostly done too.
+
+Concretely:
+
+- **Background `install.bat` as early as possible.** It internally
+  parallelizes its slow sub-steps (workspace npm install, global
+  pm2 install, python decoder deps) so you only need to background
+  `install.bat` itself — not each sub-step.
+- **Fill the wait with customization popups.** Personality quiz Q0
+  + Q1-Q5, personality picker, theme picker. Each `AskUserQuestion`
+  is a chance to gather user input while install streams.
+- **The phrase "waiting on install to finish" is only honest when
+  it's literally the last thing.** Before you type something like
+  "let's wait for install to complete," check: is there any
+  customization popup you haven't fired yet? Any audit check you
+  haven't run? Any non-blocking explanation you could be giving?
+  If yes, do those first — the user shouldn't be idle while you
+  could be making progress.
+
+This applies recursively: if Q1's popup is up and the user is
+thinking, that's a turn where YOU can do an audit grep. If a quiz
+question takes the user 20s to answer, that's 20s of audit
+foreground work you can stack on top.
+
+### The 5-step launch-then-interact pattern
+
 1. Identify the next slow operation (`scripts/bootstrap.sh`,
    `npm install`, `pm2 install`, `pip install`, git clone, dependency
    downloads).
@@ -311,12 +343,17 @@ operation when a concurrent one is possible.** Use this pattern:
 
 **When NOT to multitask:**
 
-- Stage D security audit — its results gate Step 1; don't bury them under
-  a personality question.
-- Security warnings or consent prompts — those need user's full attention,
-  not split with background chatter.
+- Security warnings or consent prompts — those need user's full
+  attention, not split with background chatter. If a serious audit
+  finding surfaces while install is running, surface it on its own
+  even though that interrupts the customization flow.
 - Anything where the foreground question is "do you want me to do
   the slow thing at all?" — get consent first, then launch.
+
+(Note: the audit ITSELF is no longer in the "don't multitask"
+bucket. Per the parallel-audit Step 0 setup, audit reads run in
+the foreground while install streams in the background. Only the
+HANDLING of a serious finding pauses customization.)
 
 If you catch yourself running a >15s tool call with the user staring at
 it AND there's a question you could be asking in parallel, you violated
