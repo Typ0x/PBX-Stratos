@@ -112,7 +112,7 @@ returns 503 and no keypair is ever used to sign.
 
 ### 3. The PBX Stratos operator shell (`.claude/`, `bear-watch/`, `_context/`, `themes/`) — UX wrapper
 
-- Claude-driven install wizard (`.claude/skills/pbx-stratos-setup/`)
+- Claude-driven install wizard (`.claude/skills/pbx-install/`)
   with a 4-stage safety audit + 5-question personality quiz
 - 6 Claude personalities × 6 matching dashboard themes
   (`.claude/personalities/`, `themes/`) — change tone + visuals

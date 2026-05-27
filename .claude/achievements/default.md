@@ -24,7 +24,7 @@ pointing at what's next.
 > The on-dashboard Setup Guide walked you through every section of the framework — Discover, Decoder, Leaderboard, Strategies, Paper trading, Live trading + your wallet, System health, and the Roadmap. You acknowledged each step and marked this milestone complete at the end. Section 1 of the roadmap is now formally underway.
 
 ### s1.t2 — "Wizard Triggered"
-> You typed the trigger phrase and the `pbx-stratos-setup` wizard is now driving. From here, you read and approve while Claude handles the typing. Up next: the four-stage safety audit.
+> You typed the trigger phrase and the `pbx-install` wizard is now driving. From here, you read and approve while Claude handles the typing. Up next: the four-stage safety audit.
 
 ### s1.t3 — "Safety Audit Passed"
 > Host, Claude CLI, clone integrity, and four security greps — all four stages reported clean and you approved. You're trusting verified code, not blind faith. Up next: the personality quiz.

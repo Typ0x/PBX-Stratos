@@ -47,7 +47,7 @@ If the user wants all 5 questions again:
    current answer is X" alongside each question
 2. Ask each of the 5 questions via AskUserQuestion, in order. The
    questions + options are documented in
-   `PBX-Stratos/.claude/skills/pbx-stratos-setup/SKILL.md` Step 1.
+   `PBX-Stratos/.claude/skills/pbx-install/SKILL.md` Step 1.
 3. Write the new answers to the profile, update `last_updated`
 4. Show a diff summary: "Here's what changed. Old → New for each
    field."
@@ -63,7 +63,7 @@ If the user wants all 5 questions again:
   via this skill
 - **Always preserve `created_at`** — only `last_updated` changes
 - **If the profile doesn't exist at all**, this skill defers to
-  `pbx-stratos-setup` Step 1 (full setup) — tell the user "looks like
+  `pbx-install` Step 1 (full setup) — tell the user "looks like
   you haven't completed initial setup yet. Let me run the full
   install instead." Do not write a partial profile.
 

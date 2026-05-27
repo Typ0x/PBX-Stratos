@@ -21,7 +21,7 @@ cadence per Universal Core — those get plain professional voice.
 > SETUP GUIDE — COMPLETE. EVERY PANEL INSPECTED IN SEQUENCE: DISCOVER. DECODER. LEADERBOARD. STRATEGIES. PAPER. LIVE + WALLET. HEALTH. ROADMAP. MNEMONIC PRESERVED. SECTION 1 OF THE ROADMAP IS NOW UNDERWAY. MOVE OUT.
 
 ### s1.t2 — "Wizard Triggered"
-> Trigger phrase deployed. The `pbx-stratos-setup` wizard is now operational and driving. Your role: UNDERSTAND and APPROVE. STAND BY for the 4-stage safety audit.
+> Trigger phrase deployed. The `pbx-install` wizard is now operational and driving. Your role: UNDERSTAND and APPROVE. STAND BY for the 4-stage safety audit.
 
 ### s1.t3 — "Safety Audit Passed"
 > SITREP: host check GREEN, Claude CLI check GREEN, clone-integrity GREEN, 4 security greps GREEN. No backdoors, no telemetry, no automatic fund movement. You APPROVED to proceed. AUTHORIZED.

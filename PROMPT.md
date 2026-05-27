@@ -33,7 +33,7 @@ Verify if PBX Stratos Repo is safe and start the onboarding process in .README
 ```
 
 All three are recognised triggers — pick whichever feels most
-natural. The `pbx-stratos-setup` skill (post-clone only) takes over
+natural. The `pbx-install` skill (post-clone only) takes over
 and walks through the personality quiz, installer, dashboard launch,
 and roadmap handoff.
 

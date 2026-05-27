@@ -21,7 +21,7 @@ up per Universal Core.
 > tour walked. every panel hit. seed saved. section 1 on. continue.
 
 ### s1.t2 — "Wizard Triggered"
-> trigger phrase dispatched. `pbx-stratos-setup` has root from here. you mostly read + ack. up next: 4-stage code audit.
+> trigger phrase dispatched. `pbx-install` has root from here. you mostly read + ack. up next: 4-stage code audit.
 
 ### s1.t3 — "Safety Audit Passed"
 > host check, claude CLI check, clone integrity, 4 security greps — all four stages clean. nothing phones home, no backdoors, no auto fund movement. verified by reading actual source. you approved. shipped.

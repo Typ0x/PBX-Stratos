@@ -17,7 +17,7 @@ There are three other Claude-facing docs you'll cross-reference:
 |---|---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Daily operating manual (protocols, journaling, scopes, T0-T3 consent, live trading safety, operational wisdom). Auto-loaded by every Claude Code session in this repo. | After install completes, this is your daily reference. |
 | [`PROMPT.md`](PROMPT.md) | Preset prompts the user can paste to invoke common flows (install, decode a wallet, backtest, recover the bot). | When the user asks "what can I tell Claude to do?" — point them here. |
-| [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md) | Claude Code skill machinery — auto-fires on the canonical PBX-Stratos install trigger phrases. Contains the 13-step post-clone install flow. Does NOT clone or download — the user clones first. | If the skill is active in your session, it loads automatically; otherwise, read it manually when you start the install. |
+| [`.claude/skills/pbx-install/SKILL.md`](.claude/skills/pbx-install/SKILL.md) | Claude Code skill machinery — auto-fires on the canonical PBX-Stratos install trigger phrases. Contains the 13-step post-clone install flow. Does NOT clone or download — the user clones first. | If the skill is active in your session, it loads automatically; otherwise, read it manually when you start the install. |
 
 This file (`README.ai.md`) is the **comprehensive overview**. It
 explains what the project is, what your job as an AI agent is, how
@@ -250,7 +250,7 @@ Typical phrasings: *"download this repo `<URL>` and set it up"*,
 *"clone and install `<URL>`"*, or any casual request to fetch + set
 up the repo from a link.
 
-**Important:** the `pbx-stratos-setup` skill cannot help yet — it
+**Important:** the `pbx-install` skill cannot help yet — it
 lives inside the repo and only auto-loads after the clone exists.
 That's fine. **You handle the pre-clone phase using your own native
 tools** (`WebFetch` to read remote files, `Bash` to `git clone`),
@@ -406,7 +406,7 @@ cleanly. The skill isn't a trap — declining is a valid outcome.
 contain the canonical PBX-Stratos markers. Path A (already-cloned)
 skips straight to [Section 4](#4-pre-install-audit--at-your-discretion).
 
-**Critical framing:** the `pbx-stratos-setup` skill is not loaded
+**Critical framing:** the `pbx-install` skill is not loaded
 yet — it lives inside the repo. You're running this section using
 your own native tools (`WebFetch`, `Bash`, `AskUserQuestion`). The
 skill auto-loads after the clone exists and takes over from
@@ -522,7 +522,7 @@ test -d "$HOME/PBX-Stratos" && echo "DIR_EXISTS" || echo "DIR_CLEAR"
   fresh" / "stop." Don't overwrite a directory the user may have
   unrelated work in.
 
-After cloning, `cd` into the repo. The `pbx-stratos-setup` skill
+After cloning, `cd` into the repo. The `pbx-install` skill
 will now auto-load. Proceed to [Section 4](#4-pre-install-audit--at-your-discretion)
 (optional on-disk audit) and then [Section 6](#6-the-13-step-install-flow)
 (the install flow). From this point on the skill is driving — you're
@@ -534,7 +534,7 @@ no longer running pre-clone native tools.
 
 This is the canonical flow that runs after the audit completes.
 The full functional spec lives in
-[`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md);
+[`.claude/skills/pbx-install/SKILL.md`](.claude/skills/pbx-install/SKILL.md);
 the summary below is enough to execute, with cross-references to
 SKILL.md for gnarly per-step details.
 
@@ -1702,7 +1702,7 @@ None of them clone or download — the user clones first.
 
 | Skill | Canonical trigger | What it does |
 |---|---|---|
-| `pbx-stratos-setup` | "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README" | The post-clone install wizard (the flow this runbook documents) |
+| `pbx-install` | "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README" | The post-clone install wizard (the flow this runbook documents) |
 | `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake from the install wizard and writes updated answers to `runtime/lab/user-profile.json` |
 | `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in the profile without re-running the quiz |
 | `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bear-den/dashboards/active-theme.css` and updates `theme_id` |
@@ -1805,7 +1805,7 @@ Once you've absorbed this file, your daily ops reference is
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Daily ops manual. Auto-loaded by every session in this repo. Has the session-start protocol, journaling discipline, T0-T3 in more detail, operational wisdom, and the canonical doc-map. |
 | [`PROMPT.md`](PROMPT.md) | Preset prompts the user can paste to invoke common flows. Reference when the user asks "what can I tell Claude to do?" |
-| [`.claude/skills/pbx-stratos-setup/SKILL.md`](.claude/skills/pbx-stratos-setup/SKILL.md) | The functional install skill. Loaded automatically when the trigger phrase fires. Has the 13-step flow at full depth — every AskUserQuestion option, every verification command, every personality-voiced filler. |
+| [`.claude/skills/pbx-install/SKILL.md`](.claude/skills/pbx-install/SKILL.md) | The functional install skill. Loaded automatically when the trigger phrase fires. Has the 13-step flow at full depth — every AskUserQuestion option, every verification command, every personality-voiced filler. |
 | [`ROADMAP.md`](ROADMAP.md) | The 7-section / 130-task user journey. Source of truth for what roadmap-track achievements correspond to. |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | The three principles every contribution follows + where each kind of file lives + the layered safety stack + the three-layer model. |
 | [`INSTALL.md`](INSTALL.md) | Manual install path (skipping Claude). Mostly for users who want to understand what the wizard does under the hood. |

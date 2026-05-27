@@ -2,7 +2,7 @@
 
 If you'd rather not have Claude drive the install (or you want to
 understand what the wizard does step-by-step), this is the manual
-checklist. It mirrors what the `pbx-stratos-setup` skill executes.
+checklist. It mirrors what the `pbx-install` skill executes.
 
 **Estimated time:** 60-90 minutes if you've done this before, 2-3
 hours if you haven't. The Claude-driven version takes 30 minutes.

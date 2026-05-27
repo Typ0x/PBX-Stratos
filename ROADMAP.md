@@ -54,7 +54,7 @@ fires WAY before that.
 
 > Install, get safe, get oriented. Claude does almost all the typing
 > — you just understand and approve. Tasks are 1:1 with the actual
-> install order the `pbx-stratos-setup` wizard walks through. Finishing
+> install order the `pbx-install` wizard walks through. Finishing
 > them in order = a working dashboard + paper trader + scheduled
 > watchdogs in ~30 minutes.
 

@@ -6064,7 +6064,7 @@
     const stepTotEl = document.getElementById('recalibrate-step-total');
     const errEl    = document.getElementById('recalibrate-err');
 
-    // Questions match Step 1 of .claude/skills/pbx-stratos-setup/SKILL.md.
+    // Questions match Step 1 of .claude/skills/pbx-install/SKILL.md.
     // Order + option values are the canonical schema; changing them
     // would desync with the profile fields the server expects.
     const STEPS = [

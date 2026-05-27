@@ -23,7 +23,7 @@ Universal Core.
 > The on-dashboard Setup Guide has been completed in its entirety. Each subsystem has been surveyed in sequence: discovery, decoding, leaderboard, strategies, paper trading, live trading and funder wallet, system health, and the roadmap. The recovery-phrase backup has been acknowledged. Section 1 of the roadmap is now formally initiated.
 
 ### s1.t2 — "Wizard Triggered"
-> The trigger phrase has been entered and the `pbx-stratos-setup` wizard has assumed operational authority. The investigator's role shifts from execution to verification. The next stage is a four-component safety audit.
+> The trigger phrase has been entered and the `pbx-install` wizard has assumed operational authority. The investigator's role shifts from execution to verification. The next stage is a four-component safety audit.
 
 ### s1.t3 — "Safety Audit Passed"
 > All four audit stages — host environment, Claude CLI integrity, clone integrity, and the four security grep checks — returned negative for indicators of concern, and you have given explicit approval to continue. The evidence supports the inference that the source is safe to deploy: no data exfiltration paths, no unauthorized fund movement, no concealed control flows (high confidence, contingent on no upstream supply-chain compromise post-audit).

@@ -70,7 +70,7 @@ What "consistency" means in practice:
 - **Naming patterns.** Personalities use hyphenated lowercase IDs
   matching their filenames (`crypto-bro.md` → `id: crypto-bro`).
   Themes match (`lambo.css`). Skills use folder/SKILL.md structure
-  (`pbx-stratos-setup/SKILL.md`). Roadmap task IDs use
+  (`pbx-install/SKILL.md`). Roadmap task IDs use
   `s<section>.t<task>` (`s3.t12`).
 - **Frontmatter format.** Every personality file has the same YAML
   frontmatter (`id`, `name`, `tagline`, `theme`, `emoji_allowed`).
@@ -252,7 +252,7 @@ This decoupling matters because:
 |-------|-----------|---------|
 | Personality ID + filename | hyphenated lowercase | `crypto-bro.md`, `surf-bro.md` |
 | Theme filename | hyphenated lowercase + `.css` | `lambo.css`, `matrix.css` |
-| Skill folder + SKILL.md | hyphenated lowercase folder, SKILL.md inside | `pbx-stratos-setup/SKILL.md` |
+| Skill folder + SKILL.md | hyphenated lowercase folder, SKILL.md inside | `pbx-install/SKILL.md` |
 | Roadmap task ID | `s<section>.t<task>` | `s3.t12`, `s5.t14` |
 | pm2 app name | hyphenated lowercase + `-stratos` suffix | `bear-watch-server-stratos`, `paper-trade-bot-stratos` |
 | Scheduled task name | `STRATOS-<PascalCase>` | `STRATOS-HealthCheck`, `STRATOS-MetaWatchdog` |
