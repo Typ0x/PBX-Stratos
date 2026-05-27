@@ -43,7 +43,7 @@ What it does (idempotent — safe to re-run):
 
 1. Ensures Node.js ≥ 18 (downloads bundled Node into `.tooling/` if
    missing — no admin needed)
-2. `npm install` at repo root (workspaces pull in `bots/` + `packages/*`)
+2. `npm install` at repo root (workspaces pull in `kernel/ts`, `bear-watch/code`, `bear-scout/code`, `packages/*`)
 3. Python venv + `pip install -e ".[decoder]"`
 4. Installs pm2 globally if missing
 5. `pm2 start bear-watch/pm2.config.cjs && pm2 save`
@@ -130,10 +130,10 @@ boss's 4-check methodology is fastest (run all 4 in parallel):
 
 | # | Verify with | What you're confirming |
 |---|---|---|
-| D1 | Grep `fetch`, `axios`, `http`, `net\.` in `pbx`, `bear-watch/code/src/server/secrets.ts`, `bear-watch/code/src/server/hd.ts` | No outbound network calls from wallet/secrets code |
+| D1 | Grep `fetch`, `axios`, `http`, `net\.` in `pbx`, `kernel/ts/src/secrets.ts`, `kernel/ts/src/hd.ts` | No outbound network calls from wallet/secrets code |
 | D2 | Check `pre/post-install`/`prepare` hooks in `**/package.json` + skim `install.sh`, `install.ps1`, `install.bat`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | No npm/Python install-time hooks running surprise commands |
 | D3 | Grep repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for shell-eval functions, runtime evaluators (Python/JS), dynamic function constructors, OS command interfaces, shell-true subprocesses | No path from LLM output to runtime code execution |
-| D4 | Grep all `https?://` literals across `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` and check against allowlist | Hosts limited to PBX API, your RPC, DEX SDKs (Meteora/Orca/Jupiter/Solana). No pastebins, telemetry, raw IPs. |
+| D4 | Grep all `https?://` literals across `kernel/ts/src`, `bear-watch/code/src`, `bear-scout/code/src`, `bear-scout/runners`, `packages`, `pbx`, `scripts` and check against allowlist | Hosts limited to PBX API, your RPC, DEX SDKs (Meteora/Orca/Jupiter/Solana). No pastebins, telemetry, raw IPs. |
 
 If anything looks off, stop and ask Claude in your install chat
 (or, if you don't have one, open an issue on
@@ -499,7 +499,7 @@ For the live bot fleet, the `pbx-bots` CLI is in `bear-watch/code/scripts/`:
 | `pbx-bots drain <name>` | Sweep remaining USDC + SOL back to funder |
 | `pbx-bots remote add <url> <token>` | Connect to a remote bot fleet |
 
-See `bots/README.md` for full `pbx-bots` reference.
+See `bear-watch/code/README.md` for full `pbx-bots` reference.
 
 ---
 

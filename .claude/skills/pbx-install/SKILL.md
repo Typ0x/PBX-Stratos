@@ -445,8 +445,8 @@ others if you want, skip ones that don't fit:
   source tree. The repo claims it talks only to: public PBX API,
   user-configured Solana RPC, DEX SDKs (Meteora / Orca / Jupiter),
   PurpleAir / AirNow / weather APIs. Verify or push back.
-- **Wallet/secrets code paths.** `bear-watch/code/src/server/secrets.ts`,
-  `bear-watch/code/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+- **Wallet/secrets code paths.** `kernel/ts/src/secrets.ts`,
+  `kernel/ts/src/hd.ts`, the `pbx` CLI's wallet subcommands. Look
   for anywhere keys or mnemonics get written to a non-`.env` location,
   sent over the network, or logged.
 - **LLM-output to code-execution paths.** Grep for `eval`, `exec`,
@@ -1036,7 +1036,7 @@ winget install Solana.SolanaCLI   # if available, else manual install
 ```
 
 The repo's own derivation is functionally equivalent — the bot fleet
-uses `bear-watch/code/src/server/hd.ts` (BIP39 24-word mnemonic →
+uses `kernel/ts/src/hd.ts` (BIP39 24-word mnemonic →
 `m/44'/501'/<index>'/0'` derivation via `bip39` +
 `ed25519-hd-key` + `@solana/web3.js`) which exactly matches what
 `solana-keygen recover -o restored.json "prompt:?key=<index>'/0'"`

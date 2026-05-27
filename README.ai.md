@@ -133,7 +133,7 @@ the user can engage with independently:
 - **The live bot fleet** — opt-in. Once the user provides a Helius
   RPC API key and explicitly enables it, this can swap real USDC for
   three city-themed Solana tokens on Meteora / Orca / Jupiter. Lives
-  under `bots/`. Off by default.
+  under `bear-watch/code/`. Off by default.
 - **The operator shell** — the Claude-driven onboarding wizard, six
   personalities, six dashboard themes, the 7-section / 130-task
   roadmap, the pm2 ops layer, the 4-tier consent system, the
@@ -342,8 +342,8 @@ want.
   SDKs (Meteora / Orca / Jupiter / Solana), PurpleAir, AirNow, weather
   APIs. Verify or push back. Look out for pastebin / ngrok / webhook
   sinks / raw IP literals.
-- **Wallet/secrets code.** `bear-watch/code/src/server/secrets.ts`,
-  `bear-watch/code/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+- **Wallet/secrets code.** `kernel/ts/src/secrets.ts`,
+  `kernel/ts/src/hd.ts`, the `pbx` CLI's wallet subcommands. Look
   for keys/mnemonics written anywhere besides `runtime/bots/local.env`,
   or sent over the network, or logged.
 - **LLM-output → code-execution paths.** Grep for `eval`, `exec`,
@@ -443,7 +443,7 @@ UX budget.
 | File | What to skim |
 |---|---|
 | `install.ps1`, `install.sh`, `install.bat` | Surprise hosts, base64-decoded commands, hidden `curl`/`wget`, `Invoke-Expression` of remote content |
-| `package.json` (root + `bots/`) | npm lifecycle hooks (`preinstall`/`postinstall`/`prepare`) doing anything beyond standard build |
+| `package.json` (root + `kernel/ts/`, `bear-watch/code/`, `bear-scout/code/`) | npm lifecycle hooks (`preinstall`/`postinstall`/`prepare`) doing anything beyond standard build |
 | `pyproject.toml` | Build-time hooks running arbitrary commands |
 | `scripts/bootstrap.ps1`, `scripts/bootstrap.sh` | Tool installs beyond bundled Node; surprise PATH manipulation |
 | `bear-watch/register-scheduled-tasks.ps1` | Anything other than registering the documented 6 `STRATOS-*` tasks at `/rl LIMITED` |
@@ -1277,7 +1277,7 @@ for THIS user only.
 | Path | Layer | Edit policy |
 |---|---|---|
 | `README.md`, `README.ai.md`, `CLAUDE.md`, `ROADMAP.md`, `ARCHITECTURE.md`, `INSTALL.md` | L1 | Framework — edit only as releases |
-| `.claude/`, `themes/`, `bots/`, `bear-watch/`, `bear-scout/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `LICENSE`, `package.json`, `pyproject.toml` | L1 | Framework — edit only as releases |
+| `.claude/`, `themes/`, `kernel/`, `bear-watch/`, `bear-scout/`, `bear-den/`, `scripts/`, `packages/`, `src/`, `tools/`, `docs/`, `profiles/`, `LICENSE`, `package.json`, `pyproject.toml` | L1 | Framework — edit only as releases |
 | `_context/CLAUDE.md` | L2 | Per-machine notes; OPTIONAL — used for iron-rule sibling-isolation |
 | `_context/MANIFEST.md` | L2 | High-level scope index |
 | `_context/<scope>/MANIFEST.md` | L2 | Per-scope definition |
@@ -1816,7 +1816,7 @@ Once you've absorbed this file, your daily ops reference is
 | [`.claude/personalities/<id>.md`](.claude/personalities/) | Active personality's voice + vocabulary + progress-filler language |
 | [`.claude/achievements/<id>.md`](.claude/achievements/) | Active personality's achievement-celebration text (1:1 with ROADMAP task IDs) |
 | `bear-scout/README.md` | Decoder framework — what each runner does, what outputs land where |
-| `bots/README.md` | Live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep |
+| `bear-watch/code/README.md` | Live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep |
 | `achievements/definitions.json` | Event-driven achievement spec (auto-tracked) |
 
 ---

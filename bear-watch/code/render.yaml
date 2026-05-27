@@ -29,7 +29,7 @@ services:
       - key: PORT
         value: 8787
       # Bind to all interfaces so Render's load balancer can reach us.
-      # Local dev defaults to 127.0.0.1 — see apps/bots/README.md.
+      # Local dev defaults to 127.0.0.1 — see bear-watch/code/README.md.
       - key: HOST
         value: 0.0.0.0
       - key: STRATOS_BOTS_DATA_DIR

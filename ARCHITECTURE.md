@@ -190,7 +190,7 @@ the box.
 | **0** | Files outside the watch-code workspace, `bear-den/dashboards/*`, log files, docs, `bear-scout/aq-price/` analytical scripts | Never |
 | **1** | `.ts` files under `bear-watch/code/src/` (triggers pm2 reload), `bear-scout/runners/` decoder scripts, `packages/swap-router/src/` venue adapters | Only if live bot has open position |
 | **2** | `bear-scout/code/src/strategies/`, `runner.ts`, `regions.ts`, `perf.ts`, `bear-watch/code/src/server/workflow/agentic_decode.ts`, `bear-watch/code/src/server/workflow/claude_decode.ts` (live-bot logic + decode workflow that touches keys) | Yes, EVEN with no open position |
-| **3** | `.env`, `pm2.config.cjs`, `bear-watch/code/src/server/hd.ts`, `bear-watch/code/src/server/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
+| **3** | `.env`, `pm2.config.cjs`, `kernel/ts/src/hd.ts`, `kernel/ts/src/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
 
 Documented authoritatively in `CLAUDE.md` (the multi-scope
 policy doc). Personalities can never override these tiers.

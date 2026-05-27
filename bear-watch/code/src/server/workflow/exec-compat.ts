@@ -34,11 +34,13 @@ const MIN_PYTHON_MINOR = 10; // i.e. 3.10
 
 /** Repo root — for locating the project virtualenv. STRATOS_REPO_ROOT
  *  overrides; otherwise derived from this file's path
- *  (bear-watch/code/src/server/workflow/exec-compat.ts → up four). */
+ *  (bear-watch/code/src/server/workflow/exec-compat.ts → up five:
+ *   workflow → server → src → code → bear-watch → repo root).
+ *  Matches the depth used in sibling `agentic_decode.ts:repoRoot()`. */
 function repoRoot(): string {
   const env = process.env.STRATOS_REPO_ROOT;
   if (env) return resolve(env);
-  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 }
 
 /** True if `cmd` runs and reports Python ≥ MIN_PYTHON_MINOR. */

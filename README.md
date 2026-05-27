@@ -93,7 +93,7 @@ Three layers you can use independently:
 `pbx-mainnet-api.onrender.com`.** Safe on a fresh laptop with nothing
 configured.
 
-### 2. The live bot fleet (`bots/`, Fastify dashboard, orchestrator) — OPT-IN
+### 2. The live bot fleet (`bear-watch/code/`, Fastify dashboard, orchestrator) — OPT-IN
 
 - Local dashboard with discover → decode → backtest → deploy workflow
 - Deploy a decoded strategy as a live bot swapping real USDC for PBX
@@ -249,7 +249,7 @@ See [`INSTALL.md`](INSTALL.md) for the step-by-step manual checklist.
 
 ## ⚠️ Before you trust this clone
 
-PBX Stratos is **dual-use code**: the optional `bots/` fleet can
+PBX Stratos is **dual-use code**: the optional `bear-watch/code/` fleet can
 move real funds on Solana mainnet. The default explore-only path
 can't — no keys, no signing, no on-chain calls. Even so, **verify
 the clone yourself** rather than trusting any single readme. Claude
@@ -257,8 +257,8 @@ does these checks as part of onboarding (Stage D of the 4-stage
 audit), but you should be able to confirm them too:
 
 - No code sends private keys / mnemonics off the machine — grep the
-  wallet paths (`pbx`, `bear-watch/code/src/server/secrets.ts`,
-  `bear-watch/code/src/server/hd.ts`)
+  wallet paths (`pbx`, `kernel/ts/src/secrets.ts`,
+  `kernel/ts/src/hd.ts`)
 - Install scripts have no hidden hooks — check `install.sh`,
   `install.ps1`, `install.bat`, `scripts/bootstrap.*`, npm
   `pre/postinstall` in every `package.json`, build backend in
@@ -291,7 +291,7 @@ readme's word for any of it:
 
 | Area worth checking | What "good" looks like |
 |---|---|
-| **Wallet stays local** | Nothing in the wallet / secrets code should upload keys anywhere. Files to read: `bear-watch/code/src/server/secrets.ts`, `bear-watch/code/src/server/hd.ts`. AES-256-GCM at rest is the design. |
+| **Wallet stays local** | Nothing in the wallet / secrets code should upload keys anywhere. Files to read: `kernel/ts/src/secrets.ts`, `kernel/ts/src/hd.ts`. AES-256-GCM at rest is the design. |
 | **Network surface** | The code should only talk to: Solana RPC (live trading), the public PBX market-data API, public air-quality sensors (PurpleAir / AirNow), public weather APIs, DEX SDKs (Meteora / Orca / Jupiter). Grep `https?://` literals across the source tree to confirm. |
 | **No model→exec paths** | Predicates from agentic-decode run through a hand-written DSL interpreter (`bear-scout/code/src/strategies/dsl/interpreter.ts`), not `eval()` / `exec()` / `Function(...)`. Spot-check that file. |
 | **`.gitignore` covers secrets** | `.env`, `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`, `*-private*` patterns should all be gitignored. The secret-scrub pre-commit hook (`tools/secret-scrub/`) is opt-in belt-and-suspenders. |
@@ -416,9 +416,9 @@ surface. Run any of these from the repo root:
 | `./pbx refresh` | Re-fetch backfill data from the public PBX API |
 | `./pbx config` | Reconfigure keys (Helius, PurpleAir) |
 
-The `bots/` directory has its own CLI (`pbx-bots` via
+The `bear-watch/code/` workspace has its own CLI (`pbx-bots` via
 `bear-watch/code/scripts/pbx-bots.sh`) for the live fleet once you've opted in.
-See `bots/README.md`.
+See `bear-watch/code/README.md`.
 
 ---
 
@@ -470,22 +470,31 @@ There's no review process. Your personality, your rules.
 
 ---
 
-## Starter strategies (the in-the-box pack)
+## Starter strategies (build-your-own from day one)
 
-The paper trader ships with a small set of bare-bones starter
-strategies — **enough to demonstrate the format, not enough to give
-you a winning approach out of the box**. These are intentional
-training-wheels: they're functional examples you can paper-trade
-immediately, but the real goal is for YOU to design strategies that
-work better.
+**The strategy registry ships empty by design.** Reference strategy
+implementations live in `bear-scout/code/src/strategies/`
+(`buy_and_hold.ts`, `mean_reversion.ts`, `pm25_band.ts`,
+`pm25_zscore.ts`, `region_arb.ts`, etc.) — study them to learn the
+spec format, then register your own tuned variants in
+`bear-scout/runners/strategy-registry.json`. The paper trader runs
+whatever's in that JSON file with `status: "paper"`.
 
-Each strategy is a JSON-like spec (entry filters + DCA rules + exit
-type). The full list of currently-installed strategies is displayed
-by the dashboard's Strategy panel or via:
+This is intentional alpha-protection: the framework gives you the
+tools but never ships pre-tuned parameters that print money. Two
+operators following the roadmap end up with completely different
+strategies — that's the point.
+
+Each registry entry is a JSON spec (entry filters + DCA rules + exit
+type). To see what's currently in your registry:
 
 ```bash
 python bear-scout/runners/paper-trade.py --list-strategies
 ```
+
+On a fresh install this prints `strategies: 0 total, 0 active in paper`
+— that's the expected state. Sections 3-4 of the roadmap walk you
+through writing + registering your first strategy.
 
 The framework gives you everything you need to build your own:
 
@@ -795,7 +804,7 @@ code.
 | **[`docs/SECURITY.md`](docs/SECURITY.md)** | Full security model: key handling, network policy, encryption details. Read before going live. |
 | **[`bear-watch/EMERGENCY-STOP.md`](bear-watch/EMERGENCY-STOP.md)** | When something is on fire. Four-level escalation ladder. |
 | **`lab/README.md`** | The wallet decoder framework — what each runner does, what outputs land where. |
-| **`bots/README.md`** | The live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep. |
+| **`bear-watch/code/README.md`** | The live bot fleet — `pbx-bots` CLI, multi-bot orchestration, stop/drain/sweep. |
 
 The full doc map (including Claude-facing internals like
 `CLAUDE.md`, `.claude/personalities/`, `.claude/skills/`, etc.) is

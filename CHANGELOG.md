@@ -58,12 +58,18 @@ Per-scope `package.json` with `type:module` (Gotcha 1 fix). `tsconfig.json` drop
 
 Doc + script sweep across ~35 files: ARCHITECTURE.md, README, ROADMAP, INSTALL, install.{ps1,sh,bat}, 6 personality achievement packs, all SKILL.md files, dashboard.html/.js, bear-{den,scout,watch}/README.md, and the CLAUDE.md file-reference rule.
 
+### Post-reorg verification (Section 4.5 — DONE)
+
+- **Step A — `pbx-audit-restructure` 10-phase audit**: ran 2× on the branch.
+  - First pass (`99c63ce`): caught 4 findings (1 HIGH + 3 LOW). All fixed.
+  - Second pass (post fresh-clone install in test VM): caught 4 additional findings (1 HIGH + 1 MEDIUM + 2 LOW). All fixed.
+  - HIGH from second pass: `exec-compat.ts:repoRoot()` walked up 4 dirs from `bear-watch/code/src/server/workflow/` — landed at `bear-watch/code/` instead of repo root. Latent (masked by `STRATOS_REPO_ROOT` env in pm2 mode; would surface in dev/test/CLI invocations). Same Gotcha-6 class as F2 from the first audit pass.
+- **Step B — fresh-clone install smoke test**: ran in a clean Windows VM (revert snapshot → boot → paste seamless-install prompt). Dashboard came up at `localhost:8787`, both pm2 apps online, 6 STRATOS-* scheduled tasks Ready, `/health` returns 200, 6/7 health-checks GREEN (only HELIUS_MAINNET_URL absent — expected for explore-only mode).
+
 ### Coming in v0.3.0 final (before public release)
 
-- Section 4.5 Step A — invoke `pbx-audit-restructure` 10-phase verification protocol against the reorg.
-- Section 4.5 Step B — fresh-clone install smoke test.
 - Optional work-packages from 2026-05-26 delta brief: weather-pull resilience (required), site-snapshotter (optional), multi-API ensemble research scaffold (optional).
-- Pre-publish verification: alpha-leak grep ZERO, README + ARCHITECTURE updated for new topology, fresh-clone smoke test pass.
+- Pre-publish verification: alpha-leak grep ZERO, README + ARCHITECTURE updated for new topology, final fresh-clone smoke test pass against post-WP-A state.
 
 ---
 
