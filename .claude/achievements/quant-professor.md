@@ -44,7 +44,7 @@ Universal Core.
 > Node-side dependencies installed via `npm install` at the repository root (workspace-aware); Python-side dependencies installed via `pip install -e .[decoder]` into the project virtual environment. The expected imports — `pbx_trader_lab`, `sklearn`, `numpy` — resolve cleanly, and `.tooling/ready.json` has been written as a completion marker. The external dependency graph is now materialized locally.
 
 ### s1.t9 — "Personality + Theme Picked"
-> Personality identifier and matching theme identifier written to the user profile. The dashboard's `bots/src/server/active-theme.css` has been updated accordingly. The presentation layer now reflects current operator preference; further customization is deferred to Section 3.
+> Personality identifier and matching theme identifier written to the user profile. The dashboard's `bear-den/dashboards/active-theme.css` has been updated accordingly. The presentation layer now reflects current operator preference; further customization is deferred to Section 3.
 
 ### s1.t10 — "pm2 Fleet Online"
 > `bear-watch-server` (the dashboard and bot server on port 8787) and `paper-trade-bot` (the 60-second tick loop) both report `online` in `pm2 list`. The HTTP listener on `127.0.0.1:8787` responds, and the `/health` endpoint returns `{"ok":true}`. The runtime fleet is operational.

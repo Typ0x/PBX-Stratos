@@ -3,11 +3,11 @@
  * Bots CLI entry point.
  *
  * Dry mode (no capital):
- *   tsx bots/src/cli.ts --dry-run --tick-ms 30000
+ *   tsx bear-watch/code/src/cli.ts --dry-run --tick-ms 30000
  *
  * Live mode (real SOL on mainnet, explicit opt-in + guardrails):
  *   BOT_KEYPAIR_JSON=... HELIUS_MAINNET_URL=... \
- *     tsx bots/src/cli.ts --live --strategies buy_and_hold_nyc
+ *     tsx bear-watch/code/src/cli.ts --live --strategies buy_and_hold_nyc
  *
  * --live and --dry-run are mutually exclusive. You must pass ONE of them
  * explicitly — neither defaults. Refusing to trade without a clear signal
@@ -52,7 +52,7 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp() {
-  console.log(`Usage: tsx bots/src/cli.ts (--dry-run | --live) [options]
+  console.log(`Usage: tsx bear-watch/code/src/cli.ts (--dry-run | --live) [options]
 
 Mode (one required):
   --dry-run              Simulate trades; never submit transactions.

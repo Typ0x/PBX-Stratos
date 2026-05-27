@@ -44,7 +44,7 @@ Organized by purpose:
 |---|---|---|
 | `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake (tech_level, communication_style, goal, consent_level, autonomy_level). Writes updated answers to `runtime/lab/user-profile.json`. |
 | `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in `runtime/lab/user-profile.json` without re-running quiz. Optionally also updates `theme_id` to match. |
-| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bots/src/server/active-theme.css` (pre-Phase-7) or `bear-watch/code/src/server/active-theme.css` (post-Phase-7), and updates `theme_id` in profile. |
+| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bear-den/dashboards/active-theme.css` (gitignored — the server reads it fresh per request), and updates `theme_id` in profile. |
 
 ### Ops (1)
 

@@ -100,7 +100,7 @@ Step 1 "Ensuring Node.js + Python + npm deps (via scripts/bootstrap.ps1)"
 # bootstrap.ps1 -> setup.mjs handles:
 #   - Detect Node, download bundled standalone Node into .tooling/ if missing
 #   - Bundle Python at .tooling\python\python.exe (Windows always bundles)
-#   - npm install at repo root (workspaces pull in bots/ + packages/*)
+#   - npm install at repo root (workspaces pull in kernel/ts + bear-watch/code + bear-scout/code + packages/*)
 #   - npm install -g @anthropic-ai/claude-code (needed by decode workflow)
 #   - Write .tooling/ready.json with the validated python path
 # Re-running is cheap -- every sub-step checks before doing work.
@@ -326,11 +326,11 @@ if (-not $healthOk) {
   Write-Host "================================================================" -ForegroundColor Red
   Write-Host " Install FAILED -- /health never reached 200 within ${maxWait}s" -ForegroundColor Red
   Write-Host "================================================================" -ForegroundColor Red
-  $serverLog = Join-Path $RepoRoot 'bots\_server_log.txt'
+  $serverLog = Join-Path $RepoRoot 'bear-watch\code\_server_log.txt'
   $paperLog  = Join-Path $RepoRoot 'bear-scout\runners\_paper_trade_log.txt'
   if (Test-Path $serverLog) {
     Write-Host ""
-    Write-Host " --- last 30 lines of bots/_server_log.txt ---" -ForegroundColor Yellow
+    Write-Host " --- last 30 lines of bear-watch/code/_server_log.txt ---" -ForegroundColor Yellow
     Get-Content $serverLog -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
   }
   if (Test-Path $paperLog) {

@@ -34,7 +34,7 @@ const MIN_PYTHON_MINOR = 10; // i.e. 3.10
 
 /** Repo root — for locating the project virtualenv. STRATOS_REPO_ROOT
  *  overrides; otherwise derived from this file's path
- *  (bots/src/server/workflow/exec-compat.ts → up four). */
+ *  (bear-watch/code/src/server/workflow/exec-compat.ts → up four). */
 function repoRoot(): string {
   const env = process.env.STRATOS_REPO_ROOT;
   if (env) return resolve(env);

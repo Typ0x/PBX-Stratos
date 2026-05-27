@@ -341,13 +341,13 @@ want.
   SDKs (Meteora / Orca / Jupiter / Solana), PurpleAir, AirNow, weather
   APIs. Verify or push back. Look out for pastebin / ngrok / webhook
   sinks / raw IP literals.
-- **Wallet/secrets code.** `bots/src/server/secrets.ts`,
-  `bots/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+- **Wallet/secrets code.** `bear-watch/code/src/server/secrets.ts`,
+  `bear-watch/code/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
   for keys/mnemonics written anywhere besides `runtime/bots/local.env`,
   or sent over the network, or logged.
 - **LLM-output → code-execution paths.** Grep for `eval`, `exec`,
   `Function(`, `child_process.exec` with user-derived strings. The
-  DSL interpreter (`bots/src/strategies/dsl/interpreter.ts`) is meant
+  DSL interpreter (`bear-scout/code/src/strategies/dsl/interpreter.ts`) is meant
   to be a hand-written evaluator, not a code-eval pass-through.
 - **Outbound auth / API keys.** Check whether any hardcoded keys,
   tokens, or secrets exist in the repo.
@@ -704,8 +704,8 @@ AskUserQuestion: "How do you want your dashboard styled?"
 
 Apply the chosen theme:
 ```bash
-# Copy themes/<theme-id>.css → bots/public/dashboard/active-theme.css
-cp "themes/<theme-id>.css" "bots/public/dashboard/active-theme.css"
+# Copy themes/<theme-id>.css → bear-watch/code/public/dashboard/active-theme.css
+cp "themes/<theme-id>.css" "bear-watch/code/public/dashboard/active-theme.css"
 ```
 
 Update `runtime/lab/user-profile.json` with the chosen `theme_id`.
@@ -916,7 +916,7 @@ that voice for the rest of the session. The personality file has:
 ### Applying a theme
 
 ```bash
-cp "themes/<theme-id>.css" "bots/src/server/active-theme.css"
+cp "themes/<theme-id>.css" "bear-den/dashboards/active-theme.css"
 ```
 
 The active-theme slot is what the dashboard's HTML imports. Update
@@ -1060,7 +1060,7 @@ When you hit a T1/T2 gate that requires asking, use
 `AskUserQuestion` with the proposed action as the primary option:
 
 ```
-AskUserQuestion: "About to edit bots/src/server/index.ts — this'll trigger a pm2 reload of the live bot. Continue?"
+AskUserQuestion: "About to edit bear-watch/code/src/server/index.ts — this'll trigger a pm2 reload of the live bot. Continue?"
   - "Yes, edit and reload"
   - "Show me the diff first"
   - "Cancel"
@@ -1703,7 +1703,7 @@ None of them clone or download — the user clones first.
 | `pbx-stratos-setup` | "Clone this and onboard me", "onboard me", "set up PBX Stratos", "install PBX Stratos", "onboard me to PBX Stratos", "Verify if PBX Stratos Repo is safe and start the onboarding process in .README" | The post-clone install wizard (the flow this runbook documents) |
 | `pbx-personality-quiz` | "run the personality quiz", "retake the personality quiz", "recalibrate my Claude" | Re-runs the 5-question intake from the install wizard and writes updated answers to `runtime/lab/user-profile.json` |
 | `pbx-set-personality` | "switch PBX Stratos personality to `<id>`", "try the `<id>` personality" | Updates `personality_id` in the profile without re-running the quiz |
-| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bots/src/server/active-theme.css` and updates `theme_id` |
+| `pbx-set-theme` | "switch PBX Stratos theme to `<id>`", "change my PBX Stratos dashboard theme" | Copies `themes/<id>.css` to `bear-den/dashboards/active-theme.css` and updates `theme_id` |
 | `pbx-recover-bot` | "the PBX Stratos bot is broken", "PBX Stratos dashboard isn't loading", "I got a STRATOS alert" | Standard PBX-Stratos diagnostic runbook: pm2 status → `/debug/health` → recent alerts → recent commits → pm2 logs → prescribed fix |
 | `wallet-decoder` | "decode this PBX wallet `<pubkey>`", "run the PBX Stratos wallet decoder on `<pubkey>`" | Drives the lab decoder pipeline against a Solana pubkey |
 

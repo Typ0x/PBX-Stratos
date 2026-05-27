@@ -45,7 +45,7 @@ pointing at what's next.
 > `npm install` ran at the repo root via workspaces, `pip install -e .[decoder]` ran inside `.venv`. `node_modules/` is populated, `pbx_trader_lab` and `sklearn` and `numpy` import cleanly, and `.tooling/ready.json` is written. The toolchain is wired.
 
 ### s1.t9 — "Personality + Theme Picked"
-> You picked one of the six personalities and the matching theme auto-applied to the dashboard. `personality_id` and `theme_id` are saved in your profile and `bots/src/server/active-theme.css` reflects the choice. Claude now talks in your chosen voice.
+> You picked one of the six personalities and the matching theme auto-applied to the dashboard. `personality_id` and `theme_id` are saved in your profile and `bear-den/dashboards/active-theme.css` reflects the choice. Claude now talks in your chosen voice.
 
 ### s1.t10 — "pm2 Fleet Online"
 > `bear-watch-server` (the dashboard + bot server on port 8787) and `paper-trade-bot` (60-second tick loop) are both `online` in `pm2 list`. `127.0.0.1:8787` is listening and `/health` returns `{"ok":true}`. The bot is alive.

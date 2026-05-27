@@ -3,7 +3,7 @@
  * scripts/screenshot-theme-audit.mjs
  *
  * Comprehensive per-theme screenshot pipeline. For each of the 6 themes:
- *   - Copy themes/<id>.css → bots/src/server/active-theme.css
+ *   - Copy themes/<id>.css → bear-den/dashboards/active-theme.css
  *   - Fresh Chromium context (no CSS cache carryover)
  *   - Navigate to /dashboard, set onboarding flag done, screenshot:
  *       01 discover, 02 leaderboard, 03 strategies, 04 paper, 05 live,

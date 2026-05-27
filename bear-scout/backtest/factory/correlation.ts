@@ -7,7 +7,7 @@
  * vs orthogonal sources of return (corr < 0.5).
  *
  * Reused, never re-implemented:
- *   - NAV history file produced by `bots/src/server/nav-snapshotter.ts`
+ *   - NAV history file produced by `bear-watch/code/src/server/nav-snapshotter.ts`
  *     (single shared `state/nav-history.jsonl` under BOTS_DATA_DIR).
  *   - Provenance / strategy-name lookup via `readPaperProvenance`.
  *   - `BacktestVsPaperRow`'s notion of a "paper bot we know about" via

@@ -7,7 +7,7 @@ human-facing surfaces feel professional and usable lives here.
 
 ## What this scope owns
 
-- The dashboard layout (`bots/src/server/dashboard.html` — in the
+- The dashboard layout (`bear-den/dashboards/dashboard.html` — in the
   integrated starter repo's bot code, edited by BEAR-DEN when the
   work is UI)
 - Dashboard panels (each tab, each chart, each table)
@@ -69,7 +69,7 @@ positions.
 ## What does NOT live here
 
 - The dashboard server itself (HTTP routing, API endpoints) → that's
-  ops territory in `bots/src/server/index.ts`
+  ops territory in `bear-watch/code/src/server/index.ts`
 - Strategy parameter tuning → that's BEAR-SCOUT in `bear-scout/runners/`
 - The pm2 supervisor config → that's BEAR-WATCH in `bear-watch/`
 - Per-scope journals + STATUS + design notes → live in `_context/bear-den/`

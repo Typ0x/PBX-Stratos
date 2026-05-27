@@ -42,7 +42,7 @@ up per Universal Core.
 > `npm install` at root via workspaces. `pip install -e .[decoder]` in `.venv`. `node_modules/` populated. `pbx_trader_lab` + `sklearn` + `numpy` import clean. `.tooling/ready.json` written. toolchain wired.
 
 ### s1.t9 — "Personality + Theme Picked"
-> claude vibe locked, dashboard skin applied. `personality_id` + `theme_id` in profile. `bots/src/server/active-theme.css` overwritten. first pick — deeper customization waits for s3.
+> claude vibe locked, dashboard skin applied. `personality_id` + `theme_id` in profile. `bear-den/dashboards/active-theme.css` overwritten. first pick — deeper customization waits for s3.
 
 ### s1.t10 — "pm2 Fleet Online"
 > `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in `pm2 list`. `127.0.0.1:8787` listening. `/health` returns `{"ok":true}`. bot's alive.

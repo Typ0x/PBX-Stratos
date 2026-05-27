@@ -9,7 +9,7 @@
 # What it does, in order:
 #   1. Verify host: Python >= 3.10, git, Node >= 18
 #   2. Clone the repo to ~/PBX-Stratos (or pull latest if already present)
-#   3. npm install at repo root (workspaces pull in bots/ + packages/*)
+#   3. npm install at repo root (workspaces pull in kernel/ts + bear-watch/code + bear-scout/code + packages/*)
 #   4. Python venv at .venv + pip install -e ".[decoder]"
 #   5. Install pm2 globally if missing
 #   6. pm2 start bear-watch/pm2.config.cjs + pm2 save

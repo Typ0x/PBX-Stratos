@@ -7,7 +7,7 @@
 1. Copy the `example/` directory as your starting point: `cp -r example my-extension`
 2. Edit `my-extension/manifest.json` — change `name`, `title`, `description`, target `view`, etc.
 3. Edit `my-extension/panel.html` + `panel.css` + `panel.js` to build your panel
-4. (Until Phase 7 auto-discovery) Add the manual wiring in the active dashboard HTML (`bots/src/server/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7):
+4. (Until Phase 7 auto-discovery) Add the manual wiring in the active dashboard HTML (`bear-den/dashboards/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7):
    - Insert `<div id="ext-my-extension-root" data-extension="my-extension"></div>` in the target view
    - Add `loadExtension('my-extension');` at the bottom of the JS block
 5. Reload the dashboard at `http://localhost:8787` (port from `_context/CLAUDE.md`)
@@ -59,4 +59,4 @@ When you want to share an extension upstream (e.g., from a private working fork 
 
 - `docs/EXTENSIONS.md` — full design + author guide
 - `example/` — working minimal extension to start from
-- `bots/src/server/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard (where extensions attach)
+- `bear-den/dashboards/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard (where extensions attach)

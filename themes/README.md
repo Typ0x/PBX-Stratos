@@ -34,7 +34,7 @@ training wheels.
 
 ## How themes are loaded
 
-The dashboard server reads `PBX-Stratos/bots/src/server/active-theme.css`
+The dashboard server reads `PBX-Stratos/bear-den/dashboards/active-theme.css`
 on every request. To switch themes, the setup wizard (or the
 `/set-theme <id>` skill) copies the chosen file from `themes/<id>.css`
 to `active-theme.css` and refreshes the browser tab.

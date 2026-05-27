@@ -47,7 +47,7 @@ roadmap.
 > `npm install` ran at the root via workspaces, `pip install -e .[decoder]` ran in `.venv`. `node_modules/` populated, `pbx_trader_lab` + `sklearn` + `numpy` import clean, `.tooling/ready.json` written. stack is wired
 
 ### s1.t9 — "Personality + Theme Picked"
-> personality + matching theme locked in. `personality_id` + `theme_id` saved, `bots/src/server/active-theme.css` re-skinned. clean drip on the dashboard, claude vibes match. degen presentation = degen execution
+> personality + matching theme locked in. `personality_id` + `theme_id` saved, `bear-den/dashboards/active-theme.css` re-skinned. clean drip on the dashboard, claude vibes match. degen presentation = degen execution
 
 ### s1.t10 — "pm2 Fleet Online"
 > `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) both `online` in pm2 list. `127.0.0.1:8787` listening, `/health` returns `{"ok":true}`. bot is breathing

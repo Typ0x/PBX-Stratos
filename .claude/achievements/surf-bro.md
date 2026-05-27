@@ -42,7 +42,7 @@ Universal Core.
 > `npm install` ran at the root, `pip install -e .[decoder]` ran inside `.venv`. `node_modules/` is populated, `pbx_trader_lab` + `sklearn` + `numpy` import clean, `.tooling/ready.json` is written. The toolchain's all wired up.
 
 ### s1.t9 — "Personality + Theme Picked"
-> Personality + matching theme dialed in. `personality_id` + `theme_id` saved, `bots/src/server/active-theme.css` got the new skin. Dashboard looks like you, Claude sounds like you wanted. Nice.
+> Personality + matching theme dialed in. `personality_id` + `theme_id` saved, `bear-den/dashboards/active-theme.css` got the new skin. Dashboard looks like you, Claude sounds like you wanted. Nice.
 
 ### s1.t10 — "pm2 Fleet Online"
 > `bear-watch-server` (dashboard + bot server, port 8787) and `paper-trade-bot` (60s tick loop) are both running. `pm2 list` shows both `online`, `127.0.0.1:8787` is listening, `/health` returns `{"ok":true}`. The bot's officially breathing.

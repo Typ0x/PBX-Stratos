@@ -831,7 +831,7 @@ export function timeRebalance(opts: { name?: string; intervalHrs: number; target
 //   spread  = max(d) - min(d)
 //   cheap   = argmin(d), rich = argmax(d)
 //
-// Mirrors the live engine in bots/src/strategies/region_arb.ts so
+// Mirrors the live engine in bear-scout/code/src/strategies/region_arb.ts so
 // backtest results map back to live behavior.
 
 interface RegionArbOpts {

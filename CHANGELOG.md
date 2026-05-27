@@ -44,12 +44,26 @@ First framework-restructured release. Topology + skills + hooks + protocols are 
 - Dashboard theme hot-swap polling + achievement toast queue.
 - `pbx-install` skill (formerly `pbx-stratos-setup`) walks the full onboarding flow.
 
+### Phase 7 code reorg (scope-coherent topology)
+
+Moved from `bots/` workspace into 4 scope-coherent locations via 5 sub-commits:
+
+  - **`kernel/ts/src/`** — shared primitives (paths, wallet, regions, chain, state, scores, secrets, hd). 15 files. `@pbx-stratos/kernel` workspace.
+  - **`bear-watch/code/src/`** — live trading bot runner + dashboard server. `@pbx-stratos/watch-code` workspace. New pm2 cwd.
+  - **`bear-scout/code/src/strategies/`** — live + paper-trade strategies (14 files + `dsl/` subdir). `@pbx-stratos/scout-code` workspace.
+  - **`bear-den/dashboards/`** — dashboard HTML + CSS + JS, plus active-theme.css (gitignored).
+  - `bots/` directory deleted entirely.
+
+Per-scope `package.json` with `type:module` (Gotcha 1 fix). `tsconfig.json` drops `rootDir` constraint (Gotcha 3) and uses `noEmit:true` + cross-package `include[]`. pm2 `cwd: resolve(__dirname, 'code')`. Subprocess paths (`runnersDir()`, `repoRoot()`), dashboard asset resolver, theme-CSS destination, and a cross-package type-import in `kernel/ts/src/chain.ts` all rewired for the new topology.
+
+Doc + script sweep across ~35 files: ARCHITECTURE.md, README, ROADMAP, INSTALL, install.{ps1,sh,bat}, 6 personality achievement packs, all SKILL.md files, dashboard.html/.js, bear-{den,scout,watch}/README.md, and the CLAUDE.md file-reference rule.
+
 ### Coming in v0.3.0 final (before public release)
 
-- Section 2 Wave B — region_arb tuned-defaults extraction (more substantial; separate commits per the audit's wave structure).
-- Phase 7 — code reorg into scope-coherent dirs (`kernel/`, `bear-watch/code/`, `bear-scout/code/`, `bear-scout/research/`, `bear-den/dashboards/`). Major topology change.
+- Section 4.5 Step A — invoke `pbx-audit-restructure` 10-phase verification protocol against the reorg.
+- Section 4.5 Step B — fresh-clone install smoke test.
 - Optional work-packages from 2026-05-26 delta brief: weather-pull resilience (required), site-snapshotter (optional), multi-API ensemble research scaffold (optional).
-- Pre-publish verification: fresh-clone install smoke test, alpha-leak grep ZERO, README + ARCHITECTURE updated for new topology.
+- Pre-publish verification: alpha-leak grep ZERO, README + ARCHITECTURE updated for new topology, fresh-clone smoke test pass.
 
 ---
 

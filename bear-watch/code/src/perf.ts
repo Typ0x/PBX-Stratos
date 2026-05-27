@@ -8,7 +8,7 @@
  * restart needed. Just reads the log file.
  *
  * Usage:
- *   HELIUS_MAINNET_URL=... tsx bots/src/perf.ts [--log /tmp/bot-session.log]
+ *   HELIUS_MAINNET_URL=... tsx bear-watch/code/src/perf.ts [--log /tmp/bot-session.log]
  */
 import { readFileSync } from 'node:fs';
 import { Keypair } from '@solana/web3.js';

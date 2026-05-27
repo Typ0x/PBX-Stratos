@@ -5032,7 +5032,7 @@
   //
   // Mirrors the 7-check health-check.py output plus pm2 process state,
   // scheduled-task state, and the alert tail. Source endpoint:
-  // GET /api/ops/health (see bots/src/server/index.ts). Re-renders on
+  // GET /api/ops/health (see bear-watch/code/src/server/index.ts). Re-renders on
   // each visit (cheap, no polling).
 
   // Format a uptime in seconds → human-friendly "2h 14m" / "3d 4h" / etc.

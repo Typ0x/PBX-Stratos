@@ -3,7 +3,7 @@
  * from <BOTS_DATA_DIR>/local.env when they aren't already in the process
  * environment.
  *
- * Why this exists: the server (bots/src/server/index.ts) bootstraps these
+ * Why this exists: the server (bear-watch/code/src/server/index.ts) bootstraps these
  * secrets on first boot — it generates a fresh master key, writes them to
  * <dataDir>/local.env at mode 0600, and re-exports them into its own
  * process. That works for the long-running server, but any *separate*
@@ -31,7 +31,7 @@ import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Default data dir, matching bots/src/server/index.ts and
+/** Default data dir, matching bear-watch/code/src/server/index.ts and
  *  paper-deploy.ts:defaultProvenanceDir. */
 export function defaultBotsDataDir(): string {
   return (process.env.STRATOS_BOTS_DATA_DIR ?? join(homedir(), '.pbx-bots'));

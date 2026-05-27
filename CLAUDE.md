@@ -694,13 +694,13 @@ If THIS install has no sibling, this section is informational. If it does, the i
 
 ### CRITICAL: backtick (inline-code) path references count too
 
-**Claude Code Desktop's chat renderer auto-detects file paths inside backticks** and renders them as clickable preview links. So a bare project-relative path inside backticks (one starting with `_context/`, `bots/`, `lab/`, `bear-watch/`, `bear-den/`, `bear-scout/` — with no project prefix) becomes a blue clickable that resolves against cwd and FAILS the same way a bare-path markdown link would.
+**Claude Code Desktop's chat renderer auto-detects file paths inside backticks** and renders them as clickable preview links. So a bare project-relative path inside backticks (one starting with `_context/`, `kernel/`, `bear-watch/`, `bear-den/`, `bear-scout/` — with no project prefix) becomes a blue clickable that resolves against cwd and FAILS the same way a bare-path markdown link would.
 
 The prefix rule extends to backticks. Any project file path you mention — whether in `[label](path)` markdown syntax OR in inline `` `path` `` backticks — MUST start with the install's project prefix if it points at a real project file.
 
 **When backticks are SAFE without prefix:** when the backtick content is not a real on-disk path — e.g. function names (`load_active_winners()`), variable names (`STALE_SEC`), shell commands (`pm2 jlist`), env vars (`PBXTRA_WATCHDOG_DISABLED`), generic shell snippets (`tail -50 path`), or filename patterns where the path is illustrative not literal (`<scope>/journal/<date>.md`). Those don't trigger the preview pane.
 
-**The pattern to flag:** any backtick content that LOOKS like a real path the user could click — starts with `_context/`, `bots/`, `lab/`, `bear-watch/`, `bear-den/`, `bear-scout/`, or has `.md` / `.ts` / `.py` / `.json` / `.html` extensions — needs the project prefix.
+**The pattern to flag:** any backtick content that LOOKS like a real path the user could click — starts with `_context/`, `kernel/`, `bear-watch/`, `bear-den/`, `bear-scout/`, or has `.md` / `.ts` / `.py` / `.json` / `.html` extensions — needs the project prefix.
 
 ### Pre-send checklist (catch the easy misses before they ship)
 
@@ -712,7 +712,7 @@ Before finalizing any response, scan your output for path references that would 
 4. **The `📖 Journal Updated:` footer** — link target starts with the prefix?
 5. **Absolute paths** anywhere (`C:\Users\...` or `/Users/...`) in markdown links → swap to the prefixed-relative form.
 
-If a scan finds bare `_context/...`, `bots/...`, `lab/...`, `bear-watch/...`, `bear-den/...`, `bear-scout/...` in any of those positions, prefix it.
+If a scan finds bare `_context/...`, `kernel/...`, `bear-watch/...`, `bear-den/...`, `bear-scout/...` in any of those positions, prefix it.
 
 **For inline file content (when user needs to see what's inside):** Use the Read tool — the auto-generated "Read [filename]" action button is clickable and works regardless of cwd issues. Slice long files with offset+limit per the EFFICIENT READING section.
 

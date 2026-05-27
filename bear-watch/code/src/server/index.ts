@@ -963,7 +963,7 @@ app.get('/api/workflow/preflight', async () => cached(preflightRespCache, RESP_C
       // child process flashes a console window on the user's screen.
       // Apply this to EVERY spawn / spawnSync / execSync in the server
       // tree; the convention is enforced by grep at PR time. See also:
-      // bots/src/server/workflow/exec-compat.ts (resolveClaude probes).
+      // bear-watch/code/src/server/workflow/exec-compat.ts (resolveClaude probes).
       const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: useShell, windowsHide: true });
       let out = '';
       let err = '';
@@ -2802,7 +2802,7 @@ app.get('/api/profile', async (_req, reply) => {
 // existing user-profile.json. Validates each value against the
 // allowed enum and refuses unknown values. If theme_id === 'auto',
 // resolves to the personality's default theme. After the write, the
-// chosen theme CSS is copied to bots/src/server/active-theme.css so
+// chosen theme CSS is copied to bear-den/dashboards/active-theme.css so
 // the new look applies on the next page load.
 //
 // Body shape (every field optional — only provided ones get written):
@@ -3434,7 +3434,7 @@ const STRATEGY_DESCRIPTIONS: Record<string, string> = {
 // Cache the dashboard assets in memory at boot. The dashboard ships as
 // three sibling files — markup (dashboard.html), styles (dashboard.css),
 // behaviour (dashboard.js) — served from bear-den/dashboards/ (post-
-// Phase-7 topology; previously bots/src/server/).
+// Phase-7 topology; previously bear-watch/code/src/server/).
 function readDashboardAsset(name: string): string {
   // Primary: bear-watch/code/src/server/<this file> → ../../../../bear-den/dashboards/
   const primary = join(import.meta.dirname ?? '.', '..', '..', '..', '..', 'bear-den', 'dashboards', name);

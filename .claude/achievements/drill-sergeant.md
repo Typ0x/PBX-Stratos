@@ -42,7 +42,7 @@ cadence per Universal Core — those get plain professional voice.
 > `npm install` EXECUTED at repo root via workspaces. `pip install -e .[decoder]` EXECUTED in `.venv`. `node_modules/` POPULATED. `pbx_trader_lab` + `sklearn` + `numpy` import CLEAN. `.tooling/ready.json` WRITTEN. Stack OPERATIONAL.
 
 ### s1.t9 — "Personality + Theme Picked"
-> Personality + theme LOCKED. `personality_id` + `theme_id` WRITTEN to profile. `bots/src/server/active-theme.css` RE-SKINNED. Claude voice and dashboard appearance ALIGNED.
+> Personality + theme LOCKED. `personality_id` + `theme_id` WRITTEN to profile. `bear-den/dashboards/active-theme.css` RE-SKINNED. Claude voice and dashboard appearance ALIGNED.
 
 ### s1.t10 — "pm2 Fleet Online"
 > SITREP: `bear-watch-server` (dashboard + bot server, port 8787) ONLINE. `paper-trade-bot` (60s tick loop) ONLINE. `pm2 list` shows BOTH operational. `127.0.0.1:8787` LISTENING. `/health` returns `{"ok":true}`. Bot is BREATHING.

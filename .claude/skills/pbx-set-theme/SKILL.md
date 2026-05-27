@@ -1,6 +1,6 @@
 ---
 name: pbx-set-theme
-description: PBX Stratos dashboard theme switcher. Use ONLY when the user is inside a cloned PBX-Stratos repository AND asks to apply a different PBX-Stratos dashboard CSS theme (default / lambo / camo / beach / academia / matrix) without changing their personality. Canonical trigger phrases — "switch PBX Stratos theme to <id>", "change my PBX Stratos dashboard theme", "match my PBX Stratos theme to my personality". Reads available themes from `themes/`, validates the requested ID, copies `themes/<id>.css` to `bots/src/server/active-theme.css`, updates `theme_id` in `runtime/lab/user-profile.json`, tells the user to refresh their browser tab.
+description: PBX Stratos dashboard theme switcher. Use ONLY when the user is inside a cloned PBX-Stratos repository AND asks to apply a different PBX-Stratos dashboard CSS theme (default / lambo / camo / beach / academia / matrix) without changing their personality. Canonical trigger phrases — "switch PBX Stratos theme to <id>", "change my PBX Stratos dashboard theme", "match my PBX Stratos theme to my personality". Reads available themes from `themes/`, validates the requested ID, copies `themes/<id>.css` to `bear-den/dashboards/active-theme.css`, updates `theme_id` in `runtime/lab/user-profile.json`, tells the user to refresh their browser tab.
 ---
 
 # PBX Stratos — Set Theme
@@ -28,7 +28,7 @@ served lazily per request).
 
 1. **Validate the theme exists** — check `PBX-Stratos/themes/<id>.css`
    is a real file
-2. **Copy** `themes/<id>.css` to `bots/src/server/active-theme.css`
+2. **Copy** `themes/<id>.css` to `bear-den/dashboards/active-theme.css`
    (on Unix, prefer a symlink — `ln -sf`)
 3. **Update `theme_id`** in `runtime/lab/user-profile.json`, update
    `last_updated`
@@ -89,7 +89,7 @@ the theme name" — always use the popup pair pattern.
 - **No themes/ directory**: tell the user the framework isn't fully
   installed; suggest running the full setup wizard
 - **`active-theme.css` is locked / can't be written**: ask the user
-  to verify file permissions in `bots/src/server/`
+  to verify file permissions in `bear-watch/code/src/server/`
 - **User picks a theme that's identical to the active one**: confirm
   "you're already on this theme" without writing anything
 

@@ -121,7 +121,7 @@ What "not slop" means in practice:
 | Claude behavior + personality system | `PBX-Stratos/.claude/UNIVERSAL-CORE.md`, `.claude/personalities/`, `.claude/achievements/`, `.claude/skills/` | Inside `.claude/` because Claude Code auto-loads them at session start |
 | Dashboard visual themes | `PBX-Stratos/themes/` | Top-level so users editing CSS find them easily; the dashboard server reads from here |
 | Lab research workbench | `PBX-Stratos/bear-scout/runners/`, `bear-scout/aq-price/`, `bear-scout/data/` | Where the wallet decoders, evolvers, paper-trader, and AQ-price models live. Outputs land in `runtime/lab/` (Layer 3 — gitignored, not committed) |
-| Live bot fleet (opt-in) | `PBX-Stratos/bots/src/`, `bots/scripts/`, `bots/package.json` | Fastify dashboard + orchestrator + strategies + swap router integration. Gated behind `HELIUS_MAINNET_URL`. |
+| Live bot fleet (opt-in) | `PBX-Stratos/bear-watch/code/src/`, `bear-watch/code/scripts/`, `bear-watch/code/package.json`, `bear-scout/code/src/strategies/`, `kernel/ts/src/` | Fastify dashboard + orchestrator + strategies + shared kernel + swap router integration. Split across 3 workspaces post-Phase-7. Gated behind `HELIUS_MAINNET_URL`. |
 | Swap router (multi-venue exec) | `PBX-Stratos/packages/swap-router/` | Meteora / Orca / Jupiter venue adapters + router that picks best per trade. Used by both paper trader (for quote-only simulation) and live bot (for real fills). |
 | `pbx` CLI + Python package | `PBX-Stratos/pbx` (CLI entry), `PBX-Stratos/src/pbx_trader_lab/` (Python package: achievements tracker, event evaluator) | CLI is the offline side of the lab; the Python package powers event-driven achievement tracking |
 | Bootstrap + launch scripts | `PBX-Stratos/scripts/bootstrap.sh`, `bootstrap.ps1`, `setup.mjs`, `launch.mjs`, `lib/` | No-admin install path: downloads standalone Node into `.tooling/`, ensures Python ≥ 3.10, picks free port, opens browser |
@@ -187,10 +187,10 @@ the box.
 
 | Tier | What it covers | Consent required? |
 |------|---------------|---------------|
-| **0** | Files outside `bots/src/`, dashboard.html, css, log files, docs, `bear-scout/aq-price/` analytical scripts | Never |
-| **1** | `.ts` files under `bots/src/` (triggers pm2 reload), `bear-scout/runners/` decoder scripts, `packages/swap-router/src/` venue adapters | Only if live bot has open position |
-| **2** | `bots/src/strategies/`, `runner.ts`, `regions.ts`, `perf.ts`, `bots/src/server/workflow/agentic_decode.ts`, `bots/src/server/workflow/claude_decode.ts` (live-bot logic + decode workflow that touches keys) | Yes, EVEN with no open position |
-| **3** | `.env`, `pm2.config.cjs`, `bots/src/server/hd.ts`, `bots/src/server/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
+| **0** | Files outside the watch-code workspace, `bear-den/dashboards/*`, log files, docs, `bear-scout/aq-price/` analytical scripts | Never |
+| **1** | `.ts` files under `bear-watch/code/src/` (triggers pm2 reload), `bear-scout/runners/` decoder scripts, `packages/swap-router/src/` venue adapters | Only if live bot has open position |
+| **2** | `bear-scout/code/src/strategies/`, `runner.ts`, `regions.ts`, `perf.ts`, `bear-watch/code/src/server/workflow/agentic_decode.ts`, `bear-watch/code/src/server/workflow/claude_decode.ts` (live-bot logic + decode workflow that touches keys) | Yes, EVEN with no open position |
+| **3** | `.env`, `pm2.config.cjs`, `bear-watch/code/src/server/hd.ts`, `bear-watch/code/src/server/secrets.ts`, anything reading `BOT_HD_MNEMONIC` or `BOT_MASTER_KEY` | Always — explicit user OK before any edit |
 
 Documented authoritatively in `CLAUDE.md` (the multi-scope
 policy doc). Personalities can never override these tiers.
@@ -199,7 +199,7 @@ The lab decoders (`bear-scout/runners/wallet-evolve.py`, `agentic-decode.py`)
 are Tier 1 because they read/write `runtime/lab/wallets/` outputs but
 never touch on-chain signing. The swap router venue adapters are
 Tier 1 for the same reason — they construct unsigned instructions; the
-signing path lives in `bots/src/core/wallet.ts` and is Tier 3.
+signing path lives in `kernel/ts/src/wallet.ts` and is Tier 3.
 
 ## The roadmap × achievements decoupling
 

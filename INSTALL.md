@@ -130,7 +130,7 @@ boss's 4-check methodology is fastest (run all 4 in parallel):
 
 | # | Verify with | What you're confirming |
 |---|---|---|
-| D1 | Grep `fetch`, `axios`, `http`, `net\.` in `pbx`, `bots/src/server/secrets.ts`, `bots/src/server/hd.ts` | No outbound network calls from wallet/secrets code |
+| D1 | Grep `fetch`, `axios`, `http`, `net\.` in `pbx`, `bear-watch/code/src/server/secrets.ts`, `bear-watch/code/src/server/hd.ts` | No outbound network calls from wallet/secrets code |
 | D2 | Check `pre/post-install`/`prepare` hooks in `**/package.json` + skim `install.sh`, `install.ps1`, `install.bat`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `pyproject.toml` | No npm/Python install-time hooks running surprise commands |
 | D3 | Grep repo-wide (excluding `node_modules`, `.tooling`, `bear-scout/data`) for shell-eval functions, runtime evaluators (Python/JS), dynamic function constructors, OS command interfaces, shell-true subprocesses | No path from LLM output to runtime code execution |
 | D4 | Grep all `https?://` literals across `bots/src`, `packages`, `bear-scout/runners`, `pbx`, `scripts` and check against allowlist | Hosts limited to PBX API, your RPC, DEX SDKs (Meteora/Orca/Jupiter/Solana). No pastebins, telemetry, raw IPs. |
@@ -380,7 +380,7 @@ Themes live in `themes/` (most are placeholders / stubs as of writing).
 
 Update `personality_id` and `theme_id` in `runtime/lab/user-profile.json`
 to match your choices. Symlink or copy `themes/<theme_id>.css` to
-`bots/src/server/active-theme.css`.
+`bear-den/dashboards/active-theme.css`.
 
 ---
 
@@ -489,7 +489,7 @@ The lab's standalone CLI for everything the dashboard doesn't surface:
 | `./pbx refresh` | Re-fetch backfill data |
 | `./pbx config` | Reconfigure keys (Helius / PurpleAir) |
 
-For the live bot fleet, the `pbx-bots` CLI is in `bots/scripts/`:
+For the live bot fleet, the `pbx-bots` CLI is in `bear-watch/code/scripts/`:
 
 | Command | Purpose |
 |---|---|

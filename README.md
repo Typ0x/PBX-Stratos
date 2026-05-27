@@ -257,15 +257,15 @@ does these checks as part of onboarding (Stage D of the 4-stage
 audit), but you should be able to confirm them too:
 
 - No code sends private keys / mnemonics off the machine — grep the
-  wallet paths (`pbx`, `bots/src/server/secrets.ts`,
-  `bots/src/server/hd.ts`)
+  wallet paths (`pbx`, `bear-watch/code/src/server/secrets.ts`,
+  `bear-watch/code/src/server/hd.ts`)
 - Install scripts have no hidden hooks — check `install.sh`,
   `install.ps1`, `install.bat`, `scripts/bootstrap.*`, npm
   `pre/postinstall` in every `package.json`, build backend in
   `pyproject.toml`
 - Model output never reaches a runtime code evaluator — predicates
   run through a hand-written DSL interpreter
-  (`bots/src/strategies/dsl/interpreter.ts`)
+  (`bear-scout/code/src/strategies/dsl/interpreter.ts`)
 - Outbound hosts are only: public PBX API, your own RPC if
   configured, DEX SDKs. No pastebins, webhooks, or unknown IPs.
 
@@ -291,11 +291,11 @@ readme's word for any of it:
 
 | Area worth checking | What "good" looks like |
 |---|---|
-| **Wallet stays local** | Nothing in the wallet / secrets code should upload keys anywhere. Files to read: `bots/src/server/secrets.ts`, `bots/src/server/hd.ts`. AES-256-GCM at rest is the design. |
+| **Wallet stays local** | Nothing in the wallet / secrets code should upload keys anywhere. Files to read: `bear-watch/code/src/server/secrets.ts`, `bear-watch/code/src/server/hd.ts`. AES-256-GCM at rest is the design. |
 | **Network surface** | The code should only talk to: Solana RPC (live trading), the public PBX market-data API, public air-quality sensors (PurpleAir / AirNow), public weather APIs, DEX SDKs (Meteora / Orca / Jupiter). Grep `https?://` literals across the source tree to confirm. |
-| **No model→exec paths** | Predicates from agentic-decode run through a hand-written DSL interpreter (`bots/src/strategies/dsl/interpreter.ts`), not `eval()` / `exec()` / `Function(...)`. Spot-check that file. |
+| **No model→exec paths** | Predicates from agentic-decode run through a hand-written DSL interpreter (`bear-scout/code/src/strategies/dsl/interpreter.ts`), not `eval()` / `exec()` / `Function(...)`. Spot-check that file. |
 | **`.gitignore` covers secrets** | `.env`, `runtime/bots/wallets/*`, `pm2.config.cjs`, `user-profile.json`, `*-private*` patterns should all be gitignored. The secret-scrub pre-commit hook (`tools/secret-scrub/`) is opt-in belt-and-suspenders. |
-| **Live trading is gated** | `HELIUS_MAINNET_URL` should be the master gate — every live endpoint should return 503 without it set. Spot-check the gating logic in `bots/src/server/`. |
+| **Live trading is gated** | `HELIUS_MAINNET_URL` should be the master gate — every live endpoint should return 503 without it set. Spot-check the gating logic in `bear-watch/code/src/server/`. |
 
 If Claude (or any other AI) audits this for you, expect it to
 **report observations, not certifications.** A good summary looks
@@ -417,7 +417,7 @@ surface. Run any of these from the repo root:
 | `./pbx config` | Reconfigure keys (Helius, PurpleAir) |
 
 The `bots/` directory has its own CLI (`pbx-bots` via
-`bots/scripts/pbx-bots.sh`) for the live fleet once you've opted in.
+`bear-watch/code/scripts/pbx-bots.sh`) for the live fleet once you've opted in.
 See `bots/README.md`.
 
 ---

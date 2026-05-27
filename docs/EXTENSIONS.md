@@ -7,7 +7,7 @@
 
 ## Why extensions exist
 
-PBX Stratos ships with a comprehensive dashboard (`bots/src/server/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7) covering all the standard views. But users + contributors often want to:
+PBX Stratos ships with a comprehensive dashboard (`bear-den/dashboards/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7) covering all the standard views. But users + contributors often want to:
 
 - Add a panel showing their own custom metric (a personal portfolio aggregate, a sentiment gauge, an A/B test result)
 - Embed a tool they built (a sensor calibration UI, a strategy simulator)
@@ -170,7 +170,7 @@ DON'T:
 Manual wiring. To add an extension:
 
 1. Drop your `<name>/` directory under `bear-den/dashboards/extensions/`
-2. Open the active dashboard (`bots/src/server/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7)
+2. Open the active dashboard (`bear-den/dashboards/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7)
 3. In the appropriate view's section, add:
    ```html
    <div id="ext-<name>-root" data-extension="<name>"></div>
@@ -231,5 +231,5 @@ This means contributors can develop independently and merge without touching eac
 
 - `bear-den/dashboards/extensions/README.md` — directory-level overview
 - `bear-den/dashboards/extensions/example/` — minimal working extension
-- `bots/src/server/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard target (where extensions attach)
+- `bear-den/dashboards/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard target (where extensions attach)
 - `_context/bear-den/MANIFEST.md` — BEAR-DEN's scope responsibilities (extensions fall under BEAR-DEN territory for UI-side; new API endpoints for extensions fall under whichever scope's domain the data belongs to)

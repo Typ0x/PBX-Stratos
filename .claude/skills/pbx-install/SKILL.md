@@ -346,7 +346,7 @@ foreground work you can stack on top.
 | Background op | Foreground op to do in parallel |
 |---|---|
 | `scripts/bootstrap.sh` (Step 2) | Personality quiz questions Q1-Q5 (Step 1) — kick off bootstrap at the START of Q1 if `tech_level` is being collected; usually finishes by Q4-Q5 |
-| `npm install` in `bots/` (Step 3) | Walk the user through what pm2 does and why we use it (preview of Step 4) |
+| `npm install` at repo root (Step 3) | Walk the user through what pm2 does and why we use it (preview of Step 4) |
 | `npm install -g pm2` (Step 4) | Explain the 7 scheduled tasks that will register in Step 11, ask what schedule they want |
 | `pip install -e .` (Step 3) | Show the user the dashboard URL they'll open in Step 11, preview what they'll see |
 | Helius API key fetch (Step 6, user-driven) | While user is on Helius dashboard, preview what `pbx wallet new` will print in Step 7 |
@@ -445,14 +445,14 @@ others if you want, skip ones that don't fit:
   source tree. The repo claims it talks only to: public PBX API,
   user-configured Solana RPC, DEX SDKs (Meteora / Orca / Jupiter),
   PurpleAir / AirNow / weather APIs. Verify or push back.
-- **Wallet/secrets code paths.** `bots/src/server/secrets.ts`,
-  `bots/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
+- **Wallet/secrets code paths.** `bear-watch/code/src/server/secrets.ts`,
+  `bear-watch/code/src/server/hd.ts`, the `pbx` CLI's wallet subcommands. Look
   for anywhere keys or mnemonics get written to a non-`.env` location,
   sent over the network, or logged.
 - **LLM-output to code-execution paths.** Grep for `eval`, `exec`,
   `Function(` constructors, `child_process.exec` (shell-interpreting)
   on user-derived strings. The repo's DSL interpreter
-  (`bots/src/strategies/dsl/interpreter.ts`) is meant to be a
+  (`bear-scout/code/src/strategies/dsl/interpreter.ts`) is meant to be a
   hand-written evaluator, not a code-eval pass-through; spot-check it.
 - **AI-targeted files.** This skill, `README.ai.md`, `CLAUDE.md`,
   `PROMPT.md`, `.claude/personalities/*`, `.claude/achievements/*`.
@@ -685,7 +685,7 @@ pattern above.
 **⚠ API value mapping:** each Q-option below has a HUMAN LABEL the
 user sees AND a CANONICAL API VALUE the `/api/profile/recalibrate`
 endpoint accepts. The endpoint's allow-list lives at
-`bots/src/server/index.ts` in the `ALLOWED` map (around line ~2643).
+`bear-watch/code/src/server/index.ts` in the `ALLOWED` map (around line ~2643).
 Pass the CANONICAL value in the JSON body, not the human label —
 sending `goal:"paper-trade"` instead of `goal:"paper"` gets a 400.
 
@@ -893,7 +893,7 @@ downloads a standalone Node into `.tooling/` if missing, then runs
 `scripts/setup.mjs`. If you need to run the post-Node steps manually:
 
 ```bash
-# Node side — root npm install covers bots/ + packages/* via workspaces
+# Node side — root npm install covers kernel/ts + bear-watch/code + bear-scout/code + packages/* via workspaces
 npm install --no-audit --no-fund
 
 # Python side — editable install with decoder extras
@@ -946,7 +946,7 @@ HELIUS_MAINNET_URL=<the URL the user pasted>
 
 That's it. **Do NOT put `BOT_MASTER_KEY`, `BOT_API_TOKEN`, or
 `BOT_HD_MNEMONIC` in this `.env`.** The dashboard server autogenerates
-those itself — `bots/src/server/index.ts` creates a properly-formatted
+those itself — `bear-watch/code/src/server/index.ts` creates a properly-formatted
 `runtime/bots/local.env` (mode 0600) on first boot when
 `STRATOS_ALLOW_AUTOGEN=1` is in process.env. It writes:
 
@@ -1036,7 +1036,7 @@ winget install Solana.SolanaCLI   # if available, else manual install
 ```
 
 The repo's own derivation is functionally equivalent — the bot fleet
-uses `bots/src/server/hd.ts` (BIP39 24-word mnemonic →
+uses `bear-watch/code/src/server/hd.ts` (BIP39 24-word mnemonic →
 `m/44'/501'/<index>'/0'` derivation via `bip39` +
 `ed25519-hd-key` + `@solana/web3.js`) which exactly matches what
 `solana-keygen recover -o restored.json "prompt:?key=<index>'/0'"`
@@ -1186,7 +1186,7 @@ completes, the retry-until-up wrapper from Step 1b applies here
 too (server may not be listening yet).
 
 The endpoint will copy `themes/<id>.css` to
-`bots/src/server/active-theme.css` automatically:
+`bear-den/dashboards/active-theme.css` automatically:
 
 ```bash
 curl -X POST http://localhost:8787/api/profile/recalibrate \
@@ -1198,7 +1198,7 @@ curl -X POST http://localhost:8787/api/profile/recalibrate \
 personality's default theme — saves a lookup if the user just wants
 the matching theme for their personality.)
 
-**Verify Step 10:** `test -f bots/src/server/active-theme.css && diff -q "themes/$(curl -s http://localhost:8787/api/profile | python -c "import json,sys; print(json.load(sys.stdin)['theme_id'])").css bots/src/server/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-POST the recalibrate; if `diff` still differs, halt per Terminal State 2.
+**Verify Step 10:** `test -f bear-den/dashboards/active-theme.css && diff -q "themes/$(curl -s http://localhost:8787/api/profile | python -c "import json,sys; print(json.load(sys.stdin)['theme_id'])").css bear-den/dashboards/active-theme.css && echo THEME_OK`. If `THEME_OK` is missing, re-POST the recalibrate; if `diff` still differs, halt per Terminal State 2.
 
 ---
 

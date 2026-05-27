@@ -23,7 +23,7 @@
 ## How to install (current — manual wiring until Phase 7)
 
 1. The extension directory already lives at `bear-den/dashboards/extensions/example/`
-2. Open the active dashboard HTML (`bots/src/server/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7)
+2. Open the active dashboard HTML (`bear-den/dashboards/dashboard.html` pre-Phase-7; `bear-den/dashboards/dashboard.html` post-Phase-7)
 3. Find the Health view's main section
 4. Add:
    ```html
@@ -86,4 +86,4 @@ See `docs/EXTENSIONS.md` at the project root for the full author guide.
 
 - `docs/EXTENSIONS.md` — full author guide
 - `bear-den/dashboards/extensions/README.md` — directory overview
-- `bots/src/server/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard target
+- `bear-den/dashboards/dashboard.html` (pre-Phase-7) / `bear-den/dashboards/dashboard.html` (post-Phase-7) — active dashboard target

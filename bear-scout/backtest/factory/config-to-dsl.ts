@@ -37,7 +37,7 @@
  * outputs) returns null â€” the caller surfaces those as a clean skip.
  */
 
-/** Available DSL features (sourced from `bots/src/strategies/dsl/interpreter.ts`):
+/** Available DSL features (sourced from `bear-scout/code/src/strategies/dsl/interpreter.ts`):
  *    region, price, spread, spread_velocity_15m, cheapest, rank,
  *    dev_60m, dev_240m, dev_1440m, dev_velocity_15m, volatility_60m,
  *    flow_1, flow_2, flow_5, flow_10, hour_utc,

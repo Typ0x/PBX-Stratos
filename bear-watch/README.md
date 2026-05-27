@@ -44,7 +44,7 @@ consent tier policy in `CLAUDE.md`).
 
 - Strategy code → lives in `bear-scout/runners/`
 - Live bot logic → lives in `bots/src/` (in the integrated starter repo)
-- Dashboard UI → lives in `bots/src/server/dashboard.html` + `themes/`
+- Dashboard UI → lives in `bear-den/dashboards/dashboard.html` + `themes/`
 - Per-scope journals + STATUS + audit reports → live in `_context/bear-watch/`
 
 ## Planned ops tooling (not yet shipped)
