@@ -48,7 +48,7 @@ echo.
 echo ================================================================
 if "%RC%"=="0" (
   echo  Install complete. Open http://localhost:8787 in your browser.
-  echo  Then tell Claude "set up PBX Stratos" for the personality quiz.
+  echo  Then tell Claude "set up PBX Stratos" or "run the personality quiz".
 ) else (
   echo  Install exited with code %RC%. Scroll up to see what failed.
 )
