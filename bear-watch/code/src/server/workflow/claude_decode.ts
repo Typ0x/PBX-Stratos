@@ -82,7 +82,7 @@ export interface ClaudeDecodeResult {
   ran: boolean;
   /** Plain-English description of the decoded rule. */
   strategySummary?: string;
-  /** Which strategy template in bots/src/strategies/ best fits. Maps
+  /** Which strategy template in bear-scout/code/src/strategies/ best fits. Maps
    *  to STRATEGY_REGISTRY keys when not 'unknown'. The template still
    *  drives backtest + deploy; freeformRule (below) is the richer
    *  description shown to the user. */

@@ -22,15 +22,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DecodedRuleStrategy, type RegionEval } from './decoded_rule.js';
-import { CycleHistory } from '../../../kernel/ts/src/cycle_history.js';
+import { CycleHistory } from '../../../../kernel/ts/src/cycle_history.js';
 import type { RegionPriceSample } from './dsl/features.js';
-import type { RegionKey } from '../../../kernel/ts/src/regions.js';
+import type { RegionKey } from '../../../../kernel/ts/src/regions.js';
 import type { TickContext } from './types.js';
 import {
   initStrategyWallet,
   setStrategyWallet,
   type WalletState,
-} from '../../../kernel/ts/src/state.js';
+} from '../../../../kernel/ts/src/state.js';
 
 // A TickContext is required by the Strategy signature but DecodedRuleStrategy
 // never touches it (it uses the priceSource seam) — a bare cast is fine.

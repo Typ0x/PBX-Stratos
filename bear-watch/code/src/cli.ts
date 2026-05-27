@@ -16,8 +16,8 @@
 import { loadBotKeypair } from '../../../kernel/ts/src/wallet.js';
 import { preflightLive } from '../../../kernel/ts/src/preflight.js';
 import { autoWrapSolToUsdcIfNeeded } from '../../../kernel/ts/src/auto_wrap.js';
-import { LIVE_STRATEGIES, createStrategy, listStrategies } from '../../../bots/src/strategies/index.js';
-import type { Strategy } from '../../../bots/src/strategies/types.js';
+import { LIVE_STRATEGIES, createStrategy, listStrategies } from '../../../bear-scout/code/src/strategies/index.js';
+import type { Strategy } from '../../../bear-scout/code/src/strategies/types.js';
 import { run } from './runner.js';
 
 interface CliArgs {

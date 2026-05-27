@@ -4,7 +4,7 @@ import type { Keypair } from '@solana/web3.js';
 import { initStrategyWallet, getWallet, recordTrade, snapshot } from '../../../kernel/ts/src/state.js';
 import { installSignalHandler, isTripped, trip } from '../../../kernel/ts/src/kill_switch.js';
 import { REGIONS, USDC_MINT, type RegionKey } from '../../../kernel/ts/src/regions.js';
-import type { Strategy } from '../../../bots/src/strategies/types.js';
+import type { Strategy } from '../../../bear-scout/code/src/strategies/types.js';
 
 export interface RunnerOptions {
   rpcUrl: string;

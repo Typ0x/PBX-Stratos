@@ -32,10 +32,10 @@
  */
 
 import type { Strategy, StrategyDefinition, TickContext, TradeIntent } from './types.js';
-import { getAllPrices } from '../../../bear-watch/code/src/server/prices.js';
-import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../../../kernel/ts/src/regions.js';
-import { getWallet } from '../../../kernel/ts/src/state.js';
-import { getFlowHistory } from '../../../kernel/ts/src/flow_history.js';
+import { getAllPrices } from '../../../../bear-watch/code/src/server/prices.js';
+import { REGIONS, USDC_MINT, regionByKey, type RegionKey } from '../../../../kernel/ts/src/regions.js';
+import { getWallet } from '../../../../kernel/ts/src/state.js';
+import { getFlowHistory } from '../../../../kernel/ts/src/flow_history.js';
 
 export interface RegionArbOpts {
   /** Cross-region spread threshold to enter, decimal (0.04 = 4pp).

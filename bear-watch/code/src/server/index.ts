@@ -62,8 +62,8 @@ import { parseBotLog, pairRoundTrips, type RoundTrip } from './trade-history.js'
 import { AirQualityStore } from './airquality-store.js';
 import { fetchBackfill } from './airquality-backfill.js';
 import { fetchBundles } from '../../../../kernel/ts/src/scores.js';
-import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../../../../bots/src/strategies/index.js';
-import { validatePredicate, stripWalletTermsFromEntry } from '../../../../bots/src/strategies/dsl/interpreter.js';
+import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../../../../bear-scout/code/src/strategies/index.js';
+import { validatePredicate, stripWalletTermsFromEntry } from '../../../../bear-scout/code/src/strategies/dsl/interpreter.js';
 import type { WalletMeta } from './store.js';
 import { USDC_MINT, REGIONS, type RegionKey } from '../../../../kernel/ts/src/regions.js';
 
