@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # CWD-agnostic wrapper for pbx-bots.ts. Add an alias to your shell config:
-#   alias pbx-bots="$HOME/PBX-Stratos/bots/scripts/pbx-bots.sh"
+#   alias pbx-bots="$HOME/PBX-Stratos/bear-watch/code/scripts/pbx-bots.sh"
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-# bots/scripts/ → up 2 = repo root (PBX-Stratos/).
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
+# bear-watch/code/scripts/ → up 3 = repo root.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 TSX_BIN="$REPO_ROOT/node_modules/.bin/tsx"
 
 if [[ ! -x "$TSX_BIN" ]]; then

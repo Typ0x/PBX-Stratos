@@ -335,8 +335,9 @@ want.
 - **Package manifests** (`**/package.json`, `pyproject.toml`). Any
   `preinstall` / `postinstall` / `prepare` hooks running anything
   beyond standard build steps?
-- **Outbound surface.** Grep `https?://` literals across `bots/src`,
-  `packages`, `bear-scout/runners`, `pbx`, `scripts`. The repo claims
+- **Outbound surface.** Grep `https?://` literals across `bear-watch/code/src`,
+  `bear-scout/code/src`, `kernel/ts/src`, `packages`, `bear-scout/runners`,
+  `pbx`, `scripts`. The repo claims
   it talks only to: public PBX API, user's Solana RPC (Helius), DEX
   SDKs (Meteora / Orca / Jupiter / Solana), PurpleAir, AirNow, weather
   APIs. Verify or push back. Look out for pastebin / ngrok / webhook
@@ -1022,8 +1023,9 @@ default behavior at each tier is different.
 
 ### T1 — Confirm if state risk (reload but no open position)
 
-- TypeScript files under the bot source tree (`bots/src/`,
-  `packages/`). These trigger a pm2 reload but won't directly
+- TypeScript files under the bot source tree (`bear-watch/code/src/`,
+  `bear-scout/code/src/`, `kernel/ts/src/`, `packages/`). These trigger
+  a pm2 reload but won't directly
   modify a live position.
 - Config changes that survive a reload (env tweaks, JSON config).
 - Dependency updates (`package.json`, `requirements.txt`).

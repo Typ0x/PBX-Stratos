@@ -532,7 +532,7 @@ acknowledge that backtest stats don't guarantee future performance.
 ├──────────────────────────────────────────────────────────────────────┤
 │  bear-watch-server-stratos          paper-trade-bot-stratos           │
 │  ─ Node + tsx                       ─ Python paper trader             │
-│  ─ Live bot runner (bots/src/)      ─ 11+ paper strategies            │
+│  ─ Live bot runner (bear-watch/code) ─ 11+ paper strategies           │
 │  ─ Dashboard (port 8787)            ─ 60s tick loop, 240s budget      │
 │  ─ HTTP /health + /debug/health     ─ Independent of dashboard        │
 │  ─ Swap router (Meteora/Orca/Jup)   ─ Reads strategy-registry         │
