@@ -52,8 +52,8 @@ import { runWorkflow, MAX_PARALLEL_WALLETS, type WorkflowEvent } from './workflo
 import { listDecodes } from './workflow/decodes-store.js';
 import { backupSnoozeMs, shouldPromptBackup } from './backup-cadence.js';
 import { CLAUDE_NEEDS_SHELL, isClaudeAvailable, resolveClaude, resolvePython } from './workflow/exec-compat.js';
-import { generateNewMnemonic, isWellFormedMnemonic } from '../../../kernel/ts/src/hd.js';
-import { ensureMasterKeyCanary } from '../../../kernel/ts/src/secrets.js';
+import { generateNewMnemonic, isWellFormedMnemonic } from '../../../../kernel/ts/src/hd.js';
+import { ensureMasterKeyCanary } from '../../../../kernel/ts/src/secrets.js';
 import { Store } from './store.js';
 import { NavSnapshotter } from './nav-snapshotter.js';
 import { getAllPrices } from './prices.js';
@@ -61,11 +61,11 @@ import { getAllPricesPaper, getPaperPriceHealth } from './paper-prices.js';
 import { parseBotLog, pairRoundTrips, type RoundTrip } from './trade-history.js';
 import { AirQualityStore } from './airquality-store.js';
 import { fetchBackfill } from './airquality-backfill.js';
-import { fetchBundles } from '../../../kernel/ts/src/scores.js';
-import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../strategies/index.js';
-import { validatePredicate, stripWalletTermsFromEntry } from '../strategies/dsl/interpreter.js';
+import { fetchBundles } from '../../../../kernel/ts/src/scores.js';
+import { LIVE_STRATEGIES, STRATEGY_REGISTRY, getStrategyDef } from '../../../../bots/src/strategies/index.js';
+import { validatePredicate, stripWalletTermsFromEntry } from '../../../../bots/src/strategies/dsl/interpreter.js';
 import type { WalletMeta } from './store.js';
-import { USDC_MINT, REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
+import { USDC_MINT, REGIONS, type RegionKey } from '../../../../kernel/ts/src/regions.js';
 
 const USDC = new PublicKey(USDC_MINT);
 
@@ -747,14 +747,14 @@ app.get<{ Params: { id: string } }>('/achievements/img/:id', async (_req, reply)
 // for every achievement row + toast. One HTTP fetch covers all icons
 // across the entire dashboard session.
 // Resolve sprite path against the same anchor as readDashboardAsset:
-// `bots/src/server/<this file>` → `../../public/achievements-sprite.svg`.
+// `bear-watch/code/src/server/<this file>` → `../../public/achievements-sprite.svg`.
 // Two-step probe with cwd fallback matches the existing pattern for the
 // dashboard HTML/CSS/JS reads above.
 function spriteCandidatePaths(): string[] {
   const here = import.meta.dirname ?? '.';
   return [
     join(here, '..', '..', 'public', 'achievements-sprite.svg'),
-    join(process.cwd(), 'bots', 'public', 'achievements-sprite.svg'),
+    join(process.cwd(), 'public', 'achievements-sprite.svg'),
   ];
 }
 let _achievementsSpriteCache: { path: string; mtime: number; body: string } | null = null;
@@ -2305,9 +2305,14 @@ app.get('/api/ops/achievements', async () => cached(achievementsRespCache, RESP_
   const profilePath = join(labDir, 'user-profile.json');
   const unlockedPath = join(labDir, 'achievements.json');
   const eventsPath = join(labDir, 'events.jsonl');
-  // Anchor relative to the workspace root (../../ from bots/src/server).
-  // Falls back to process.cwd() if that path doesn't resolve.
-  const repoRoot = join(process.cwd(), process.cwd().endsWith('bots') ? '..' : '.');
+  // Anchor relative to the workspace root. bear-watch-server-stratos
+  // is launched with cwd = bear-watch/code/, so the repo root is two
+  // dirs up. Falls back to process.cwd() if cwd isn't the expected
+  // workspace dir (manual `tsx src/server/index.ts` from anywhere).
+  const cwd = process.cwd();
+  const repoRoot = cwd.endsWith('code') ? join(cwd, '..', '..')
+                  : cwd.endsWith('bots') ? join(cwd, '..')   // legacy pre-Phase-7 cwd
+                  : cwd;
   const roadmapPath = join(repoRoot, 'ROADMAP.md');
   const definitionsPath = join(repoRoot, 'achievements', 'definitions.json');
 
@@ -2932,7 +2937,7 @@ app.post<{ Body: Record<string, unknown> }>('/api/profile/recalibrate', async (r
     const repoRoot = process.env.STRATOS_REPO_ROOT
       ?? join(homedir(), 'PBX-Stratos');  // best-effort fallback
     const srcCss = join(repoRoot, 'themes', `${updates.theme_id}.css`);
-    const dstCss = join(repoRoot, 'bots', 'src', 'server', 'active-theme.css');
+    const dstCss = join(repoRoot, 'bear-den', 'dashboards', 'active-theme.css');
     try {
       if (existsSync(srcCss)) {
         copyFileSync(srcCss, dstCss);
@@ -3428,13 +3433,17 @@ const STRATEGY_DESCRIPTIONS: Record<string, string> = {
 
 // Cache the dashboard assets in memory at boot. The dashboard ships as
 // three sibling files — markup (dashboard.html), styles (dashboard.css),
-// behaviour (dashboard.js) — served from this directory.
+// behaviour (dashboard.js) — served from bear-den/dashboards/ (post-
+// Phase-7 topology; previously bots/src/server/).
 function readDashboardAsset(name: string): string {
+  // Primary: bear-watch/code/src/server/<this file> → ../../../../bear-den/dashboards/
+  const primary = join(import.meta.dirname ?? '.', '..', '..', '..', '..', 'bear-den', 'dashboards', name);
   try {
-    return readFileSync(join(import.meta.dirname ?? '.', name), 'utf8');
+    return readFileSync(primary, 'utf8');
   } catch {
-    // tsx shim: when running compiled, the .js sits next to the assets
-    return readFileSync(join(process.cwd(), 'bots/src/server/', name), 'utf8');
+    // Fallback: bot launched with cwd = bear-watch/code/, so dashboards
+    // live at ../../bear-den/dashboards/ from cwd.
+    return readFileSync(join(process.cwd(), '..', '..', 'bear-den', 'dashboards', name), 'utf8');
   }
 }
 // Dashboard assets are read FRESH per request — not cached at boot — so

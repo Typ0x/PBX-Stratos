@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { Keypair } from '@solana/web3.js';
 import { OrcaVenue, SwapRouter } from '@pbx/swap-router';
-import { REGIONS, USDC_MINT, type RegionKey } from '../../kernel/ts/src/regions.js';
+import { REGIONS, USDC_MINT, type RegionKey } from '../../../kernel/ts/src/regions.js';
 
 const STARTING_USDC_RAW = 100_000_000n; // matches state.ts
 

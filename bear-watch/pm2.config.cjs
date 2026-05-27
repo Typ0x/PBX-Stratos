@@ -83,7 +83,7 @@ module.exports = {
       // Absolute paths via __dirname make the config location-
       // independent: pm2 can be started from anywhere and the
       // apps still find their source.
-      cwd: resolve(__dirname, '..', 'bots'),
+      cwd: resolve(__dirname, 'code'),
       // Avoid `npx tsx ...` on Windows: pm2 invokes node on npx.cmd
       // (treating the .cmd file as JS) and dies with `Unexpected token ':'`.
       // Use tsx via node's --import hook instead. tsx v4+ ships an

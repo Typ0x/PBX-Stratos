@@ -22,7 +22,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { CpAmm, type PoolState } from '@meteora-ag/cp-amm-sdk';
 import BN from 'bn.js';
 import { PBX_METEORA_POOLS } from '@pbx/swap-router';
-import { REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
+import { REGIONS, type RegionKey } from '../../../../kernel/ts/src/regions.js';
 
 const PRICE_TTL_MS = 5_000;
 const POOL_STATE_TTL_MS = 5_000;

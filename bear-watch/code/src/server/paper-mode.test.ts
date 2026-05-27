@@ -31,7 +31,7 @@ process.env.BOT_MASTER_KEY ??= 'test-only-master-key-not-a-real-secret-000000';
 
 import { computeNav, simulateFill, firstLaunchPaperSeed } from './orchestrator.js';
 import { Store, type PersistedState } from './store.js';
-import { REGIONS, USDC_MINT, type RegionKey } from '../../../kernel/ts/src/regions.js';
+import { REGIONS, USDC_MINT, type RegionKey } from '../../../../kernel/ts/src/regions.js';
 
 const CHI = REGIONS.find((r) => r.key === 'CHI')!;
 

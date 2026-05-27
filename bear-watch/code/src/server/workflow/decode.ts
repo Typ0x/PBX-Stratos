@@ -35,17 +35,13 @@ const REPO_ROOT_ENV = 'STRATOS_REPO_ROOT';
 const NO_DATA_EXIT = 3;
 
 /** Resolve the absolute path to bear-scout/runners/. The bot server's cwd is
- *  the `bots/` workspace dir under the repo root, so the runners live
- *  at `../bear-scout/runners/`. Override via STRATOS_REPO_ROOT for non-standard
- *  layouts (e.g. running the server out-of-tree). */
+ *  the `bear-watch/code/` workspace dir under the repo root, so the runners
+ *  live at `../../bear-scout/runners/`. Override via STRATOS_REPO_ROOT
+ *  for non-standard layouts (e.g. running the server out-of-tree). */
 function runnersDir(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
-  // Runners moved from lab/runners → bear-scout/runners during the
-  // bear-scout reorg. The comment above already documents this; the
-  // code paths just hadn't been updated, which silently broke every
-  // wallet decode (spawn ENOENT because the CWD didn't exist).
   if (envRoot) return resolve(envRoot, 'bear-scout', 'runners');
-  return resolve(process.cwd(), '..', 'bear-scout', 'runners');
+  return resolve(process.cwd(), '..', '..', 'bear-scout', 'runners');
 }
 
 export interface DecodeProgress {

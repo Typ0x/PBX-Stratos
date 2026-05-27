@@ -10,8 +10,8 @@
 import { readFileSync, writeFileSync, renameSync, chmodSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { REGIONS, type RegionKey } from '../../../kernel/ts/src/regions.js';
-import { percentile, zscore } from '../../../kernel/ts/src/pm25_history.js';
+import { REGIONS, type RegionKey } from '../../../../kernel/ts/src/regions.js';
+import { percentile, zscore } from '../../../../kernel/ts/src/pm25_history.js';
 
 export interface Pm25Sample {
   ts: number;   // unix seconds

@@ -2,8 +2,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, ren
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Keypair } from '@solana/web3.js';
-import { deriveKeypair, FUNDER_DERIVATION_INDEX } from '../../../kernel/ts/src/hd.js';
-import { decryptFile, encryptToFile } from '../../../kernel/ts/src/secrets.js';
+import { deriveKeypair, FUNDER_DERIVATION_INDEX } from '../../../../kernel/ts/src/hd.js';
+import { decryptFile, encryptToFile } from '../../../../kernel/ts/src/secrets.js';
 
 /**
  * Server-side persistent store. Layout under DATA_DIR:

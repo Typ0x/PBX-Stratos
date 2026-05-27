@@ -14,7 +14,7 @@
  * Round-trip = open entry + matching subsequent exit (same region).
  */
 import { readFileSync, existsSync } from 'node:fs';
-import { REGIONS, USDC_MINT, type RegionKey } from '../../../kernel/ts/src/regions.js';
+import { REGIONS, USDC_MINT, type RegionKey } from '../../../../kernel/ts/src/regions.js';
 
 export interface ParsedTrade {
   bot: string;

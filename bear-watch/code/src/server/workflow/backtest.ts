@@ -25,8 +25,8 @@
  * prod DB which external users don't have.
  */
 
-import type { RegionKey } from '../../../../kernel/ts/src/regions.js';
-import { REGIONS } from '../../../../kernel/ts/src/regions.js';
+import type { RegionKey } from '../../../../../kernel/ts/src/regions.js';
+import { REGIONS } from '../../../../../kernel/ts/src/regions.js';
 
 const REGION_KEYS: readonly RegionKey[] = REGIONS.map((r) => r.key);
 const MINT_BY_REGION: Record<RegionKey, string> = {

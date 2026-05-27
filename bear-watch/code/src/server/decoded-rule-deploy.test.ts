@@ -28,8 +28,8 @@ import { join } from 'node:path';
 process.env.BOT_MASTER_KEY ??= 'test-only-master-key-not-a-real-secret-000000';
 
 import { Store } from './store.js';
-import { createStrategy, getStrategyDef, LIVE_STRATEGIES } from '../strategies/index.js';
-import { DecodedRuleStrategy } from '../strategies/decoded_rule.js';
+import { createStrategy, getStrategyDef, LIVE_STRATEGIES } from '../../../../bots/src/strategies/index.js';
+import { DecodedRuleStrategy } from '../../../../bots/src/strategies/decoded_rule.js';
 
 /** A valid decoded predicate pair over the DSL feature space. */
 const ENTRY = 'dev_60m < -0.02';

@@ -33,7 +33,7 @@ import { quoteJupiter, _clearJupiterQuoteCache } from './jupiter-quote.js';
 import { getAllPricesPaper, getUsdcPerTokenPaper, _clearPaperPriceCache } from './paper-prices.js';
 import { BotOrchestrator } from './orchestrator.js';
 import { Store } from './store.js';
-import { REGIONS, USDC_MINT } from '../../../kernel/ts/src/regions.js';
+import { REGIONS, USDC_MINT } from '../../../../kernel/ts/src/regions.js';
 
 const CHI = REGIONS.find((r) => r.key === 'CHI')!;
 

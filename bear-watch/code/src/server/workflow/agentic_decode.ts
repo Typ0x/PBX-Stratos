@@ -41,9 +41,9 @@ const AGENTIC_DECODE_TIMEOUT_MS = Number(
 function repoRoot(): string {
   const envRoot = process.env[REPO_ROOT_ENV];
   if (envRoot) return resolve(envRoot);
-  // bots/src/server/workflow â†’ ../../../.. (bots â†’ repo root)
+  // bear-watch/code/src/server/workflow -> ../../../../.. (bear-watch/code -> repo root)
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, '..', '..', '..', '..');
+  return resolve(here, '..', '..', '..', '..', '..');
 }
 
 export interface AgenticRoundMetric {

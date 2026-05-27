@@ -3,13 +3,15 @@
   "version": "0.3.0-dev",
   "private": true,
   "workspaces": [
-    "bots",
+    "kernel/ts",
+    "bear-watch/code",
+    "bear-scout/code",
     "packages/*"
   ],
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "typecheck": "npm --workspace bots run typecheck",
-    "server": "npm --workspace bots run server",
+    "typecheck": "npm --workspace @pbx-stratos/watch-code run typecheck",
+    "server": "npm --workspace @pbx-stratos/watch-code run server",
     "reset": "node scripts/reset-fresh.mjs",
     "reset:no-backup": "node scripts/reset-fresh.mjs --no-backup"
   },
